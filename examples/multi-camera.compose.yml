@@ -1,0 +1,32 @@
+services:
+  web-cam-01:
+    image: virtualwebcam:latest
+    container_name: web-cam-01
+    restart: unless-stopped
+    networks:
+      onvif_macvlan:
+        ipv4_address: 192.168.5.211
+    environment:
+      WEB_URL: https://www.baidu.com
+      STREAM_NAME: screen01
+      WIDTH: 1280
+      HEIGHT: 720
+      FPS: 15
+
+  web-cam-02:
+    image: virtualwebcam:latest
+    container_name: web-cam-02
+    restart: unless-stopped
+    networks:
+      onvif_macvlan:
+        ipv4_address: 192.168.5.212
+    environment:
+      WEB_URL: https://gitee.com
+      STREAM_NAME: screen02
+      WIDTH: 1280
+      HEIGHT: 720
+      FPS: 15
+
+networks:
+  onvif_macvlan:
+    external: true

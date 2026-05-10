@@ -1,0 +1,43 @@
+services:
+  virtualwebcam-image:
+    build:
+      context: ./container
+    image: virtualwebcam:latest
+    profiles:
+      - image
+
+  manager-backend:
+    build:
+      context: ./backend
+    container_name: virtualwebcam-manager-backend
+    restart: unless-stopped
+    environment:
+      PORT: 8177
+      SQLITE_PATH: /data/virtualwebcam.db
+      DOCKER_SOCKET: /var/run/docker.sock
+      DOCKER_NETWORK: ${DOCKER_NETWORK:-onvif_macvlan}
+      VIRTUALWEBCAM_IMAGE: ${VIRTUALWEBCAM_IMAGE:-virtualwebcam:latest}
+      CONTAINER_PREFIX: ${CONTAINER_PREFIX:-virtualwebcam}
+      API_TOKEN: ${API_TOKEN:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/data:/data
+    ports:
+      - "${BACKEND_PORT:-8177}:8177"
+
+  manager-frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_TOKEN: ${API_TOKEN:-}
+    container_name: virtualwebcam-manager-frontend
+    restart: unless-stopped
+    depends_on:
+      - manager-backend
+    ports:
+      - "${FRONTEND_PORT:-5177}:80"
+
+networks:
+  default:
+    name: virtualwebcam-manager

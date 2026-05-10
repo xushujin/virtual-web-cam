@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VirtualWebCam 用户使用指南</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --text: #172033;
+      --muted: #5d6b82;
+      --line: #dce3ee;
+      --brand: #155eef;
+      --brand-soft: #eaf1ff;
+      --code-bg: #0f172a;
+      --code-text: #dbeafe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 0 0, #eaf6ff 0, transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .shell {
+      display: grid;
+      grid-template-columns: 18rem minmax(0, 1fr);
+      gap: 1.5rem;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .sidebar {
+      position: sticky;
+      top: 1.5rem;
+      align-self: start;
+      max-height: calc(100vh - 3rem);
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+    .brand {
+      margin: 0 0 0.75rem;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .nav {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav a, .toc a {
+      display: block;
+      border-radius: 8px;
+      padding: 0.42rem 0.55rem;
+      color: var(--muted);
+    }
+    .nav a[aria-current="page"] {
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-weight: 700;
+    }
+    .toc-title {
+      margin: 0 0 0.4rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .toc {
+      display: grid;
+      gap: 0.1rem;
+      font-size: 0.92rem;
+    }
+    .toc-level-2 { padding-left: 1rem !important; }
+    .toc-level-3 { padding-left: 2rem !important; font-size: 0.86rem; }
+    main {
+      min-width: 0;
+      padding: 2rem 2.25rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.3;
+      margin: 1.8em 0 0.65em;
+    }
+    h1 { margin-top: 0; font-size: 2.15rem; }
+    h2 { padding-top: 0.5rem; border-top: 1px solid var(--line); font-size: 1.55rem; }
+    h3 { font-size: 1.22rem; }
+    p, ul, ol, table, pre, blockquote { margin: 0.8rem 0; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { margin-top: 0.25rem; }
+    code {
+      border-radius: 5px;
+      padding: 0.12rem 0.32rem;
+      background: #eef2f7;
+      color: #0f3b74;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow: auto;
+      border-radius: 12px;
+      padding: 1rem;
+      background: var(--code-bg);
+      color: var(--code-text);
+    }
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.58rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f2f6fb;
+      color: #27364f;
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: 0; }
+    blockquote {
+      border-left: 4px solid var(--brand);
+      padding: 0.4rem 0 0.4rem 1rem;
+      color: var(--muted);
+      background: #f8fbff;
+    }
+    .anchor {
+      opacity: 0;
+      margin-right: 0.35rem;
+      font-weight: 600;
+    }
+    h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor {
+      opacity: 1;
+      text-decoration: none;
+    }
+    @media (max-width: 960px) {
+      .shell { display: block; padding: 1rem; }
+      .sidebar { position: static; max-height: none; margin-bottom: 1rem; }
+      main { padding: 1.2rem; }
+      h1 { font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <p class="brand">VirtualWebCam</p>
+      <nav class="nav"><a href="./index.html">文档中心</a><a href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a aria-current="page" href="./user-guide.html">用户使用指南</a></nav>
+      <p class="toc-title">目录</p>
+      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-用户使用指南">VirtualWebCam 用户使用指南</a><a class="toc-level-2" href="#1-系统能做什么">1. 系统能做什么</a><a class="toc-level-2" href="#2-基本概念">2. 基本概念</a><a class="toc-level-3" href="#2-1-项目">2.1 项目</a><a class="toc-level-3" href="#2-2-摄像头">2.2 摄像头</a><a class="toc-level-3" href="#2-3-矩阵屏幕">2.3 矩阵屏幕</a><a class="toc-level-3" href="#2-4-围栏区域">2.4 围栏区域</a><a class="toc-level-2" href="#3-进入系统">3. 进入系统</a><a class="toc-level-2" href="#4-项目入口">4. 项目入口</a><a class="toc-level-3" href="#4-1-创建项目">4.1 创建项目</a><a class="toc-level-3" href="#4-2-进入项目">4.2 进入项目</a><a class="toc-level-2" href="#5-摄像头管理">5. 摄像头管理</a><a class="toc-level-3" href="#5-1-页面信息">5.1 页面信息</a><a class="toc-level-3" href="#5-2-状态含义">5.2 状态含义</a><a class="toc-level-3" href="#5-3-新增摄像头">5.3 新增摄像头</a><a class="toc-level-3" href="#5-4-批量生成摄像头">5.4 批量生成摄像头</a><a class="toc-level-3" href="#5-5-搜索和筛选">5.5 搜索和筛选</a><a class="toc-level-3" href="#5-6-单行快捷操作">5.6 单行快捷操作</a><a class="toc-level-3" href="#5-7-配置面板">5.7 配置面板</a><a class="toc-level-3" href="#5-8-编辑摄像头">5.8 编辑摄像头</a><a class="toc-level-3" href="#5-9-查看日志">5.9 查看日志</a><a class="toc-level-3" href="#5-10-删除摄像头">5.10 删除摄像头</a><a class="toc-level-2" href="#6-矩阵绑定">6. 矩阵绑定</a><a class="toc-level-3" href="#6-1-页面结构">6.1 页面结构</a><a class="toc-level-3" href="#6-2-单屏绑定">6.2 单屏绑定</a><a class="toc-level-3" href="#6-3-合并区域绑定">6.3 合并区域绑定</a><a class="toc-level-3" href="#6-4-解除绑定">6.4 解除绑定</a><a class="toc-level-3" href="#6-5-绑定限制">6.5 绑定限制</a><a class="toc-level-2" href="#7-项目设置">7. 项目设置</a><a class="toc-level-3" href="#7-1-修改矩阵规格">7.1 修改矩阵规格</a><a class="toc-level-3" href="#7-2-导出项目">7.2 导出项目</a><a class="toc-level-3" href="#7-3-导入项目">7.3 导入项目</a><a class="toc-level-2" href="#8-操作审计">8. 操作审计</a><a class="toc-level-2" href="#9-接入中控">9. 接入中控</a><a class="toc-level-3" href="#9-1-onvif-手动添加">9.1 ONVIF 手动添加</a><a class="toc-level-3" href="#9-2-rtsp-直连">9.2 RTSP 直连</a><a class="toc-level-3" href="#9-3-odm-测试">9.3 ODM 测试</a><a class="toc-level-2" href="#10-播放器测试">10. 播放器测试</a><a class="toc-level-2" href="#11-推荐命名和-ip-规划">11. 推荐命名和 IP 规划</a><a class="toc-level-3" href="#11-1-ip-规划">11.1 IP 规划</a><a class="toc-level-3" href="#11-2-摄像头命名">11.2 摄像头命名</a><a class="toc-level-3" href="#11-3-流名称">11.3 流名称</a><a class="toc-level-2" href="#12-常见问题">12. 常见问题</a><a class="toc-level-3" href="#12-1-为什么页面显示运行中-但画面是网页错误页">12.1 为什么页面显示运行中，但画面是网页错误页？</a><a class="toc-level-3" href="#12-2-修改网页-url-后为什么播放器还是旧画面">12.2 修改网页 URL 后为什么播放器还是旧画面？</a><a class="toc-level-3" href="#12-3-为什么宿主机本机打不开摄像头-ip">12.3 为什么宿主机本机打不开摄像头 IP？</a><a class="toc-level-3" href="#12-4-为什么-onvif-自动发现不到">12.4 为什么 ONVIF 自动发现不到？</a><a class="toc-level-3" href="#12-5-为什么一个屏幕不能绑定多个摄像头">12.5 为什么一个屏幕不能绑定多个摄像头？</a><a class="toc-level-3" href="#12-6-批量生成为什么不直接启动">12.6 批量生成为什么不直接启动？</a><a class="toc-level-3" href="#12-7-换了网络环境或网段后要怎么处理">12.7 换了网络环境或网段后要怎么处理？</a><a class="toc-level-2" href="#13-日常操作建议">13. 日常操作建议</a></nav>
+    </aside>
+    <main><h1 id="virtualwebcam-用户使用指南"><a class="anchor" href="#virtualwebcam-用户使用指南">#</a>VirtualWebCam 用户使用指南</h1>
+<p>版本：1.0 适用对象：项目管理员、现场实施人员、运维人员 访问地址：<code>http://&lt;宿主机IP&gt;:5177</code>，当前示例为 <code>http://192.168.5.111:5177</code></p>
+<h2 id="1-系统能做什么"><a class="anchor" href="#1-系统能做什么">#</a>1. 系统能做什么</h2>
+<p>VirtualWebCam 可以把一个网页变成一路虚拟摄像头。创建成功后，你可以得到：</p>
+<pre><code class="language-text">RTSP 地址：rtsp://摄像头IP:8554/流名称
+ONVIF 地址：http://摄像头IP/onvif/device_service
+go2rtc 页面：http://摄像头IP</code></pre>
+<p>中控、大屏系统、ONVIF Device Manager 或播放器可以用这些地址接入。</p>
+<p>你不需要手动运行 Xvfb、Chrome、FFmpeg、MediaMTX 或 go2rtc。只需要在网页管理后台中创建摄像头即可。</p>
+<h2 id="2-基本概念"><a class="anchor" href="#2-基本概念">#</a>2. 基本概念</h2>
+<h3 id="2-1-项目"><a class="anchor" href="#2-1-项目">#</a>2.1 项目</h3>
+<p>项目用于区分不同现场、客户或大屏系统。每个项目可以有不同的矩阵屏幕规格。</p>
+<p>示例：</p>
+<pre><code class="language-text">总部大厅项目：6 行 x 8 列，共 48 块屏
+门店窄屏项目：2 行 x 8 列，共 16 块屏</code></pre>
+<h3 id="2-2-摄像头"><a class="anchor" href="#2-2-摄像头">#</a>2.2 摄像头</h3>
+<p>一条摄像头记录对应一路网页视频源。摄像头包含：</p>
+<ul>
+<li>名称。</li>
+<li>虚拟 IP。</li>
+<li>网页 URL。</li>
+<li>流名称。</li>
+<li>分辨率。</li>
+<li>FPS。</li>
+<li>运行状态。</li>
+<li>RTSP 和 ONVIF 地址。</li>
+<li>投放屏幕绑定。</li>
+</ul>
+<h3 id="2-3-矩阵屏幕"><a class="anchor" href="#2-3-矩阵屏幕">#</a>2.3 矩阵屏幕</h3>
+<p>矩阵屏幕用于管理大屏的屏幕编号和绑定关系。它帮助你直观看到：</p>
+<ul>
+<li>哪一路摄像头投向哪块屏。</li>
+<li>哪一路摄像头占用了连续几块屏。</li>
+<li>哪些摄像头还没有绑定屏幕。</li>
+</ul>
+<h3 id="2-4-围栏区域"><a class="anchor" href="#2-4-围栏区域">#</a>2.4 围栏区域</h3>
+<p>如果一个摄像头需要占用连续多块屏，可以在矩阵绑定页面用鼠标画一个矩形围栏。摄像头绑定到围栏后，就表示这一路视频投向这个合并区域。</p>
+<p>没有画围栏时，每块屏就是一个独立区域。</p>
+<h2 id="3-进入系统"><a class="anchor" href="#3-进入系统">#</a>3. 进入系统</h2>
+<p>浏览器打开：</p>
+<pre><code class="language-text">http://192.168.5.111:5177</code></pre>
+<p>页面顶部会显示运行环境状态。</p>
+<p>绿色表示：</p>
+<pre><code class="language-text">Docker、macvlan 网络、VirtualWebCam 镜像可用</code></pre>
+<p>黄色或红色表示环境需要运维处理。常见问题包括：</p>
+<ul>
+<li>Docker 没运行。</li>
+<li>后端无法访问 Docker socket。</li>
+<li>macvlan 网络不存在。</li>
+<li><code>virtualwebcam:latest</code> 镜像不存在。</li>
+</ul>
+<h2 id="4-项目入口"><a class="anchor" href="#4-项目入口">#</a>4. 项目入口</h2>
+<p>进入系统后先看到项目列表。</p>
+<p>每个项目卡片包含：</p>
+<ul>
+<li>项目名称。</li>
+<li>矩阵规格，例如 <code>6x8</code>。</li>
+<li>屏幕编号范围，例如 <code>屏01 - 屏48</code>。</li>
+<li>摄像头管理。</li>
+<li>矩阵绑定。</li>
+<li>项目设置。</li>
+</ul>
+<h3 id="4-1-创建项目"><a class="anchor" href="#4-1-创建项目">#</a>4.1 创建项目</h3>
+<p>在“创建管理项目”区域填写：</p>
+<ul>
+<li>项目名称。</li>
+<li>行数。</li>
+<li>列数。</li>
+<li>屏幕编号前缀。</li>
+</ul>
+<p>点击“新建项目”。</p>
+<p>建议命名：</p>
+<pre><code class="language-text">总部大厅大屏
+一楼指挥中心
+门店窄屏项目</code></pre>
+<h3 id="4-2-进入项目"><a class="anchor" href="#4-2-进入项目">#</a>4.2 进入项目</h3>
+<p>常用入口：</p>
+<ul>
+<li>“摄像头管理”：创建和维护虚拟摄像头。</li>
+<li>“矩阵绑定”：维护摄像头和屏幕区域的关系。</li>
+<li>“项目设置”：修改项目名称、矩阵规格、导入导出。</li>
+</ul>
+<h2 id="5-摄像头管理"><a class="anchor" href="#5-摄像头管理">#</a>5. 摄像头管理</h2>
+<p>摄像头管理页面主要用于查看摄像头详情列表和执行运维操作。</p>
+<h3 id="5-1-页面信息"><a class="anchor" href="#5-1-页面信息">#</a>5.1 页面信息</h3>
+<p>顶部统计：</p>
+<ul>
+<li>总数。</li>
+<li>运行中。</li>
+<li>已停止。</li>
+<li>异常。</li>
+<li>已绑定。</li>
+<li>未绑定。</li>
+</ul>
+<p>点击统计项可以快速筛选。</p>
+<p>列表列信息：</p>
+<ul>
+<li>名称。</li>
+<li>IP。</li>
+<li>网页 URL。</li>
+<li>状态。</li>
+<li>投放屏幕。</li>
+<li>RTSP。</li>
+<li>ONVIF。</li>
+<li>操作。</li>
+</ul>
+<h3 id="5-2-状态含义"><a class="anchor" href="#5-2-状态含义">#</a>5.2 状态含义</h3>
+<pre><code class="language-text">运行中：Docker 容器正在运行
+已停止：容器不存在或已停止
+异常：容器异常退出、Docker 操作失败或状态不可用</code></pre>
+<p>运行中的摄像头不能重复点击启动。 已停止的摄像头不能点击停止。 重启用于让当前配置重新生效。</p>
+<h3 id="5-3-新增摄像头"><a class="anchor" href="#5-3-新增摄像头">#</a>5.3 新增摄像头</h3>
+<p>点击“新增摄像头”，填写：</p>
+<ul>
+<li>名称：例如 <code>web-cam-01</code>。</li>
+<li>虚拟 IP：例如 <code>192.168.5.211</code>。</li>
+<li>网页 URL：要显示的大屏网页地址。</li>
+<li>流名称：例如 <code>screen01</code>。</li>
+<li>宽度：通常 <code>1280</code>。</li>
+<li>高度：通常 <code>720</code>。</li>
+<li>FPS：通常 <code>15</code>。</li>
+</ul>
+<p>点击创建后，系统会：</p>
+<ol>
+<li>保存摄像头配置。</li>
+<li>创建 Docker 容器。</li>
+<li>启动 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc。</li>
+<li>生成 RTSP 和 ONVIF 地址。</li>
+<li>在列表中显示状态。</li>
+</ol>
+<p>如果创建失败，列表可能显示“异常”，可以打开日志查看原因。</p>
+<h3 id="5-4-批量生成摄像头"><a class="anchor" href="#5-4-批量生成摄像头">#</a>5.4 批量生成摄像头</h3>
+<p>点击“批量生成”。</p>
+<p>批量生成只写入摄像头配置，不立即启动容器，适合一次录入几十路摄像头。</p>
+<p>需要填写：</p>
+<ul>
+<li>数量。</li>
+<li>起始 IP。</li>
+<li>名称前缀。</li>
+<li>流名前缀。</li>
+<li>网页 URL。</li>
+<li>分辨率。</li>
+<li>FPS。</li>
+</ul>
+<p>示例：</p>
+<pre><code class="language-text">数量：8
+起始 IP：192.168.5.211
+名称前缀：web-cam-
+流名前缀：screen</code></pre>
+<p>生成结果：</p>
+<pre><code class="language-text">web-cam-01 -&gt; 192.168.5.211 -&gt; screen01
+web-cam-02 -&gt; 192.168.5.212 -&gt; screen02
+...
+web-cam-08 -&gt; 192.168.5.218 -&gt; screen08</code></pre>
+<p>批量生成后，可勾选需要启动的摄像头，点击批量启动。</p>
+<h3 id="5-5-搜索和筛选"><a class="anchor" href="#5-5-搜索和筛选">#</a>5.5 搜索和筛选</h3>
+<p>搜索框支持：</p>
+<ul>
+<li>摄像头名称。</li>
+<li>IP。</li>
+<li>流名称。</li>
+<li>网页 URL。</li>
+<li>屏幕编号。</li>
+<li>RTSP。</li>
+<li>ONVIF。</li>
+</ul>
+<p>状态筛选支持：</p>
+<ul>
+<li>全部状态。</li>
+<li>运行中。</li>
+<li>已停止。</li>
+<li>异常。</li>
+</ul>
+<h3 id="5-6-单行快捷操作"><a class="anchor" href="#5-6-单行快捷操作">#</a>5.6 单行快捷操作</h3>
+<p>每行右侧有快捷按钮：</p>
+<ul>
+<li>启动。</li>
+<li>停止。</li>
+<li>重启。</li>
+<li>配置。</li>
+</ul>
+<p>不可执行的按钮会自动禁用，避免误操作。</p>
+<h3 id="5-7-配置面板"><a class="anchor" href="#5-7-配置面板">#</a>5.7 配置面板</h3>
+<p>点击“配置”后，会展开该摄像头的操作面板。</p>
+<p>常用操作：</p>
+<ul>
+<li>查看日志。</li>
+<li>编辑配置。</li>
+<li>复制为新摄像头。</li>
+<li>复制 RTSP。</li>
+<li>复制 ONVIF。</li>
+<li>打开 go2rtc。</li>
+<li>删除摄像头。</li>
+</ul>
+<h3 id="5-8-编辑摄像头"><a class="anchor" href="#5-8-编辑摄像头">#</a>5.8 编辑摄像头</h3>
+<p>点击“配置” -&gt; “编辑配置”。</p>
+<p>可修改：</p>
+<ul>
+<li>名称。</li>
+<li>IP。</li>
+<li>网页 URL。</li>
+<li>流名称。</li>
+<li>宽度。</li>
+<li>高度。</li>
+<li>FPS。</li>
+</ul>
+<p>如果摄像头正在运行，保存后系统会尝试重建容器，使新配置生效。</p>
+<p>修改网页 URL 后，建议重新打开播放器：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<p>部分播放器可能停留在旧画面，重新打开即可。</p>
+<h3 id="5-9-查看日志"><a class="anchor" href="#5-9-查看日志">#</a>5.9 查看日志</h3>
+<p>点击“配置” -&gt; “查看日志”。</p>
+<p>日志可以帮助判断：</p>
+<ul>
+<li>Chrome 是否打开了目标网页。</li>
+<li>FFmpeg 是否正常推流。</li>
+<li>MediaMTX 是否接收到流。</li>
+<li>go2rtc 是否正常启动。</li>
+<li>容器是否反复重启。</li>
+</ul>
+<h3 id="5-10-删除摄像头"><a class="anchor" href="#5-10-删除摄像头">#</a>5.10 删除摄像头</h3>
+<p>点击“配置” -&gt; “删除摄像头”。</p>
+<p>删除会同时：</p>
+<ul>
+<li>删除数据库记录。</li>
+<li>删除对应 Docker 容器。</li>
+<li>释放该摄像头绑定的屏幕区域。</li>
+</ul>
+<p>删除前请确认该摄像头不再被中控使用。</p>
+<h2 id="6-矩阵绑定"><a class="anchor" href="#6-矩阵绑定">#</a>6. 矩阵绑定</h2>
+<p>矩阵绑定页面用于维护“摄像头”和“大屏屏幕”的关系。</p>
+<h3 id="6-1-页面结构"><a class="anchor" href="#6-1-页面结构">#</a>6.1 页面结构</h3>
+<p>左侧：</p>
+<ul>
+<li>未绑定摄像头源。</li>
+<li>当前围栏信息。</li>
+<li>已绑定区域。</li>
+</ul>
+<p>右侧：</p>
+<ul>
+<li>屏幕矩阵。</li>
+<li>单屏区域。</li>
+<li>合并围栏区域。</li>
+</ul>
+<h3 id="6-2-单屏绑定"><a class="anchor" href="#6-2-单屏绑定">#</a>6.2 单屏绑定</h3>
+<p>如果摄像头只投向一块屏：</p>
+<ol>
+<li>在左侧找到未绑定摄像头。</li>
+<li>拖拽到目标屏幕。</li>
+<li>松开鼠标。</li>
+</ol>
+<p>绑定成功后：</p>
+<ul>
+<li>该摄像头从“未绑定摄像头源”列表中移除。</li>
+<li>屏幕格子中显示摄像头信息。</li>
+<li>摄像头列表中的“投放屏幕”会显示对应屏幕。</li>
+</ul>
+<h3 id="6-3-合并区域绑定"><a class="anchor" href="#6-3-合并区域绑定">#</a>6.3 合并区域绑定</h3>
+<p>如果一个摄像头需要占用连续几块屏：</p>
+<ol>
+<li>在矩阵上按住鼠标。</li>
+<li>拖出一个矩形区域。</li>
+<li>松开鼠标，形成围栏。</li>
+<li>把未绑定摄像头拖入这个围栏。</li>
+</ol>
+<p>示例：</p>
+<pre><code class="language-text">屏01、屏02、屏03
+屏09、屏10、屏11</code></pre>
+<p>这是一个 <code>3列 x 2行</code> 的合并区域。</p>
+<p>绑定后会显示：</p>
+<pre><code class="language-text">摄像头名称
+屏01 - 屏11 · 3列x2行
+IP
+流名称
+状态</code></pre>
+<p>围栏保持透明，可以看到被圈住的屏幕编号。</p>
+<h3 id="6-4-解除绑定"><a class="anchor" href="#6-4-解除绑定">#</a>6.4 解除绑定</h3>
+<p>在已绑定区域或矩阵围栏上点击解除按钮。</p>
+<p>解除后：</p>
+<ul>
+<li>摄像头回到未绑定列表。</li>
+<li>屏幕或围栏恢复为空闲。</li>
+<li>可以重新拖拽绑定。</li>
+</ul>
+<h3 id="6-5-绑定限制"><a class="anchor" href="#6-5-绑定限制">#</a>6.5 绑定限制</h3>
+<ul>
+<li>一个屏幕同一时间只能绑定一路摄像头。</li>
+<li>摄像头绑定后不会继续出现在未绑定列表中。</li>
+<li>多屏合并必须是连续矩形。</li>
+<li>不支持一个摄像头绑定多个分散区域。</li>
+<li>不支持两个摄像头共享同一块屏。</li>
+</ul>
+<p>这些限制是为了避免现场投屏关系混乱。</p>
+<h2 id="7-项目设置"><a class="anchor" href="#7-项目设置">#</a>7. 项目设置</h2>
+<p>项目设置用于调整项目级信息：</p>
+<ul>
+<li>项目名称。</li>
+<li>行数。</li>
+<li>列数。</li>
+<li>屏幕编号前缀。</li>
+<li>导出项目配置。</li>
+<li>导入项目配置。</li>
+</ul>
+<h3 id="7-1-修改矩阵规格"><a class="anchor" href="#7-1-修改矩阵规格">#</a>7.1 修改矩阵规格</h3>
+<p>修改行列数前需要注意：</p>
+<ul>
+<li>如果缩小矩阵，超出范围的屏幕绑定可能需要重新整理。</li>
+<li>建议先解除不确定的绑定，再调整规格。</li>
+<li>调整后到矩阵绑定页面检查显示是否正确。</li>
+</ul>
+<h3 id="7-2-导出项目"><a class="anchor" href="#7-2-导出项目">#</a>7.2 导出项目</h3>
+<p>导出用于备份或迁移项目。</p>
+<p>导出内容包含：</p>
+<ul>
+<li>项目信息。</li>
+<li>矩阵规格。</li>
+<li>摄像头配置。</li>
+<li>屏幕绑定。</li>
+<li>RTSP/ONVIF 地址。</li>
+</ul>
+<h3 id="7-3-导入项目"><a class="anchor" href="#7-3-导入项目">#</a>7.3 导入项目</h3>
+<p>导入时如果发现 IP 冲突，系统会尝试在同网段寻找可用 IP，并显示重映射结果。</p>
+<p>导入后建议：</p>
+<ol>
+<li>检查摄像头 IP。</li>
+<li>检查矩阵绑定。</li>
+<li>分批启动摄像头。</li>
+<li>逐路验证 RTSP/ONVIF。</li>
+</ol>
+<h2 id="8-操作审计"><a class="anchor" href="#8-操作审计">#</a>8. 操作审计</h2>
+<p>操作审计记录关键变更：</p>
+<ul>
+<li>创建项目。</li>
+<li>修改项目。</li>
+<li>导入项目。</li>
+<li>修改矩阵。</li>
+<li>创建摄像头。</li>
+<li>编辑摄像头。</li>
+<li>绑定屏幕。</li>
+<li>启动、停止、重启。</li>
+<li>删除摄像头。</li>
+</ul>
+<p>审计用于排查“谁改了配置”和“什么时候改了配置”。</p>
+<h2 id="9-接入中控"><a class="anchor" href="#9-接入中控">#</a>9. 接入中控</h2>
+<h3 id="9-1-onvif-手动添加"><a class="anchor" href="#9-1-onvif-手动添加">#</a>9.1 ONVIF 手动添加</h3>
+<p>中控支持 ONVIF 手动添加时填写：</p>
+<pre><code class="language-text">协议：ONVIF
+IP：192.168.5.211
+端口：80
+用户名：空
+密码：空</code></pre>
+<p>如果要求完整地址：</p>
+<pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
+<h3 id="9-2-rtsp-直连"><a class="anchor" href="#9-2-rtsp-直连">#</a>9.2 RTSP 直连</h3>
+<p>中控支持 RTSP 时填写：</p>
+<pre><code class="language-text">rtsp://192.168.5.211:8554/screen01</code></pre>
+<h3 id="9-3-odm-测试"><a class="anchor" href="#9-3-odm-测试">#</a>9.3 ODM 测试</h3>
+<p>ONVIF Device Manager 手动添加：</p>
+<pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
+<p>成功后应能看到：</p>
+<pre><code class="language-text">Profile：screen01
+Stream URI：rtsp://192.168.5.211:8554/screen01
+Live Video：网页画面</code></pre>
+<h2 id="10-播放器测试"><a class="anchor" href="#10-播放器测试">#</a>10. 播放器测试</h2>
+<p>推荐：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<p>也可以使用：</p>
+<pre><code class="language-bash">ffplay -rtsp_transport tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<p>如果修改了网页 URL 或重启了容器，播放器可能不会自动刷新。关闭播放器重新打开即可。</p>
+<h2 id="11-推荐命名和-ip-规划"><a class="anchor" href="#11-推荐命名和-ip-规划">#</a>11. 推荐命名和 IP 规划</h2>
+<h3 id="11-1-ip-规划"><a class="anchor" href="#11-1-ip-规划">#</a>11.1 IP 规划</h3>
+<p>当前地址池：</p>
+<pre><code class="language-text">192.168.5.208/28</code></pre>
+<p>建议：</p>
+<pre><code class="language-text">192.168.5.210  宿主机 macvlan-host 辅助接口
+192.168.5.211  摄像头 01
+192.168.5.212  摄像头 02
+192.168.5.213  摄像头 03
+...</code></pre>
+<p>不要把摄像头 IP 设置成网关、宿主机 IP 或已被其他设备占用的 IP。</p>
+<h3 id="11-2-摄像头命名"><a class="anchor" href="#11-2-摄像头命名">#</a>11.2 摄像头命名</h3>
+<p>建议名称体现用途：</p>
+<pre><code class="language-text">大厅信息屏
+生产看板
+会议室日程
+西南片区数据屏</code></pre>
+<h3 id="11-3-流名称"><a class="anchor" href="#11-3-流名称">#</a>11.3 流名称</h3>
+<p>建议使用英文、数字和短横线：</p>
+<pre><code class="language-text">screen01
+screen02
+lobby-info
+meeting-schedule</code></pre>
+<p>不要使用中文、空格或特殊符号。</p>
+<h2 id="12-常见问题"><a class="anchor" href="#12-常见问题">#</a>12. 常见问题</h2>
+<h3 id="12-1-为什么页面显示运行中-但画面是网页错误页"><a class="anchor" href="#12-1-为什么页面显示运行中-但画面是网页错误页">#</a>12.1 为什么页面显示运行中，但画面是网页错误页？</h3>
+<p>说明 RTSP 管道正常，但 Chrome 打不开目标网页。请检查网页地址、网络、DNS、证书和登录权限。</p>
+<h3 id="12-2-修改网页-url-后为什么播放器还是旧画面"><a class="anchor" href="#12-2-修改网页-url-后为什么播放器还是旧画面">#</a>12.2 修改网页 URL 后为什么播放器还是旧画面？</h3>
+<p>摄像头容器重启后，部分播放器会停留最后一帧。关闭播放器后重新打开即可。</p>
+<p>推荐用 mpv 验收，因为源断开时它通常会退出。</p>
+<h3 id="12-3-为什么宿主机本机打不开摄像头-ip"><a class="anchor" href="#12-3-为什么宿主机本机打不开摄像头-ip">#</a>12.3 为什么宿主机本机打不开摄像头 IP？</h3>
+<p>这是 macvlan 的常见限制。运维需要配置 <code>macvlan-host</code> 辅助接口。其他同网段机器通常可以直接访问。</p>
+<h3 id="12-4-为什么-onvif-自动发现不到"><a class="anchor" href="#12-4-为什么-onvif-自动发现不到">#</a>12.4 为什么 ONVIF 自动发现不到？</h3>
+<p>自动发现依赖 UDP 3702 和网络广播策略。当前主要支持手动添加。只要手动添加成功并能看到 Live Video，就说明可接入。</p>
+<h3 id="12-5-为什么一个屏幕不能绑定多个摄像头"><a class="anchor" href="#12-5-为什么一个屏幕不能绑定多个摄像头">#</a>12.5 为什么一个屏幕不能绑定多个摄像头？</h3>
+<p>为了避免现场关系混乱，一个屏幕同一时间只能属于一个摄像头区域。如果需要一个摄像头占用多块屏，请使用矩形围栏合并区域。</p>
+<h3 id="12-6-批量生成为什么不直接启动"><a class="anchor" href="#12-6-批量生成为什么不直接启动">#</a>12.6 批量生成为什么不直接启动？</h3>
+<p>几十路摄像头同时启动会带来较大 CPU、内存和网络压力。批量生成先写配置，现场可以分批启动，便于观察资源和故障。</p>
+<h3 id="12-7-换了网络环境或网段后要怎么处理"><a class="anchor" href="#12-7-换了网络环境或网段后要怎么处理">#</a>12.7 换了网络环境或网段后要怎么处理？</h3>
+<p>如果现场网段从 <code>192.168.5.xxx</code> 变成 <code>192.168.9.xxx</code>，需要运维重新创建 Docker macvlan 网络、重新配置宿主机 <code>macvlan-host</code> 辅助接口，并把管理后台里的摄像头虚拟 IP 改到新网段。</p>
+<p>摄像头镜像不用重新构建。详细命令见《部署运维文档》的“更换网络环境 / 网段迁移”章节。</p>
+<h2 id="13-日常操作建议"><a class="anchor" href="#13-日常操作建议">#</a>13. 日常操作建议</h2>
+<ul>
+<li>创建摄像头后先用 go2rtc Web 或 mpv 验证。</li>
+<li>再用 ODM 手动添加验证 ONVIF。</li>
+<li>最后接入中控。</li>
+<li>批量摄像头分批启动。</li>
+<li>大屏静态页面优先使用 <code>1280x720@15</code> 或更低 FPS。</li>
+<li>修改 URL 后重新打开播放器确认。</li>
+<li>删除摄像头前确认中控侧已经不再使用。</li>
+</ul></main>
+  </div>
+</body>
+</html>

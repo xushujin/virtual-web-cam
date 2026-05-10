@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VirtualWebCam 开发技术文档</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --text: #172033;
+      --muted: #5d6b82;
+      --line: #dce3ee;
+      --brand: #155eef;
+      --brand-soft: #eaf1ff;
+      --code-bg: #0f172a;
+      --code-text: #dbeafe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 0 0, #eaf6ff 0, transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .shell {
+      display: grid;
+      grid-template-columns: 18rem minmax(0, 1fr);
+      gap: 1.5rem;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .sidebar {
+      position: sticky;
+      top: 1.5rem;
+      align-self: start;
+      max-height: calc(100vh - 3rem);
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+    .brand {
+      margin: 0 0 0.75rem;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .nav {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav a, .toc a {
+      display: block;
+      border-radius: 8px;
+      padding: 0.42rem 0.55rem;
+      color: var(--muted);
+    }
+    .nav a[aria-current="page"] {
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-weight: 700;
+    }
+    .toc-title {
+      margin: 0 0 0.4rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .toc {
+      display: grid;
+      gap: 0.1rem;
+      font-size: 0.92rem;
+    }
+    .toc-level-2 { padding-left: 1rem !important; }
+    .toc-level-3 { padding-left: 2rem !important; font-size: 0.86rem; }
+    main {
+      min-width: 0;
+      padding: 2rem 2.25rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.3;
+      margin: 1.8em 0 0.65em;
+    }
+    h1 { margin-top: 0; font-size: 2.15rem; }
+    h2 { padding-top: 0.5rem; border-top: 1px solid var(--line); font-size: 1.55rem; }
+    h3 { font-size: 1.22rem; }
+    p, ul, ol, table, pre, blockquote { margin: 0.8rem 0; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { margin-top: 0.25rem; }
+    code {
+      border-radius: 5px;
+      padding: 0.12rem 0.32rem;
+      background: #eef2f7;
+      color: #0f3b74;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow: auto;
+      border-radius: 12px;
+      padding: 1rem;
+      background: var(--code-bg);
+      color: var(--code-text);
+    }
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.58rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f2f6fb;
+      color: #27364f;
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: 0; }
+    blockquote {
+      border-left: 4px solid var(--brand);
+      padding: 0.4rem 0 0.4rem 1rem;
+      color: var(--muted);
+      background: #f8fbff;
+    }
+    .anchor {
+      opacity: 0;
+      margin-right: 0.35rem;
+      font-weight: 600;
+    }
+    h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor {
+      opacity: 1;
+      text-decoration: none;
+    }
+    @media (max-width: 960px) {
+      .shell { display: block; padding: 1rem; }
+      .sidebar { position: static; max-height: none; margin-bottom: 1rem; }
+      main { padding: 1.2rem; }
+      h1 { font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <p class="brand">VirtualWebCam</p>
+      <nav class="nav"><a href="./index.html">文档中心</a><a aria-current="page" href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a></nav>
+      <p class="toc-title">目录</p>
+      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-开发技术文档">VirtualWebCam 开发技术文档</a><a class="toc-level-2" href="#1-项目目标">1. 项目目标</a><a class="toc-level-2" href="#2-总体架构">2. 总体架构</a><a class="toc-level-2" href="#3-源码结构">3. 源码结构</a><a class="toc-level-2" href="#4-容器模板设计">4. 容器模板设计</a><a class="toc-level-3" href="#4-1-镜像内容">4.1 镜像内容</a><a class="toc-level-3" href="#4-2-环境变量">4.2 环境变量</a><a class="toc-level-3" href="#4-3-entrypoint-主流程">4.3 entrypoint 主流程</a><a class="toc-level-3" href="#4-4-健康检查">4.4 健康检查</a><a class="toc-level-2" href="#5-后端设计">5. 后端设计</a><a class="toc-level-3" href="#5-1-服务入口">5.1 服务入口</a><a class="toc-level-3" href="#5-2-docker-编排">5.2 Docker 编排</a><a class="toc-level-3" href="#5-3-双网络策略">5.3 双网络策略</a><a class="toc-level-3" href="#5-4-数据库">5.4 数据库</a><a class="toc-level-3" href="#5-5-数据表">5.5 数据表</a><a class="toc-level-3" href="#5-6-业务规则">5.6 业务规则</a><a class="toc-level-2" href="#6-api-说明">6. API 说明</a><a class="toc-level-3" href="#6-1-健康检查">6.1 健康检查</a><a class="toc-level-3" href="#6-2-项目">6.2 项目</a><a class="toc-level-3" href="#6-3-摄像头">6.3 摄像头</a><a class="toc-level-3" href="#6-4-矩阵">6.4 矩阵</a><a class="toc-level-3" href="#6-5-审计">6.5 审计</a><a class="toc-level-2" href="#7-前端设计">7. 前端设计</a><a class="toc-level-3" href="#7-1-项目入口">7.1 项目入口</a><a class="toc-level-3" href="#7-2-摄像头管理">7.2 摄像头管理</a><a class="toc-level-3" href="#7-3-矩阵绑定">7.3 矩阵绑定</a><a class="toc-level-2" href="#8-本地开发">8. 本地开发</a><a class="toc-level-3" href="#8-1-准备依赖">8.1 准备依赖</a><a class="toc-level-3" href="#8-2-启动后端">8.2 启动后端</a><a class="toc-level-3" href="#8-3-启动前端">8.3 启动前端</a><a class="toc-level-3" href="#8-4-构建镜像">8.4 构建镜像</a><a class="toc-level-3" href="#8-5-代码校验">8.5 代码校验</a><a class="toc-level-2" href="#9-关键配置">9. 关键配置</a><a class="toc-level-2" href="#10-扩展建议">10. 扩展建议</a><a class="toc-level-3" href="#10-1-增加认证">10.1 增加认证</a><a class="toc-level-3" href="#10-2-增加-ws-discovery">10.2 增加 WS-Discovery</a><a class="toc-level-3" href="#10-3-大规模摄像头">10.3 大规模摄像头</a><a class="toc-level-3" href="#10-4-任务队列">10.4 任务队列</a><a class="toc-level-3" href="#10-5-权限模型">10.5 权限模型</a><a class="toc-level-2" href="#11-已知边界">11. 已知边界</a></nav>
+    </aside>
+    <main><h1 id="virtualwebcam-开发技术文档"><a class="anchor" href="#virtualwebcam-开发技术文档">#</a>VirtualWebCam 开发技术文档</h1>
+<p>版本：1.0 适用项目：VirtualWebCam 网页转 RTSP + 虚拟 ONVIF 摄像头管理系统 默认端口：前端 <code>5177</code>，后端 <code>8177</code> 默认网络：<code>br0 = 192.168.5.111/24</code>，macvlan 网络 <code>onvif_macvlan</code></p>
+<h2 id="1-项目目标"><a class="anchor" href="#1-项目目标">#</a>1. 项目目标</h2>
+<p>VirtualWebCam 的目标是把任意可被 Chrome 渲染的网页转换为一路标准视频源，并让这一路视频源像真实网络摄像头一样被中控、ONVIF Device Manager 或播放器接入。</p>
+<p>系统分为两层：</p>
+<ul>
+<li>容器模板：构建 <code>virtualwebcam:latest</code> 镜像。一个容器对应一路虚拟摄像头，容器内部完成网页渲染、屏幕采集、RTSP 推流、ONVIF 输出。</li>
+<li>管理后台：Node.js + Express + SQLite + Vue3。负责项目管理、摄像头实例管理、Docker 容器生命周期、矩阵屏幕绑定、日志和审计。</li>
+</ul>
+<p>核心交付能力：</p>
+<ul>
+<li>用户通过网页创建虚拟摄像头，不需要手写 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc 命令。</li>
+<li>每一路摄像头拥有独立 IP，便于中控按 IP 区分摄像头。</li>
+<li>输出地址稳定：</li>
+<li>RTSP：<code>rtsp://&lt;camera_ip&gt;:8554/&lt;stream_name&gt;</code></li>
+<li>ONVIF：<code>http://&lt;camera_ip&gt;/onvif/device_service</code></li>
+<li>go2rtc Web：<code>http://&lt;camera_ip&gt;</code></li>
+<li>支持多项目、多矩阵规格和摄像头与矩阵屏幕区域绑定。</li>
+</ul>
+<h2 id="2-总体架构"><a class="anchor" href="#2-总体架构">#</a>2. 总体架构</h2>
+<p>每一路摄像头对应一个 Docker 容器。容器由管理后台创建，挂在两个网络上：</p>
+<ul>
+<li><code>bridge</code>：用于容器访问外网或内网 Web 页面。</li>
+<li><code>onvif_macvlan</code>：用于让容器获得独立虚拟摄像头 IP，对外提供 RTSP、ONVIF 和 go2rtc Web。</li>
+</ul>
+<p>运行链路：</p>
+<pre><code class="language-text">用户配置 WEB_URL
+    ↓
+管理后台创建/启动 virtualwebcam 容器
+    ↓
+容器内 Chrome 在 Xvfb 虚拟屏幕中打开网页
+    ↓
+FFmpeg 采集 Xvfb 屏幕画面
+    ↓
+FFmpeg 推送到容器内部 MediaMTX
+    ↓
+go2rtc 从 MediaMTX 拉流
+    ↓
+go2rtc 对外输出 RTSP + ONVIF + Web UI
+    ↓
+中控/ODM/mpv 使用 camera_ip 接入</code></pre>
+<p>容器内部端口：</p>
+<pre><code class="language-text">127.0.0.1:8556  MediaMTX RTSP 输入，仅容器内部使用
+0.0.0.0:8554   go2rtc RTSP 输出
+0.0.0.0:80     go2rtc Web/API/ONVIF
+0.0.0.0:8555   go2rtc WebRTC
+3702/udp       ONVIF WS-Discovery 预留</code></pre>
+<h2 id="3-源码结构"><a class="anchor" href="#3-源码结构">#</a>3. 源码结构</h2>
+<pre><code class="language-text">.
+├── container/
+│   ├── Dockerfile          # virtualwebcam:latest 镜像定义
+│   ├── entrypoint.sh       # 容器主流程：Xvfb/Chrome/FFmpeg/MediaMTX/go2rtc
+│   └── healthcheck.sh      # 容器健康检查
+├── backend/
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
+│       ├── server.js       # Express 服务入口、CORS、API Token
+│       ├── routes.js       # REST API、校验、审计、业务编排
+│       ├── db.js           # SQLite 初始化与兼容迁移
+│       └── docker.js       # Docker 容器编排
+├── frontend/
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── nginx/default.conf
+│   └── src/
+│       ├── App.vue         # 管理后台主界面
+│       ├── api.js          # API 客户端封装
+│       ├── main.js
+│       └── styles.css      # 标准主题和科技主题
+├── scripts/
+│   ├── create-macvlan.sh
+│   ├── setup-macvlan-host.sh
+│   └── seed-demo-cameras.sh
+├── examples/
+│   └── multi-camera.compose.yml
+├── docker-compose.yml
+└── docs/</code></pre>
+<h2 id="4-容器模板设计"><a class="anchor" href="#4-容器模板设计">#</a>4. 容器模板设计</h2>
+<h3 id="4-1-镜像内容"><a class="anchor" href="#4-1-镜像内容">#</a>4.1 镜像内容</h3>
+<p><code>container/Dockerfile</code> 基于 <code>nginx:1.29.4</code>，安装以下运行组件：</p>
+<ul>
+<li>Xvfb：提供虚拟 X11 屏幕。</li>
+<li>openbox：窗口管理器，保证 Chrome 窗口进入虚拟屏幕。</li>
+<li>Google Chrome stable：打开目标网页。</li>
+<li>FFmpeg：采集 X11 屏幕并编码为 H.264。</li>
+<li>MediaMTX：容器内部 RTSP 接收服务。</li>
+<li>go2rtc：对外输出 RTSP、ONVIF、Web UI。</li>
+<li>dumb-init：处理 PID 1 和信号转发。</li>
+<li>中文字体、emoji 字体和基础调试工具。</li>
+</ul>
+<p>镜像构建完成后标签为：</p>
+<pre><code class="language-text">virtualwebcam:latest</code></pre>
+<h3 id="4-2-环境变量"><a class="anchor" href="#4-2-环境变量">#</a>4.2 环境变量</h3>
+<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率</td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>8554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
+<h3 id="4-3-entrypoint-主流程"><a class="anchor" href="#4-3-entrypoint-主流程">#</a>4.3 entrypoint 主流程</h3>
+<p><code>container/entrypoint.sh</code> 的执行顺序：</p>
+<ol>
+<li>校验环境变量。</li>
+<li>清理 Chrome profile：避免容器重启后恢复旧页面。</li>
+<li>启动 Xvfb。</li>
+<li>启动 openbox。</li>
+<li>在 Xvfb 中启动 Chrome kiosk 窗口。</li>
+<li>写入 MediaMTX 配置并启动 MediaMTX。</li>
+<li>写入 go2rtc 配置并启动 go2rtc。</li>
+<li>启动 FFmpeg，把 Xvfb 画面推入 <code>rtsp://127.0.0.1:8556/&lt;stream_name&gt;</code>。</li>
+<li>监控子进程。任一关键进程退出时，容器退出，由 Docker <code>unless-stopped</code> 策略重启。</li>
+</ol>
+<p>关键设计点：</p>
+<ul>
+<li>Chrome 使用 <code>--ozone-platform=x11</code>，保证网页进入 Xvfb，不进入真实桌面。</li>
+<li>FFmpeg 使用 <code>libx264 + baseline + zerolatency</code>，尽量兼容 ONVIF/RTSP 客户端。</li>
+<li>MediaMTX 只监听 <code>127.0.0.1:8556</code>，不暴露给外部。</li>
+<li>go2rtc 对外提供 RTSP 与 ONVIF，是最终对接入口。</li>
+<li>Chrome profile 每次启动都会重建，修改网页 URL 后重启容器即可看到新页面。</li>
+</ul>
+<h3 id="4-4-健康检查"><a class="anchor" href="#4-4-健康检查">#</a>4.4 健康检查</h3>
+<p><code>container/healthcheck.sh</code> 默认检查：</p>
+<ul>
+<li>go2rtc HTTP 端口可连接。</li>
+<li>go2rtc RTSP 端口可连接。</li>
+<li>MediaMTX 内部 RTSP 端口可连接。</li>
+<li>Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc 进程存在。</li>
+</ul>
+<p>如果 <code>RTSP_HEALTHCHECK=1</code>，还会使用 ffprobe 验证本地 RTSP 是否能返回视频流。该检查更严格，但在网页加载慢或首帧慢的情况下可能造成误判，生产默认保持 <code>0</code>。</p>
+<h2 id="5-后端设计"><a class="anchor" href="#5-后端设计">#</a>5. 后端设计</h2>
+<h3 id="5-1-服务入口"><a class="anchor" href="#5-1-服务入口">#</a>5.1 服务入口</h3>
+<p><code>backend/src/server.js</code>：</p>
+<ul>
+<li>加载 <code>.env</code>。</li>
+<li>初始化 SQLite。</li>
+<li>启用 CORS。</li>
+<li>启用 JSON body parser。</li>
+<li>使用 <code>morgan</code> 输出访问日志。</li>
+<li>可选启用 <code>API_TOKEN</code> 鉴权。</li>
+<li>挂载 <code>/api</code> 路由。</li>
+</ul>
+<p>后端默认端口：</p>
+<pre><code class="language-text">8177</code></pre>
+<h3 id="5-2-docker-编排"><a class="anchor" href="#5-2-docker-编排">#</a>5.2 Docker 编排</h3>
+<p><code>backend/src/docker.js</code> 负责：</p>
+<ul>
+<li>访问 Docker socket。</li>
+<li>检查 Docker daemon、macvlan 网络和镜像是否存在。</li>
+<li>创建摄像头容器。</li>
+<li>启动、停止、重启、删除容器。</li>
+<li>根据 Docker 状态同步摄像头状态。</li>
+<li>读取容器日志。</li>
+<li>把 Docker 原始错误转换为中文友好提示。</li>
+</ul>
+<p>容器命名规则：</p>
+<pre><code class="language-text">&lt;CONTAINER_PREFIX&gt;-&lt;camera_id&gt;-&lt;slug(name)&gt;</code></pre>
+<p>默认示例：</p>
+<pre><code class="language-text">virtualwebcam-1-web-cam-01</code></pre>
+<p>容器标签：</p>
+<pre><code class="language-text">virtualwebcam.managed=true
+virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
+<p>后端通过标签查找容器，避免依赖易变的容器名。</p>
+<h3 id="5-3-双网络策略"><a class="anchor" href="#5-3-双网络策略">#</a>5.3 双网络策略</h3>
+<p>创建容器时默认连接：</p>
+<ul>
+<li><code>DOCKER_EGRESS_NETWORK=bridge</code></li>
+<li><code>DOCKER_NETWORK=onvif_macvlan</code></li>
+</ul>
+<p>原因：</p>
+<ul>
+<li>只挂 macvlan 时，容器可能无法访问互联网或部分内网路由。</li>
+<li>加上 bridge 后，Chrome 可以通过 bridge 出网打开网页。</li>
+<li>macvlan 仍然提供独立摄像头 IP，供中控、ODM、播放器访问。</li>
+</ul>
+<p>该策略解决了“go2rtc 可以访问，但 Chrome 页面打不开”的常见问题。</p>
+<h3 id="5-4-数据库"><a class="anchor" href="#5-4-数据库">#</a>5.4 数据库</h3>
+<p>SQLite 数据库默认路径：</p>
+<pre><code class="language-text">backend/data/virtualwebcam.db</code></pre>
+<p>Docker Compose 部署时挂载到：</p>
+<pre><code class="language-text">/data/virtualwebcam.db</code></pre>
+<p>初始化和轻量迁移在 <code>backend/src/db.js</code> 中完成。启用：</p>
+<ul>
+<li><code>journal_mode = WAL</code></li>
+<li><code>foreign_keys = ON</code></li>
+<li><code>busy_timeout = 5000</code></li>
+</ul>
+<h3 id="5-5-数据表"><a class="anchor" href="#5-5-数据表">#</a>5.5 数据表</h3>
+<h4 id="cameras"><a class="anchor" href="#cameras">#</a>cameras</h4>
+<table><thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td><code>id</code></td><td>INTEGER</td><td>主键</td></tr><tr><td><code>name</code></td><td>TEXT</td><td>摄像头名称</td></tr><tr><td><code>ip</code></td><td>TEXT UNIQUE</td><td>虚拟摄像头 IP</td></tr><tr><td><code>stream_name</code></td><td>TEXT</td><td>RTSP 路径名</td></tr><tr><td><code>web_url</code></td><td>TEXT</td><td>网页地址</td></tr><tr><td><code>width</code></td><td>INTEGER</td><td>分辨率宽</td></tr><tr><td><code>height</code></td><td>INTEGER</td><td>分辨率高</td></tr><tr><td><code>fps</code></td><td>INTEGER</td><td>帧率</td></tr><tr><td><code>status</code></td><td>TEXT</td><td><code>running</code>、<code>stopped</code>、<code>error</code></td></tr><tr><td><code>display_targets</code></td><td>TEXT</td><td>JSON 数组，绑定的屏幕编号</td></tr><tr><td><code>display_region</code></td><td>TEXT</td><td>JSON 对象，矩形围栏区域</td></tr><tr><td><code>project_id</code></td><td>INTEGER</td><td>所属项目</td></tr><tr><td><code>created_at</code></td><td>DATETIME</td><td>创建时间</td></tr></tbody></table>
+<h4 id="projects"><a class="anchor" href="#projects">#</a>projects</h4>
+<table><thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td><code>id</code></td><td>INTEGER</td><td>主键</td></tr><tr><td><code>name</code></td><td>TEXT UNIQUE</td><td>项目名称</td></tr><tr><td><code>rows</code></td><td>INTEGER</td><td>矩阵行数</td></tr><tr><td><code>cols</code></td><td>INTEGER</td><td>矩阵列数</td></tr><tr><td><code>prefix</code></td><td>TEXT</td><td>屏幕编号前缀，默认 <code>屏</code></td></tr><tr><td><code>created_at</code></td><td>DATETIME</td><td>创建时间</td></tr></tbody></table>
+<h4 id="settings"><a class="anchor" href="#settings">#</a>settings</h4>
+<p>兼容历史全局配置，目前保留 <code>screen_matrix</code> 作为默认矩阵配置。</p>
+<h4 id="audit-logs"><a class="anchor" href="#audit-logs">#</a>audit_logs</h4>
+<p>记录项目、摄像头和矩阵绑定的关键操作。</p>
+<h3 id="5-6-业务规则"><a class="anchor" href="#5-6-业务规则">#</a>5.6 业务规则</h3>
+<ul>
+<li>单屏绑定：<code>display_targets</code> 只能包含一个屏幕编号，<code>display_region</code> 为 <code>null</code>。</li>
+<li>合并区域绑定：必须提供 <code>display_region</code>，后端根据矩形区域计算 <code>display_targets</code>。</li>
+<li>一个屏幕槽位同一时间只能被一个摄像头占用。</li>
+<li>批量生成只写入数据库，状态为 <code>stopped</code>，不立即启动 Docker 容器。</li>
+<li>单路创建会写入数据库，并尝试启动 Docker 容器。</li>
+<li>编辑运行中的摄像头会重建容器，使 URL、分辨率、FPS 和流名生效。</li>
+<li>删除摄像头会删除数据库记录并强制删除对应容器。</li>
+</ul>
+<h2 id="6-api-说明"><a class="anchor" href="#6-api-说明">#</a>6. API 说明</h2>
+<p>所有 API 以 <code>/api</code> 为前缀。</p>
+<h3 id="6-1-健康检查"><a class="anchor" href="#6-1-健康检查">#</a>6.1 健康检查</h3>
+<pre><code class="language-http">GET /api/health</code></pre>
+<p>返回后端、Docker socket、macvlan 网络和镜像状态。</p>
+<h3 id="6-2-项目"><a class="anchor" href="#6-2-项目">#</a>6.2 项目</h3>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/projects</code></td><td>项目列表</td></tr><tr><td>POST</td><td><code>/api/projects</code></td><td>创建项目</td></tr><tr><td>PUT</td><td><code>/api/projects/:id</code></td><td>更新项目名称和矩阵规格</td></tr><tr><td>GET</td><td><code>/api/projects/:id/export</code></td><td>导出项目配置</td></tr><tr><td>POST</td><td><code>/api/projects/import</code></td><td>导入项目配置</td></tr></tbody></table>
+<p>项目创建请求：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;默认项目&quot;,
+  &quot;rows&quot;: 6,
+  &quot;cols&quot;: 8,
+  &quot;prefix&quot;: &quot;屏&quot;
+}</code></pre>
+<h3 id="6-3-摄像头"><a class="anchor" href="#6-3-摄像头">#</a>6.3 摄像头</h3>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/cameras?project_id=1</code></td><td>摄像头列表，并同步 Docker 状态</td></tr><tr><td>GET</td><td><code>/api/cameras/statuses?project_id=1</code></td><td>轻量刷新状态</td></tr><tr><td>POST</td><td><code>/api/cameras?project_id=1</code></td><td>创建并启动一路摄像头</td></tr><tr><td>POST</td><td><code>/api/cameras/bulk?project_id=1</code></td><td>批量生成摄像头配置，不启动</td></tr><tr><td>PUT</td><td><code>/api/cameras/:id</code></td><td>编辑摄像头配置</td></tr><tr><td>PATCH</td><td><code>/api/cameras/:id/display-targets</code></td><td>更新屏幕绑定</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/start</code></td><td>启动</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/stop</code></td><td>停止</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/restart</code></td><td>重启</td></tr><tr><td>DELETE</td><td><code>/api/cameras/:id</code></td><td>删除</td></tr><tr><td>GET</td><td><code>/api/cameras/:id/logs</code></td><td>获取容器日志</td></tr></tbody></table>
+<p>创建摄像头请求：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;web-cam-01&quot;,
+  &quot;ip&quot;: &quot;192.168.5.211&quot;,
+  &quot;stream_name&quot;: &quot;screen01&quot;,
+  &quot;web_url&quot;: &quot;https://www.baidu.com&quot;,
+  &quot;width&quot;: 1280,
+  &quot;height&quot;: 720,
+  &quot;fps&quot;: 15,
+  &quot;display_targets&quot;: [],
+  &quot;display_region&quot;: null
+}</code></pre>
+<p>合并区域绑定请求：</p>
+<pre><code class="language-json">{
+  &quot;display_targets&quot;: [1, 2, 3, 9, 10, 11],
+  &quot;display_region&quot;: {
+    &quot;row&quot;: 1,
+    &quot;col&quot;: 1,
+    &quot;row_span&quot;: 2,
+    &quot;col_span&quot;: 3
+  }
+}</code></pre>
+<h3 id="6-4-矩阵"><a class="anchor" href="#6-4-矩阵">#</a>6.4 矩阵</h3>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/screen-matrix?project_id=1</code></td><td>获取项目矩阵规格</td></tr><tr><td>PUT</td><td><code>/api/screen-matrix?project_id=1</code></td><td>更新项目矩阵规格</td></tr></tbody></table>
+<h3 id="6-5-审计"><a class="anchor" href="#6-5-审计">#</a>6.5 审计</h3>
+<pre><code class="language-http">GET /api/audit-logs?project_id=1&amp;limit=80</code></pre>
+<p>记录的典型动作：</p>
+<pre><code class="language-text">project.create
+project.update
+project.import
+matrix.update
+camera.create
+camera.create_failed
+camera.bulk_create
+camera.update
+camera.update_failed
+camera.bind
+camera.start
+camera.stop
+camera.restart
+camera.delete</code></pre>
+<h2 id="7-前端设计"><a class="anchor" href="#7-前端设计">#</a>7. 前端设计</h2>
+<p>前端是 Vue3 + Vite 单页应用，但业务层级上拆为：</p>
+<ol>
+<li>项目入口页。</li>
+<li>项目内摄像头管理。</li>
+<li>项目内矩阵绑定。</li>
+<li>项目设置。</li>
+<li>操作审计。</li>
+</ol>
+<h3 id="7-1-项目入口"><a class="anchor" href="#7-1-项目入口">#</a>7.1 项目入口</h3>
+<p>项目入口展示所有项目卡片。每个项目卡片包含：</p>
+<ul>
+<li>项目名称。</li>
+<li>矩阵规格。</li>
+<li>屏幕编号范围。</li>
+<li>摄像头管理入口。</li>
+<li>矩阵绑定入口。</li>
+<li>项目设置入口。</li>
+</ul>
+<h3 id="7-2-摄像头管理"><a class="anchor" href="#7-2-摄像头管理">#</a>7.2 摄像头管理</h3>
+<p>主要用于查看摄像头详情列表。新增摄像头和批量生成使用弹窗，避免占用主页面空间。</p>
+<p>列表能力：</p>
+<ul>
+<li>状态统计。</li>
+<li>搜索。</li>
+<li>按状态筛选。</li>
+<li>单行启动、停止、重启。</li>
+<li>配置面板：日志、编辑、复制、复制 RTSP、复制 ONVIF、打开 go2rtc、删除。</li>
+<li>批量启动、停止、重启。</li>
+<li>定时状态刷新。</li>
+</ul>
+<p>运行中的摄像头不能再点击启动；已停止的摄像头不能点击停止；重启只对已存在配置的摄像头开放。</p>
+<h3 id="7-3-矩阵绑定"><a class="anchor" href="#7-3-矩阵绑定">#</a>7.3 矩阵绑定</h3>
+<p>矩阵绑定页用于维护摄像头与屏幕的管理映射，不直接改变视频流。</p>
+<p>交互规则：</p>
+<ul>
+<li>未画围栏时，每块屏幕是一个单屏区域。</li>
+<li>用户可用鼠标在矩阵上框选连续矩形区域，形成合并区域。</li>
+<li>摄像头拖入某个单屏或围栏后完成绑定。</li>
+<li>绑定成功后，该摄像头从未绑定摄像头列表移除，避免重复拖拽。</li>
+<li>一个屏幕槽位不能被多个摄像头同时占用。</li>
+<li>围栏内保持透明，能看到被圈住的屏幕编号；摄像头信息根据围栏大小自适应展示。</li>
+</ul>
+<h2 id="8-本地开发"><a class="anchor" href="#8-本地开发">#</a>8. 本地开发</h2>
+<h3 id="8-1-准备依赖"><a class="anchor" href="#8-1-准备依赖">#</a>8.1 准备依赖</h3>
+<pre><code class="language-bash">cd backend
+npm install
+
+cd ../frontend
+npm install</code></pre>
+<h3 id="8-2-启动后端"><a class="anchor" href="#8-2-启动后端">#</a>8.2 启动后端</h3>
+<pre><code class="language-bash">cd backend
+PORT=8177 \
+DOCKER_NETWORK=onvif_macvlan \
+DOCKER_EGRESS_NETWORK=bridge \
+VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
+npm run dev</code></pre>
+<h3 id="8-3-启动前端"><a class="anchor" href="#8-3-启动前端">#</a>8.3 启动前端</h3>
+<pre><code class="language-bash">cd frontend
+npm run dev -- --port 5177</code></pre>
+<p>访问：</p>
+<pre><code class="language-text">http://localhost:5177</code></pre>
+<h3 id="8-4-构建镜像"><a class="anchor" href="#8-4-构建镜像">#</a>8.4 构建镜像</h3>
+<pre><code class="language-bash">docker build -t virtualwebcam:latest ./container</code></pre>
+<p>或：</p>
+<pre><code class="language-bash">docker compose --profile image build virtualwebcam-image</code></pre>
+<h3 id="8-5-代码校验"><a class="anchor" href="#8-5-代码校验">#</a>8.5 代码校验</h3>
+<pre><code class="language-bash">cd backend
+npm run lint
+
+cd ../frontend
+npm run build</code></pre>
+<h2 id="9-关键配置"><a class="anchor" href="#9-关键配置">#</a>9. 关键配置</h2>
+<p>根目录 <code>.env.example</code>：</p>
+<pre><code class="language-env">DOCKER_NETWORK=onvif_macvlan
+VIRTUALWEBCAM_IMAGE=virtualwebcam:latest
+CONTAINER_PREFIX=virtualwebcam
+BACKEND_PORT=8177
+FRONTEND_PORT=5177
+HOST_IF=br0
+SUBNET=192.168.5.0/24
+GATEWAY=192.168.5.1
+IP_RANGE=192.168.5.208/28
+HOST_MACVLAN_IP=192.168.5.210
+ROUTE_CIDR=192.168.5.208/28</code></pre>
+<p>后端可用环境变量：</p>
+<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>API_TOKEN</code></td><td>可选 API 令牌</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单</td></tr></tbody></table>
+<p>前端可用环境变量：</p>
+<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>VITE_API_TOKEN</code></td><td>构建期注入 API Token</td></tr></tbody></table>
+<p>如果不想在构建时注入，也可以在浏览器 LocalStorage 写入：</p>
+<pre><code class="language-js">localStorage.setItem(&#39;virtualwebcam-api-token&#39;, &#39;change-me&#39;)</code></pre>
+<h2 id="10-扩展建议"><a class="anchor" href="#10-扩展建议">#</a>10. 扩展建议</h2>
+<h3 id="10-1-增加认证"><a class="anchor" href="#10-1-增加认证">#</a>10.1 增加认证</h3>
+<p>当前内置 <code>API_TOKEN</code> 是轻量保护。生产建议放到公司统一认证网关后面，例如 Nginx、Traefik、OAuth2 Proxy 或内部 SSO。</p>
+<h3 id="10-2-增加-ws-discovery"><a class="anchor" href="#10-2-增加-ws-discovery">#</a>10.2 增加 WS-Discovery</h3>
+<p>go2rtc 已提供 ONVIF 手动添加能力，但自动发现依赖网络广播、交换机和客户端实现。后续如果必须自动发现，需要专项验证 UDP 3702、组播、容器网络和 go2rtc ONVIF 行为。</p>
+<h3 id="10-3-大规模摄像头"><a class="anchor" href="#10-3-大规模摄像头">#</a>10.3 大规模摄像头</h3>
+<p>几十路摄像头会消耗 CPU、内存和 Chrome 资源。建议：</p>
+<ul>
+<li>优先使用 1280x720@15。</li>
+<li>静态看板可降到 10 FPS。</li>
+<li>每台宿主机按 CPU、内存、网页复杂度压测后确定路数。</li>
+<li>对复杂 Web 页面启用页面自身的轻量化模式。</li>
+</ul>
+<h3 id="10-4-任务队列"><a class="anchor" href="#10-4-任务队列">#</a>10.4 任务队列</h3>
+<p>当前后端直接调用 Docker API。后续如果要支持几百路实例、任务重试和排队，可以引入队列，把创建、重建、启动、停止做成异步任务。</p>
+<h3 id="10-5-权限模型"><a class="anchor" href="#10-5-权限模型">#</a>10.5 权限模型</h3>
+<p>当前项目没有用户、角色和项目级权限。后续可增加：</p>
+<ul>
+<li>管理员。</li>
+<li>项目管理员。</li>
+<li>只读用户。</li>
+<li>操作审计绑定用户身份。</li>
+</ul>
+<h2 id="11-已知边界"><a class="anchor" href="#11-已知边界">#</a>11. 已知边界</h2>
+<ul>
+<li>宿主机直接访问 macvlan 容器 IP，需要额外配置 <code>macvlan-host</code> 辅助接口。</li>
+<li>部分视频播放器在 RTSP 源重启后会停在历史画面，需要重新打开播放器。推荐验收命令使用 <code>mpv --rtsp-transport=tcp</code>。</li>
+<li>网页自身加载失败时，RTSP 中会显示 Chrome 错误页，这属于网页网络或业务服务问题，不是 RTSP 管道错误。</li>
+<li>ONVIF 自动发现不保证成功，手动添加 ONVIF 地址已作为主要接入方式。</li>
+</ul></main>
+  </div>
+</body>
+</html>
