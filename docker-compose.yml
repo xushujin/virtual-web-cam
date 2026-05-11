@@ -19,6 +19,9 @@ services:
       VIRTUALWEBCAM_IMAGE: ${VIRTUALWEBCAM_IMAGE:-virtualwebcam:latest}
       CONTAINER_PREFIX: ${CONTAINER_PREFIX:-virtualwebcam}
       CAMERA_RTSP_PORT: ${CAMERA_RTSP_PORT:-554}
+      RTSP_GATEWAY_HOST: ${RTSP_GATEWAY_HOST:-}
+      RTSP_GATEWAY_PORT: ${RTSP_GATEWAY_PORT:-554}
+      RTSP_NETWORK: ${RTSP_NETWORK:-virtualwebcam_rtsp}
       API_TOKEN: ${API_TOKEN:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
     volumes:

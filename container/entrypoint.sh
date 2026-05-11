@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 WEB_URL="${WEB_URL:-https://www.baidu.com}"
 STREAM_NAME="${STREAM_NAME:-screen01}"
+OUTPUT_MODE="${OUTPUT_MODE:-onvif}"
 WIDTH="${WIDTH:-1280}"
 HEIGHT="${HEIGHT:-720}"
 FPS="${FPS:-15}"
@@ -11,6 +12,7 @@ MEDIAMTX_RTSP_PORT="${MEDIAMTX_RTSP_PORT:-8556}"
 GO2RTC_RTSP_PORT="${GO2RTC_RTSP_PORT:-554}"
 GO2RTC_API_PORT="${GO2RTC_API_PORT:-80}"
 GO2RTC_WEBRTC_PORT="${GO2RTC_WEBRTC_PORT:-8555}"
+RTSP_PUSH_URL="${RTSP_PUSH_URL:-}"
 CHROME_BIN="${CHROME_BIN:-}"
 
 PIDS=()
@@ -41,6 +43,7 @@ require_int GO2RTC_WEBRTC_PORT "$GO2RTC_WEBRTC_PORT"
 
 [[ "$STREAM_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || die "STREAM_NAME may only contain letters, numbers, dot, underscore and dash"
 [[ "$WEB_URL" =~ ^https?:// ]] || die "WEB_URL must start with http:// or https://"
+[[ "$OUTPUT_MODE" =~ ^(onvif|rtsp-publisher|rtsp-gateway)$ ]] || die "OUTPUT_MODE must be onvif, rtsp-publisher or rtsp-gateway"
 
 if [[ -z "$CHROME_BIN" ]]; then
   CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
@@ -52,6 +55,12 @@ CONFIG_DIR="/config"
 RUNTIME_DIR="/run/virtualwebcam"
 CHROME_PROFILE="/tmp/chrome-${STREAM_NAME}"
 INTERNAL_RTSP="rtsp://127.0.0.1:${MEDIAMTX_RTSP_PORT}/${STREAM_NAME}"
+FFMPEG_OUTPUT_URL="$INTERNAL_RTSP"
+
+if [[ "$OUTPUT_MODE" == "rtsp-publisher" ]]; then
+  [[ "$RTSP_PUSH_URL" =~ ^rtsp:// ]] || die "RTSP_PUSH_URL must start with rtsp:// when OUTPUT_MODE=rtsp-publisher"
+  FFMPEG_OUTPUT_URL="$RTSP_PUSH_URL"
+fi
 
 rm -rf "$CHROME_PROFILE"
 mkdir -p "$CONFIG_DIR" "$RUNTIME_DIR" "$CHROME_PROFILE"
@@ -117,7 +126,7 @@ write_mediamtx_config() {
 logLevel: info
 logDestinations: [stdout]
 rtsp: true
-rtspAddress: 127.0.0.1:${MEDIAMTX_RTSP_PORT}
+rtspAddress: 0.0.0.0:${MEDIAMTX_RTSP_PORT}
 rtspTransports: [tcp]
 rtmp: false
 hls: false
@@ -200,7 +209,7 @@ start_chrome() {
 
 start_mediamtx() {
   write_mediamtx_config
-  log "starting MediaMTX on 127.0.0.1:${MEDIAMTX_RTSP_PORT}"
+  log "starting MediaMTX on 0.0.0.0:${MEDIAMTX_RTSP_PORT}"
   mediamtx "${CONFIG_DIR}/mediamtx.yml" &
   PIDS+=("$!")
   wait_for_port 127.0.0.1 "$MEDIAMTX_RTSP_PORT" "MediaMTX"
@@ -237,22 +246,28 @@ ffmpeg_loop() {
       -bf 0 \
       -an \
       -rtsp_transport tcp \
-      -f rtsp "$INTERNAL_RTSP"
+      -f rtsp "$FFMPEG_OUTPUT_URL"
     log "FFmpeg exited, restarting in 2 seconds"
     sleep 2
   done
 }
 
 start_ffmpeg() {
-  log "starting FFmpeg publisher to ${INTERNAL_RTSP}"
+  log "starting FFmpeg publisher to ${FFMPEG_OUTPUT_URL}"
   ffmpeg_loop &
   PIDS+=("$!")
 }
 
 monitor_services() {
-  log "ready: rtsp://<container_ip>:${GO2RTC_RTSP_PORT}/${STREAM_NAME}"
-  log "ready: http://<container_ip>:${GO2RTC_API_PORT}/onvif/device_service"
-  log "ready: http://<container_ip>:${GO2RTC_API_PORT}"
+  if [[ "$OUTPUT_MODE" == "onvif" ]]; then
+    log "ready: rtsp://<container_ip>:${GO2RTC_RTSP_PORT}/${STREAM_NAME}"
+    log "ready: http://<container_ip>:${GO2RTC_API_PORT}/onvif/device_service"
+    log "ready: http://<container_ip>:${GO2RTC_API_PORT}"
+  elif [[ "$OUTPUT_MODE" == "rtsp-gateway" ]]; then
+    log "ready: rtsp://<host_ip>:${MEDIAMTX_RTSP_PORT}/<stream_name>"
+  else
+    log "ready: publishing ${STREAM_NAME} to ${FFMPEG_OUTPUT_URL}"
+  fi
 
   while true; do
     for pid in "${PIDS[@]}"; do
@@ -265,10 +280,17 @@ monitor_services() {
   done
 }
 
-start_xvfb
-start_openbox
-start_chrome
-start_mediamtx
-start_go2rtc
-start_ffmpeg
-monitor_services
+if [[ "$OUTPUT_MODE" == "rtsp-gateway" ]]; then
+  start_mediamtx
+  monitor_services
+else
+  start_xvfb
+  start_openbox
+  start_chrome
+  if [[ "$OUTPUT_MODE" == "onvif" ]]; then
+    start_mediamtx
+    start_go2rtc
+  fi
+  start_ffmpeg
+  monitor_services
+fi

@@ -13,9 +13,13 @@ const displayRegionSchema = z.object({
   col_span: z.coerce.number().int().min(1).max(9999).default(1),
 }).nullable();
 
-const cameraSchema = z.object({
+const cameraBaseSchema = z.object({
+  source_type: z.enum(['camera', 'rtsp']).default('camera'),
   name: z.string().trim().min(1).max(80),
-  ip: z.string().trim().ip({ version: 'v4' }),
+  ip: z.preprocess(
+    (value) => (value === '' ? null : value),
+    z.string().trim().ip({ version: 'v4' }).optional().nullable(),
+  ),
   stream_name: z.string().trim().regex(/^[A-Za-z0-9._-]+$/).min(1).max(80),
   web_url: z.string().trim().url().refine((value) => value.startsWith('http://') || value.startsWith('https://'), {
     message: 'web_url must start with http:// or https://',
@@ -27,10 +31,22 @@ const cameraSchema = z.object({
   display_region: displayRegionSchema.optional().default(null),
 });
 
-const cameraUpdateSchema = cameraSchema.omit({
+const requireCameraIp = (value, ctx) => {
+  if (value.source_type === 'camera' && !value.ip) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ip'],
+      message: 'ip is required for ONVIF camera source',
+    });
+  }
+};
+
+const cameraSchema = cameraBaseSchema.superRefine(requireCameraIp);
+
+const cameraUpdateSchema = cameraBaseSchema.omit({
   display_targets: true,
   display_region: true,
-});
+}).superRefine(requireCameraIp);
 
 const matrixSchema = z.object({
   rows: z.coerce.number().int().min(1).max(20),
@@ -44,7 +60,7 @@ const projectSchema = matrixSchema.extend({
 
 const projectImportSchema = z.object({
   project: projectSchema,
-  cameras: z.array(cameraSchema.passthrough()).max(1000).default([]),
+  cameras: z.array(cameraBaseSchema.passthrough().superRefine(requireCameraIp)).max(1000).default([]),
 }).passthrough();
 
 const cameraBulkCreateSchema = z.object({
@@ -182,14 +198,19 @@ async function setScreenMatrix(matrix, projectId = 1) {
 }
 
 function addUrls(camera) {
+  const sourceType = camera.source_type === 'rtsp' ? 'rtsp' : 'camera';
+  const rtspHost = sourceType === 'rtsp' ? dockerService.RTSP_GATEWAY_HOST : camera.ip;
+  const rtspPort = sourceType === 'rtsp' ? dockerService.RTSP_GATEWAY_PORT : dockerService.CAMERA_RTSP_PORT;
+
   return {
     ...camera,
+    source_type: sourceType,
     project_id: camera.project_id || 1,
     display_targets: parseDisplayTargets(camera.display_targets),
     display_region: parseDisplayRegion(camera.display_region),
-    rtsp_url: `rtsp://${camera.ip}:${dockerService.CAMERA_RTSP_PORT}/${camera.stream_name}`,
-    onvif_url: `http://${camera.ip}/onvif/device_service`,
-    go2rtc_url: `http://${camera.ip}`,
+    rtsp_url: `rtsp://${rtspHost}:${rtspPort}/${camera.stream_name}`,
+    onvif_url: sourceType === 'camera' ? `http://${camera.ip}/onvif/device_service` : null,
+    go2rtc_url: sourceType === 'camera' ? `http://${camera.ip}` : null,
   };
 }
 
@@ -336,6 +357,18 @@ async function getCameraOr404(req, res) {
   }
 
   return camera;
+}
+
+async function assertRtspStreamNameAvailable(streamName, exceptId = 0) {
+  const row = await getDb().get(
+    "SELECT id FROM cameras WHERE source_type = 'rtsp' AND stream_name = ? AND id <> ?",
+    streamName,
+    exceptId,
+  );
+
+  if (row) {
+    throw new ApiError('RTSP stream name already exists in shared gateway', 409);
+  }
 }
 
 async function setStatus(id, status) {
@@ -532,10 +565,13 @@ router.post('/projects/import', async (req, res) => {
 
       assignment.displayTargets.forEach((target) => occupiedTargets.add(target));
 
-      const nextIp = await availableIp(camera.ip, reservedIps);
-      reservedIps.add(nextIp);
+      const sourceType = camera.source_type === 'rtsp' ? 'rtsp' : 'camera';
+      const nextIp = sourceType === 'camera' ? await availableIp(camera.ip, reservedIps) : null;
+      if (nextIp) {
+        reservedIps.add(nextIp);
+      }
 
-      if (nextIp !== camera.ip) {
+      if (nextIp && nextIp !== camera.ip) {
         remappedIps.push({
           name: camera.name,
           from: camera.ip,
@@ -545,10 +581,11 @@ router.post('/projects/import', async (req, res) => {
 
       const result = await db.run(
         `INSERT INTO cameras
-          (name, ip, stream_name, web_url, width, height, fps, status, display_targets, display_region, project_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'stopped', ?, ?, ?)`,
+          (name, ip, source_type, stream_name, web_url, width, height, fps, status, display_targets, display_region, project_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'stopped', ?, ?, ?)`,
         camera.name,
         nextIp,
+        sourceType,
         camera.stream_name,
         camera.web_url,
         camera.width,
@@ -730,8 +767,8 @@ router.post('/cameras/bulk', async (req, res) => {
       }
 
       const result = await db.run(
-        `INSERT INTO cameras (project_id, name, ip, stream_name, web_url, width, height, fps, display_targets, display_region, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', NULL, 'stopped')`,
+        `INSERT INTO cameras (project_id, name, ip, source_type, stream_name, web_url, width, height, fps, display_targets, display_region, status)
+         VALUES (?, ?, ?, 'camera', ?, ?, ?, ?, ?, '[]', NULL, 'stopped')`,
         projectId,
         `${payload.name_prefix}${number}`,
         ip,
@@ -796,13 +833,17 @@ router.post('/cameras', async (req, res) => {
   try {
     const { displayTargets, displayRegion } = resolveDisplayAssignment(camera.display_targets, camera.display_region, project);
     await assertDisplayTargetsAvailable(projectId, 0, displayTargets);
+    if (camera.source_type === 'rtsp') {
+      await assertRtspStreamNameAvailable(camera.stream_name);
+    }
 
     const result = await db.run(
-      `INSERT INTO cameras (project_id, name, ip, stream_name, web_url, width, height, fps, display_targets, display_region, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'stopped')`,
+      `INSERT INTO cameras (project_id, name, ip, source_type, stream_name, web_url, width, height, fps, display_targets, display_region, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'stopped')`,
       projectId,
       camera.name,
-      camera.ip,
+      camera.source_type === 'rtsp' ? null : camera.ip,
+      camera.source_type,
       camera.stream_name,
       camera.web_url,
       camera.width,
@@ -875,17 +916,24 @@ router.put('/cameras/:id', async (req, res) => {
   const projectId = camera.project_id || 1;
 
   try {
-    const duplicateIp = await db.get('SELECT id FROM cameras WHERE ip = ? AND id <> ?', payload.ip, camera.id);
+    if (payload.source_type === 'rtsp') {
+      await assertRtspStreamNameAvailable(payload.stream_name, camera.id);
+    }
+
+    const duplicateIp = payload.source_type === 'camera'
+      ? await db.get('SELECT id FROM cameras WHERE ip = ? AND id <> ?', payload.ip, camera.id)
+      : null;
     if (duplicateIp) {
       return res.status(409).json({ error: 'Camera IP already exists' });
     }
 
     await db.run(
       `UPDATE cameras
-       SET name = ?, ip = ?, stream_name = ?, web_url = ?, width = ?, height = ?, fps = ?
+       SET name = ?, ip = ?, source_type = ?, stream_name = ?, web_url = ?, width = ?, height = ?, fps = ?
        WHERE id = ?`,
       payload.name,
-      payload.ip,
+      payload.source_type === 'rtsp' ? null : payload.ip,
+      payload.source_type,
       payload.stream_name,
       payload.web_url,
       payload.width,
@@ -931,6 +979,9 @@ router.put('/cameras/:id', async (req, res) => {
 
     return res.json(response);
   } catch (error) {
+    if (error instanceof ApiError) {
+      return res.status(error.status).json({ error: error.message });
+    }
     if (String(error.message).includes('SQLITE_CONSTRAINT') || String(error.message).includes('UNIQUE constraint failed')) {
       return res.status(409).json({ error: 'Camera IP already exists' });
     }

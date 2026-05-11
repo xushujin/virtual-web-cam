@@ -6,6 +6,7 @@ ARG GO2RTC_VERSION=1.9.14
 ENV DEBIAN_FRONTEND=noninteractive \
     WEB_URL=https://www.baidu.com \
     STREAM_NAME=screen01 \
+    OUTPUT_MODE=onvif \
     WIDTH=1280 \
     HEIGHT=720 \
     FPS=15 \
@@ -14,6 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GO2RTC_RTSP_PORT=554 \
     GO2RTC_API_PORT=80 \
     GO2RTC_WEBRTC_PORT=8555 \
+    RTSP_PUSH_URL= \
     CHROME_BIN=/opt/google/chrome/chrome
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

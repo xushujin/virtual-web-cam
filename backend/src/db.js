@@ -62,6 +62,7 @@ async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       ip TEXT UNIQUE,
+      source_type TEXT DEFAULT 'camera' CHECK (source_type IN ('camera', 'rtsp')),
       stream_name TEXT,
       web_url TEXT,
       width INTEGER DEFAULT 1280,
@@ -109,6 +110,10 @@ async function initDb() {
 
   if (!cameraColumns.some((column) => column.name === 'display_region')) {
     await api.exec('ALTER TABLE cameras ADD COLUMN display_region TEXT DEFAULT NULL;');
+  }
+
+  if (!cameraColumns.some((column) => column.name === 'source_type')) {
+    await api.exec("ALTER TABLE cameras ADD COLUMN source_type TEXT DEFAULT 'camera';");
   }
 
   const matrixSetting = await api.get('SELECT value FROM settings WHERE key = ?', 'screen_matrix');

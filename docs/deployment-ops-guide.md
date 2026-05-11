@@ -11,17 +11,28 @@
 部署完成后，现场人员可以通过浏览器完成以下操作：
 
 - 创建项目和矩阵屏幕规格。
-- 创建、启动、停止、重启、删除网页摄像头。
+- 创建、启动、停止、重启、删除网页视频源。
 - 查看容器日志。
 - 获取 RTSP、ONVIF、go2rtc 地址。
 - 维护摄像头和矩阵屏幕的绑定关系。
 
-每一路摄像头最终表现为一个独立 IP 的虚拟摄像头：
+系统支持两类视频源：
+
+- ONVIF 摄像头：每一路最终表现为一个独立 IP 的虚拟摄像头。
+- RTSP 流源：多路共享宿主机 IP 和 `554/tcp`，通过不同 `/<stream_name>` 区分，不提供 ONVIF。
+
+ONVIF 摄像头示例：
 
 ```text
 RTSP:  rtsp://192.168.5.211:554/screen01
 ONVIF: http://192.168.5.211/onvif/device_service
 Web:   http://192.168.5.211
+```
+
+RTSP 流源示例：
+
+```text
+RTSP:  rtsp://192.168.5.111:554/screen01
 ```
 
 ## 2. 部署前检查
@@ -70,9 +81,10 @@ default via 192.168.5.1
 ```text
 5177/tcp  前端管理页面
 8177/tcp  后端 API
+554/tcp   共享 RTSP 网关。只有创建 RTSP 流源时才会占用
 ```
 
-摄像头容器使用独立 macvlan IP，不需要在宿主机映射 `80`、`554`。
+ONVIF 摄像头容器使用独立 macvlan IP，不需要在宿主机映射 `80`、`554`。RTSP 流源使用共享网关容器，网关会把 `554/tcp` 映射到宿主机。
 
 ## 3. 快速部署
 
@@ -100,7 +112,7 @@ curl http://localhost:8177/api/health
 
 ## 4. 创建 macvlan 网络
 
-macvlan 网络由宿主机 Docker 管理。每个摄像头容器会在该网络上获取一个独立局域网 IP。
+macvlan 网络由宿主机 Docker 管理。每个 ONVIF 摄像头容器会在该网络上获取一个独立局域网 IP。RTSP 流源不使用 macvlan 独立 IP。
 
 ### 4.1 使用脚本
 
@@ -219,7 +231,7 @@ sudo systemctl enable --now virtualwebcam-macvlan-host.service
 192.168.9.0/24
 ```
 
-不需要重新构建 `virtualwebcam:latest` 镜像。需要调整的是宿主机 Docker macvlan 网络、宿主机侧 `macvlan-host` 辅助接口，以及管理后台中每路摄像头的虚拟 IP。
+不需要重新构建 `virtualwebcam:latest` 镜像。需要调整的是宿主机 Docker macvlan 网络、宿主机侧 `macvlan-host` 辅助接口，以及管理后台中 ONVIF 摄像头的虚拟 IP。RTSP 流源不依赖 macvlan 独立 IP，但需要把 `RTSP_GATEWAY_HOST` 改成新宿主机 IP，否则页面生成的 RTSP 地址会仍然指向旧网段。
 
 以下示例假设新环境为：
 
@@ -246,7 +258,7 @@ ip route | grep default
 
 #### 5.4.1 停止并移除旧摄像头容器
 
-摄像头容器绑定了旧 macvlan 网络和旧 IP。迁移网段时建议先删除旧容器，数据库记录可以保留，后续在后台改 IP 后重新启动即可重新创建容器。
+ONVIF 摄像头容器绑定了旧 macvlan 网络和旧 IP。迁移网段时建议先删除旧容器，数据库记录可以保留，后续在后台改 IP 后重新启动即可重新创建容器。RTSP 流源容器可以不删，但修改 `RTSP_GATEWAY_HOST` 后建议重启共享网关和发布器，保证验收环境干净。
 
 ```bash
 docker ps -aq --filter label=virtualwebcam.managed=true | xargs -r docker rm -f
@@ -349,9 +361,11 @@ GATEWAY=192.168.9.1
 IP_RANGE=192.168.9.208/28
 HOST_MACVLAN_IP=192.168.9.210
 ROUTE_CIDR=192.168.9.208/28
+RTSP_GATEWAY_HOST=192.168.9.111
 ```
 
 后端真正创建摄像头容器时主要读取 `DOCKER_NETWORK`，只要网络名仍为 `onvif_macvlan`，通常不需要修改后端配置。
+如果后台以开发模式运行，重启后端时也要带上新的 `RTSP_GATEWAY_HOST`。
 
 #### 5.4.6 修改摄像头虚拟 IP
 
@@ -380,6 +394,8 @@ sqlite3 backend/data/virtualwebcam.db \
 ```
 
 执行 SQL 后刷新管理后台，再逐路启动或批量启动摄像头。
+
+RTSP 流源的 `ip` 为空，不需要改摄像头 IP；只要后端的 `RTSP_GATEWAY_HOST` 已更新，列表中的 RTSP 地址会按新的宿主机 IP 生成。
 
 #### 5.4.7 验证迁移结果
 
@@ -463,6 +479,10 @@ SQLITE_PATH=./data/virtualwebcam.db \
 DOCKER_NETWORK=onvif_macvlan \
 DOCKER_EGRESS_NETWORK=bridge \
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
+CAMERA_RTSP_PORT=554 \
+RTSP_GATEWAY_HOST=192.168.5.111 \
+RTSP_GATEWAY_PORT=554 \
+RTSP_NETWORK=virtualwebcam_rtsp \
 npm run dev
 ```
 
@@ -495,22 +515,23 @@ API_TOKEN="change-me" docker compose up -d --build manager-backend manager-front
 localStorage.setItem('virtualwebcam-api-token', 'change-me')
 ```
 
-## 9. 创建摄像头
+## 9. 创建视频源
 
-### 9.1 通过网页创建
+### 9.1 通过网页创建 ONVIF 摄像头
 
 1. 打开 `http://192.168.5.111:5177`。
 2. 进入项目。
 3. 打开“摄像头管理”。
 4. 点击“新增摄像头”。
-5. 填写：
+5. 源类型选择“ONVIF 摄像头（独立 IP）”。
+6. 填写：
    - 名称：`web-cam-01`
    - 虚拟 IP：`192.168.5.211`
    - 网页 URL：业务网页地址
    - 流名称：`screen01`
    - 分辨率：`1280 x 720`
    - FPS：`15`
-6. 点击创建。
+7. 点击创建。
 
 创建成功后，列表会显示：
 
@@ -520,12 +541,38 @@ RTSP：rtsp://192.168.5.211:554/screen01
 ONVIF：http://192.168.5.211/onvif/device_service
 ```
 
-### 9.2 通过 API 创建
+### 9.2 通过网页创建 RTSP 流源
+
+当现场 IP 地址不足，或者中控支持直接 RTSP 接入时，可以创建 RTSP 流源：
+
+1. 打开 `http://192.168.5.111:5177`。
+2. 进入项目。
+3. 打开“摄像头管理”。
+4. 点击“新增摄像头”。
+5. 源类型选择“RTSP 流源（共享 IP + 流路径）”。
+6. 填写：
+   - 名称：`rtsp-screen-01`
+   - 网页 URL：业务网页地址
+   - 流名称：`screen01`
+   - 分辨率：`1280 x 720`
+   - FPS：`15`
+7. 点击创建。
+
+创建成功后，系统会自动创建或复用共享网关容器 `virtualwebcam-rtsp-gateway`，列表会显示：
+
+```text
+状态：运行中
+RTSP：rtsp://192.168.5.111:554/screen01
+ONVIF：无
+```
+
+### 9.3 通过 API 创建 ONVIF 摄像头
 
 ```bash
 curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
   -H 'Content-Type: application/json' \
   -d '{
+    "source_type": "camera",
     "name": "web-cam-01",
     "ip": "192.168.5.211",
     "stream_name": "screen01",
@@ -536,7 +583,24 @@ curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
   }'
 ```
 
-### 9.3 单容器手工验证
+### 9.4 通过 API 创建 RTSP 流源
+
+```bash
+curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "source_type": "rtsp",
+    "name": "rtsp-screen-01",
+    "ip": null,
+    "stream_name": "screen01",
+    "web_url": "https://www.baidu.com",
+    "width": 1280,
+    "height": 720,
+    "fps": 15
+  }'
+```
+
+### 9.5 单容器手工验证 ONVIF 摄像头
 
 绕过管理后台直接运行：
 
@@ -566,6 +630,39 @@ docker start web-cam-01
 
 管理后台创建容器时会自动完成类似动作。
 
+### 9.6 手工验证 RTSP 网关模式
+
+先创建共享 bridge 网络：
+
+```bash
+docker network create virtualwebcam_rtsp 2>/dev/null || true
+```
+
+共享 RTSP 网关：
+
+```bash
+docker run -d \
+  --name virtualwebcam-rtsp-gateway \
+  --network virtualwebcam_rtsp \
+  -p 554:554 \
+  -e OUTPUT_MODE=rtsp-gateway \
+  -e MEDIAMTX_RTSP_PORT=554 \
+  virtualwebcam:latest
+```
+
+一路 RTSP 发布器：
+
+```bash
+docker run -d \
+  --name rtsp-screen-01 \
+  --network virtualwebcam_rtsp \
+  -e OUTPUT_MODE=rtsp-publisher \
+  -e WEB_URL="https://www.baidu.com" \
+  -e STREAM_NAME="screen01" \
+  -e RTSP_PUSH_URL="rtsp://virtualwebcam-rtsp-gateway:554/screen01" \
+  virtualwebcam:latest
+```
+
 ## 10. 验证方法
 
 ### 10.1 容器状态
@@ -576,6 +673,8 @@ docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}
 ```
 
 ### 10.2 go2rtc Web
+
+该验证只适用于 ONVIF 摄像头。
 
 ```bash
 curl -I http://192.168.5.211
@@ -595,6 +694,12 @@ http://192.168.5.211
 mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 ```
 
+RTSP 流源使用宿主机共享网关地址：
+
+```bash
+mpv --rtsp-transport=tcp rtsp://192.168.5.111:554/screen01
+```
+
 如果使用 ffplay：
 
 ```bash
@@ -604,6 +709,8 @@ ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
 注意：部分播放器在容器重启或网页 URL 切换后可能停留历史帧，需要关闭后重新打开。mpv 在源重启时通常会退出，更适合作为验收工具。
 
 ### 10.4 ONVIF
+
+该验证只适用于 ONVIF 摄像头。RTSP 流源没有 ONVIF 地址。
 
 ONVIF Device Manager 手动添加：
 
@@ -717,7 +824,7 @@ docker compose start manager-backend
 - 矩阵规格。
 - 摄像头配置。
 - 屏幕绑定。
-- RTSP/ONVIF 地址。
+- RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址。
 
 导入时如果 IP 冲突，后端会在同网段内自动寻找可用 IP 并返回重映射结果。
 
@@ -913,11 +1020,36 @@ http://192.168.5.211/onvif/device_service
 
 如果手动添加成功、Live Video 正常，说明 ONVIF 接入链路可用。自动发现依赖 UDP 3702 和网络广播策略，需要单独排查。
 
+### 15.9 RTSP 网关 554 端口被占用
+
+RTSP 流源会启动共享网关容器，并默认映射宿主机 `554/tcp`。如果创建 RTSP 流源失败，日志或接口返回端口冲突，需要检查：
+
+```bash
+ss -lntp | grep ':554'
+docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep 554
+```
+
+处理方式：
+
+- 停掉占用 `554/tcp` 的无关服务。
+- 或修改 `.env` 中的 `RTSP_GATEWAY_PORT`，例如改为 `8554`，然后重启管理后台。注意中控和播放器里的 RTSP 地址也要同步使用新端口。
+
+### 15.10 RTSP 流源没有 ONVIF 地址
+
+这是预期行为。RTSP 流源用于 IP 不足或中控支持 RTSP 直连的场景，只输出：
+
+```text
+rtsp://<宿主机IP>:554/<stream_name>
+```
+
+如果现场必须用 ONVIF Device Manager 或中控 ONVIF 协议添加，请创建 ONVIF 摄像头源。
+
 ## 16. 资源规划
 
 估算原则：
 
-- 每一路至少一个 Chrome、一个 FFmpeg、一个 MediaMTX、一个 go2rtc。
+- ONVIF 摄像头每一路包含一个 Chrome、一个 FFmpeg、一个 MediaMTX、一个 go2rtc。
+- RTSP 流源每一路包含一个 Chrome 和一个 FFmpeg；所有 RTSP 流源共享一个 MediaMTX 网关。
 - 网页越复杂，CPU 和内存越高。
 - 分辨率越高、FPS 越高，FFmpeg 编码压力越大。
 
@@ -956,12 +1088,14 @@ mpv --rtsp-transport=tcp rtsp://<ip>:554/<stream>
 - `/api/health` 显示 Docker、网络和镜像可用。
 - `docker network inspect onvif_macvlan` 正确。
 - 管理后台可创建项目。
-- 管理后台可创建摄像头。
+- 管理后台可创建 ONVIF 摄像头。
+- 管理后台可创建 RTSP 流源。
 - 摄像头容器状态为 `running`。
 - 摄像头容器健康状态为 `healthy`。
 - 浏览器能打开 `http://<camera_ip>`。
 - `mpv` 能播放 RTSP。
 - ODM 手动添加 ONVIF 成功。
+- RTSP 流源能通过 `rtsp://<host_ip>:554/<stream>` 播放。
 - 摄像头列表状态刷新准确。
 - 运行中的摄像头启动按钮禁用，停止/重启可用。
 - 矩阵绑定不允许重复占用屏幕。

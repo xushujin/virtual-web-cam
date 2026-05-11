@@ -172,7 +172,7 @@
       <p class="brand">VirtualWebCam</p>
       <nav class="nav"><a href="./index.html">文档中心</a><a aria-current="page" href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a></nav>
       <p class="toc-title">目录</p>
-      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-开发技术文档">VirtualWebCam 开发技术文档</a><a class="toc-level-2" href="#1-项目目标">1. 项目目标</a><a class="toc-level-2" href="#2-总体架构">2. 总体架构</a><a class="toc-level-2" href="#3-源码结构">3. 源码结构</a><a class="toc-level-2" href="#4-容器模板设计">4. 容器模板设计</a><a class="toc-level-3" href="#4-1-镜像内容">4.1 镜像内容</a><a class="toc-level-3" href="#4-2-环境变量">4.2 环境变量</a><a class="toc-level-3" href="#4-3-entrypoint-主流程">4.3 entrypoint 主流程</a><a class="toc-level-3" href="#4-4-健康检查">4.4 健康检查</a><a class="toc-level-2" href="#5-后端设计">5. 后端设计</a><a class="toc-level-3" href="#5-1-服务入口">5.1 服务入口</a><a class="toc-level-3" href="#5-2-docker-编排">5.2 Docker 编排</a><a class="toc-level-3" href="#5-3-双网络策略">5.3 双网络策略</a><a class="toc-level-3" href="#5-4-数据库">5.4 数据库</a><a class="toc-level-3" href="#5-5-数据表">5.5 数据表</a><a class="toc-level-3" href="#5-6-业务规则">5.6 业务规则</a><a class="toc-level-2" href="#6-api-说明">6. API 说明</a><a class="toc-level-3" href="#6-1-健康检查">6.1 健康检查</a><a class="toc-level-3" href="#6-2-项目">6.2 项目</a><a class="toc-level-3" href="#6-3-摄像头">6.3 摄像头</a><a class="toc-level-3" href="#6-4-矩阵">6.4 矩阵</a><a class="toc-level-3" href="#6-5-审计">6.5 审计</a><a class="toc-level-2" href="#7-前端设计">7. 前端设计</a><a class="toc-level-3" href="#7-1-项目入口">7.1 项目入口</a><a class="toc-level-3" href="#7-2-摄像头管理">7.2 摄像头管理</a><a class="toc-level-3" href="#7-3-矩阵绑定">7.3 矩阵绑定</a><a class="toc-level-2" href="#8-本地开发">8. 本地开发</a><a class="toc-level-3" href="#8-1-准备依赖">8.1 准备依赖</a><a class="toc-level-3" href="#8-2-启动后端">8.2 启动后端</a><a class="toc-level-3" href="#8-3-启动前端">8.3 启动前端</a><a class="toc-level-3" href="#8-4-构建镜像">8.4 构建镜像</a><a class="toc-level-3" href="#8-5-代码校验">8.5 代码校验</a><a class="toc-level-2" href="#9-关键配置">9. 关键配置</a><a class="toc-level-2" href="#10-扩展建议">10. 扩展建议</a><a class="toc-level-3" href="#10-1-增加认证">10.1 增加认证</a><a class="toc-level-3" href="#10-2-增加-ws-discovery">10.2 增加 WS-Discovery</a><a class="toc-level-3" href="#10-3-大规模摄像头">10.3 大规模摄像头</a><a class="toc-level-3" href="#10-4-任务队列">10.4 任务队列</a><a class="toc-level-3" href="#10-5-权限模型">10.5 权限模型</a><a class="toc-level-2" href="#11-已知边界">11. 已知边界</a></nav>
+      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-开发技术文档">VirtualWebCam 开发技术文档</a><a class="toc-level-2" href="#1-项目目标">1. 项目目标</a><a class="toc-level-2" href="#2-总体架构">2. 总体架构</a><a class="toc-level-2" href="#3-源码结构">3. 源码结构</a><a class="toc-level-2" href="#4-容器模板设计">4. 容器模板设计</a><a class="toc-level-3" href="#4-1-镜像内容">4.1 镜像内容</a><a class="toc-level-3" href="#4-2-环境变量">4.2 环境变量</a><a class="toc-level-3" href="#4-3-entrypoint-主流程">4.3 entrypoint 主流程</a><a class="toc-level-3" href="#4-4-健康检查">4.4 健康检查</a><a class="toc-level-2" href="#5-后端设计">5. 后端设计</a><a class="toc-level-3" href="#5-1-服务入口">5.1 服务入口</a><a class="toc-level-3" href="#5-2-docker-编排">5.2 Docker 编排</a><a class="toc-level-3" href="#5-3-双网络策略">5.3 双网络策略</a><a class="toc-level-3" href="#5-4-rtsp-共享网关策略">5.4 RTSP 共享网关策略</a><a class="toc-level-3" href="#5-5-数据库">5.5 数据库</a><a class="toc-level-3" href="#5-6-数据表">5.6 数据表</a><a class="toc-level-3" href="#5-7-业务规则">5.7 业务规则</a><a class="toc-level-2" href="#6-api-说明">6. API 说明</a><a class="toc-level-3" href="#6-1-健康检查">6.1 健康检查</a><a class="toc-level-3" href="#6-2-项目">6.2 项目</a><a class="toc-level-3" href="#6-3-摄像头">6.3 摄像头</a><a class="toc-level-3" href="#6-4-矩阵">6.4 矩阵</a><a class="toc-level-3" href="#6-5-审计">6.5 审计</a><a class="toc-level-2" href="#7-前端设计">7. 前端设计</a><a class="toc-level-3" href="#7-1-项目入口">7.1 项目入口</a><a class="toc-level-3" href="#7-2-摄像头管理">7.2 摄像头管理</a><a class="toc-level-3" href="#7-3-矩阵绑定">7.3 矩阵绑定</a><a class="toc-level-2" href="#8-本地开发">8. 本地开发</a><a class="toc-level-3" href="#8-1-准备依赖">8.1 准备依赖</a><a class="toc-level-3" href="#8-2-启动后端">8.2 启动后端</a><a class="toc-level-3" href="#8-3-启动前端">8.3 启动前端</a><a class="toc-level-3" href="#8-4-构建镜像">8.4 构建镜像</a><a class="toc-level-3" href="#8-5-代码校验">8.5 代码校验</a><a class="toc-level-2" href="#9-关键配置">9. 关键配置</a><a class="toc-level-2" href="#10-扩展建议">10. 扩展建议</a><a class="toc-level-3" href="#10-1-增加认证">10.1 增加认证</a><a class="toc-level-3" href="#10-2-增加-ws-discovery">10.2 增加 WS-Discovery</a><a class="toc-level-3" href="#10-3-大规模摄像头">10.3 大规模摄像头</a><a class="toc-level-3" href="#10-4-任务队列">10.4 任务队列</a><a class="toc-level-3" href="#10-5-权限模型">10.5 权限模型</a><a class="toc-level-2" href="#11-已知边界">11. 已知边界</a></nav>
     </aside>
     <main><h1 id="virtualwebcam-开发技术文档"><a class="anchor" href="#virtualwebcam-开发技术文档">#</a>VirtualWebCam 开发技术文档</h1>
 <p>版本：1.0 适用项目：VirtualWebCam 网页转 RTSP + 虚拟 ONVIF 摄像头管理系统 默认端口：前端 <code>5177</code>，后端 <code>8177</code> 默认网络：<code>br0 = 192.168.5.111/24</code>，macvlan 网络 <code>onvif_macvlan</code></p>
@@ -180,21 +180,27 @@
 <p>VirtualWebCam 的目标是把任意可被 Chrome 渲染的网页转换为一路标准视频源，并让这一路视频源像真实网络摄像头一样被中控、ONVIF Device Manager 或播放器接入。</p>
 <p>系统分为两层：</p>
 <ul>
-<li>容器模板：构建 <code>virtualwebcam:latest</code> 镜像。一个容器对应一路虚拟摄像头，容器内部完成网页渲染、屏幕采集、RTSP 推流、ONVIF 输出。</li>
-<li>管理后台：Node.js + Express + SQLite + Vue3。负责项目管理、摄像头实例管理、Docker 容器生命周期、矩阵屏幕绑定、日志和审计。</li>
+<li>容器模板：构建通用 <code>virtualwebcam:latest</code> 镜像。镜像支持 ONVIF 独立 IP 摄像头、RTSP 发布器和共享 RTSP 网关三种运行角色。</li>
+<li>管理后台：Node.js + Express + SQLite + Vue3。负责项目管理、视频源实例管理、Docker 容器生命周期、矩阵屏幕绑定、资源监控、日志和审计。</li>
 </ul>
 <p>核心交付能力：</p>
 <ul>
 <li>用户通过网页创建虚拟摄像头，不需要手写 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc 命令。</li>
-<li>每一路摄像头拥有独立 IP，便于中控按 IP 区分摄像头。</li>
-<li>输出地址稳定：</li>
+<li>支持两类视频源：</li>
+<li>ONVIF 摄像头：每一路拥有独立 IP，便于中控按 IP 或 ONVIF 设备区分摄像头。</li>
+<li>RTSP 流源：多路共享宿主机 RTSP 网关 IP，通过不同 <code>/&lt;stream_name&gt;</code> 区分，适合 IP 资源不足的项目。</li>
+<li>ONVIF 摄像头输出地址稳定：</li>
 <li>RTSP：<code>rtsp://&lt;camera_ip&gt;:554/&lt;stream_name&gt;</code></li>
 <li>ONVIF：<code>http://&lt;camera_ip&gt;/onvif/device_service</code></li>
 <li>go2rtc Web：<code>http://&lt;camera_ip&gt;</code></li>
+<li>RTSP 流源输出地址稳定：</li>
+<li>RTSP：<code>rtsp://&lt;host_ip&gt;:554/&lt;stream_name&gt;</code></li>
+<li>不提供 ONVIF 和 go2rtc Web。</li>
 <li>支持多项目、多矩阵规格和摄像头与矩阵屏幕区域绑定。</li>
 </ul>
 <h2 id="2-总体架构"><a class="anchor" href="#2-总体架构">#</a>2. 总体架构</h2>
-<p>每一路摄像头对应一个 Docker 容器。容器由管理后台创建，挂在两个网络上：</p>
+<p>视频源由管理后台创建，按 <code>source_type</code> 分成两条链路。</p>
+<p>ONVIF 摄像头一路对应一个 Docker 容器，挂在两个网络上：</p>
 <ul>
 <li><code>bridge</code>：用于容器访问外网或内网 Web 页面。</li>
 <li><code>onvif_macvlan</code>：用于让容器获得独立虚拟摄像头 IP，对外提供 RTSP、ONVIF 和 go2rtc Web。</li>
@@ -215,12 +221,26 @@ go2rtc 从 MediaMTX 拉流
 go2rtc 对外输出 RTSP + ONVIF + Web UI
     ↓
 中控/ODM/mpv 使用 camera_ip 接入</code></pre>
+<p>RTSP 流源由一个共享网关容器和多路发布器容器组成：</p>
+<pre><code class="language-text">用户配置 WEB_URL + stream_name
+    ↓
+管理后台确保 virtualwebcam-rtsp-gateway 存在并运行
+    ↓
+网关容器以 OUTPUT_MODE=rtsp-gateway 启动 MediaMTX，映射宿主机 554/tcp
+    ↓
+每一路 RTSP 源容器以 OUTPUT_MODE=rtsp-publisher 启动 Chrome + Xvfb + FFmpeg
+    ↓
+FFmpeg 推送到 rtsp://virtualwebcam-rtsp-gateway:554/&lt;stream_name&gt;
+    ↓
+播放器/中控使用 rtsp://&lt;host_ip&gt;:554/&lt;stream_name&gt; 接入</code></pre>
 <p>容器内部端口：</p>
-<pre><code class="language-text">127.0.0.1:8556  MediaMTX RTSP 输入，仅容器内部使用
+<pre><code class="language-text">0.0.0.0:8556    MediaMTX RTSP 输入，FFmpeg/go2rtc 在容器内通过 127.0.0.1 使用
 0.0.0.0:554   go2rtc RTSP 输出
 0.0.0.0:80     go2rtc Web/API/ONVIF
 0.0.0.0:8555   go2rtc WebRTC
 3702/udp       ONVIF WS-Discovery 预留</code></pre>
+<p>RTSP 网关容器只启动 MediaMTX，默认监听：</p>
+<pre><code class="language-text">0.0.0.0:554   共享 RTSP 输入与输出</code></pre>
 <h2 id="3-源码结构"><a class="anchor" href="#3-源码结构">#</a>3. 源码结构</h2>
 <pre><code class="language-text">.
 ├── container/
@@ -268,9 +288,11 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 <p>镜像构建完成后标签为：</p>
 <pre><code class="language-text">virtualwebcam:latest</code></pre>
 <h3 id="4-2-环境变量"><a class="anchor" href="#4-2-环境变量">#</a>4.2 环境变量</h3>
-<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率</td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
+<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率</td></tr><tr><td><code>OUTPUT_MODE</code></td><td><code>onvif</code></td><td>运行角色：<code>onvif</code>、<code>rtsp-publisher</code>、<code>rtsp-gateway</code></td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_PUSH_URL</code></td><td>空</td><td><code>rtsp-publisher</code> 模式下 FFmpeg 推送目标</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
 <h3 id="4-3-entrypoint-主流程"><a class="anchor" href="#4-3-entrypoint-主流程">#</a>4.3 entrypoint 主流程</h3>
-<p><code>container/entrypoint.sh</code> 的执行顺序：</p>
+<p><code>container/entrypoint.sh</code> 通过 <code>OUTPUT_MODE</code> 控制角色：</p>
+<table><thead><tr><th>模式</th><th>作用</th><th>主要进程</th><th>对外能力</th></tr></thead><tbody><tr><td><code>onvif</code></td><td>默认独立 IP 摄像头</td><td>Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc</td><td>RTSP + ONVIF + go2rtc Web</td></tr><tr><td><code>rtsp-gateway</code></td><td>共享 RTSP 网关</td><td>MediaMTX</td><td><code>rtsp://&lt;host_ip&gt;:554/&lt;stream&gt;</code></td></tr><tr><td><code>rtsp-publisher</code></td><td>网页转 RTSP 发布器</td><td>Xvfb、openbox、Chrome、FFmpeg</td><td>推送到共享网关</td></tr></tbody></table>
+<p><code>onvif</code> 模式执行顺序：</p>
 <ol>
 <li>校验环境变量。</li>
 <li>清理 Chrome profile：避免容器重启后恢复旧页面。</li>
@@ -282,23 +304,41 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 <li>启动 FFmpeg，把 Xvfb 画面推入 <code>rtsp://127.0.0.1:8556/&lt;stream_name&gt;</code>。</li>
 <li>监控子进程。任一关键进程退出时，容器退出，由 Docker <code>unless-stopped</code> 策略重启。</li>
 </ol>
+<p><code>rtsp-publisher</code> 模式不会启动 MediaMTX 和 go2rtc，FFmpeg 直接推送到 <code>RTSP_PUSH_URL</code>。 <code>rtsp-gateway</code> 模式不会启动 Xvfb、Chrome、FFmpeg 和 go2rtc，只启动 MediaMTX。</p>
 <p>关键设计点：</p>
 <ul>
 <li>Chrome 使用 <code>--ozone-platform=x11</code>，保证网页进入 Xvfb，不进入真实桌面。</li>
 <li>FFmpeg 使用 <code>libx264 + baseline</code>，尽量兼容 ONVIF/RTSP 客户端。</li>
-<li>MediaMTX 只监听 <code>127.0.0.1:8556</code>，不暴露给外部。</li>
+<li>MediaMTX 监听 <code>0.0.0.0:8556</code>，但最终对接入口仍然是 go2rtc 的 <code>554</code> 和 <code>80</code>；FFmpeg/go2rtc 在容器内通过 <code>127.0.0.1:8556</code> 使用它。</li>
 <li>go2rtc 对外提供 RTSP 与 ONVIF，是最终对接入口。</li>
 <li>Chrome profile 每次启动都会重建，修改网页 URL 后重启容器即可看到新页面。</li>
+<li>FFmpeg 推流命令已移除 <code>-tune zerolatency</code>，当前保持 <code>libx264</code>、<code>veryfast</code>、<code>baseline</code>、<code>GOP=FPS*2</code>。</li>
 </ul>
+<p>当前 FFmpeg 核心参数：</p>
+<pre><code class="language-bash">ffmpeg -hide_banner -loglevel info -re \
+  -f x11grab \
+  -draw_mouse 0 \
+  -video_size &quot;${WIDTH}x${HEIGHT}&quot; \
+  -framerate &quot;$FPS&quot; \
+  -i &quot;:${DISPLAY_ID}.0+0,0&quot; \
+  -c:v libx264 \
+  -preset veryfast \
+  -pix_fmt yuv420p \
+  -profile:v baseline \
+  -level 3.1 \
+  -g &quot;$((FPS * 2))&quot; \
+  -bf 0 \
+  -an \
+  -rtsp_transport tcp \
+  -f rtsp &quot;$FFMPEG_OUTPUT_URL&quot;</code></pre>
 <h3 id="4-4-健康检查"><a class="anchor" href="#4-4-健康检查">#</a>4.4 健康检查</h3>
-<p><code>container/healthcheck.sh</code> 默认检查：</p>
+<p><code>container/healthcheck.sh</code> 按模式检查：</p>
 <ul>
-<li>go2rtc HTTP 端口可连接。</li>
-<li>go2rtc RTSP 端口可连接。</li>
-<li>MediaMTX 内部 RTSP 端口可连接。</li>
-<li>Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc 进程存在。</li>
+<li><code>onvif</code>：检查 Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc 进程，并检查 go2rtc HTTP、go2rtc RTSP、MediaMTX RTSP 端口。</li>
+<li><code>rtsp-publisher</code>：检查 Xvfb、openbox、Chrome、FFmpeg 进程。</li>
+<li><code>rtsp-gateway</code>：检查 MediaMTX 进程和 RTSP 端口。</li>
 </ul>
-<p>如果 <code>RTSP_HEALTHCHECK=1</code>，还会使用 ffprobe 验证本地 RTSP 是否能返回视频流。该检查更严格，但在网页加载慢或首帧慢的情况下可能造成误判，生产默认保持 <code>0</code>。</p>
+<p>如果 <code>OUTPUT_MODE=onvif</code> 且 <code>RTSP_HEALTHCHECK=1</code>，还会使用 ffprobe 验证本地 RTSP 是否能返回视频流。该检查更严格，但在网页加载慢或首帧慢的情况下可能造成误判，生产默认保持 <code>0</code>。</p>
 <h2 id="5-后端设计"><a class="anchor" href="#5-后端设计">#</a>5. 后端设计</h2>
 <h3 id="5-1-服务入口"><a class="anchor" href="#5-1-服务入口">#</a>5.1 服务入口</h3>
 <p><code>backend/src/server.js</code>：</p>
@@ -318,7 +358,9 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 <ul>
 <li>访问 Docker socket。</li>
 <li>检查 Docker daemon、macvlan 网络和镜像是否存在。</li>
-<li>创建摄像头容器。</li>
+<li>创建 ONVIF 摄像头容器。</li>
+<li>懒启动共享 RTSP 网关容器。</li>
+<li>创建 RTSP 发布器容器。</li>
 <li>启动、停止、重启、删除容器。</li>
 <li>根据 Docker 状态同步摄像头状态。</li>
 <li>读取容器日志。</li>
@@ -330,7 +372,8 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 <pre><code class="language-text">virtualwebcam-1-web-cam-01</code></pre>
 <p>容器标签：</p>
 <pre><code class="language-text">virtualwebcam.managed=true
-virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
+virtualwebcam.cameraId=&lt;camera_id&gt;
+virtualwebcam.sourceType=camera|rtsp</code></pre>
 <p>后端通过标签查找容器，避免依赖易变的容器名。</p>
 <h3 id="5-3-双网络策略"><a class="anchor" href="#5-3-双网络策略">#</a>5.3 双网络策略</h3>
 <p>创建容器时默认连接：</p>
@@ -345,7 +388,18 @@ virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
 <li>macvlan 仍然提供独立摄像头 IP，供中控、ODM、播放器访问。</li>
 </ul>
 <p>该策略解决了“go2rtc 可以访问，但 Chrome 页面打不开”的常见问题。</p>
-<h3 id="5-4-数据库"><a class="anchor" href="#5-4-数据库">#</a>5.4 数据库</h3>
+<h3 id="5-4-rtsp-共享网关策略"><a class="anchor" href="#5-4-rtsp-共享网关策略">#</a>5.4 RTSP 共享网关策略</h3>
+<p>当 <code>source_type=rtsp</code> 时，后端不会分配 macvlan IP，而是：</p>
+<ol>
+<li>创建或复用 Docker bridge 网络 <code>RTSP_NETWORK</code>，默认 <code>virtualwebcam_rtsp</code>。</li>
+<li>创建或启动网关容器 <code>RTSP_GATEWAY_CONTAINER</code>，默认 <code>virtualwebcam-rtsp-gateway</code>。</li>
+<li>网关容器使用同一个 <code>virtualwebcam:latest</code> 镜像，并设置 <code>OUTPUT_MODE=rtsp-gateway</code>。</li>
+<li>网关容器把 <code>RTSP_GATEWAY_PORT</code> 映射到宿主机，默认 <code>554/tcp</code>。</li>
+<li>每一路 RTSP 源容器设置 <code>OUTPUT_MODE=rtsp-publisher</code>，并把 FFmpeg 推到 <code>rtsp://virtualwebcam-rtsp-gateway:554/&lt;stream_name&gt;</code>。</li>
+<li>后端返回的 RTSP 地址为 <code>rtsp://&lt;RTSP_GATEWAY_HOST&gt;:&lt;RTSP_GATEWAY_PORT&gt;/&lt;stream_name&gt;</code>。</li>
+</ol>
+<p>RTSP 流源没有 ONVIF 地址，也没有 go2rtc Web 地址。<code>stream_name</code> 在所有 RTSP 流源中必须唯一，否则会覆盖共享网关里的同名路径。</p>
+<h3 id="5-5-数据库"><a class="anchor" href="#5-5-数据库">#</a>5.5 数据库</h3>
 <p>SQLite 数据库默认路径：</p>
 <pre><code class="language-text">backend/data/virtualwebcam.db</code></pre>
 <p>Docker Compose 部署时挂载到：</p>
@@ -356,22 +410,24 @@ virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
 <li><code>foreign_keys = ON</code></li>
 <li><code>busy_timeout = 5000</code></li>
 </ul>
-<h3 id="5-5-数据表"><a class="anchor" href="#5-5-数据表">#</a>5.5 数据表</h3>
+<h3 id="5-6-数据表"><a class="anchor" href="#5-6-数据表">#</a>5.6 数据表</h3>
 <h4 id="cameras"><a class="anchor" href="#cameras">#</a>cameras</h4>
-<table><thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td><code>id</code></td><td>INTEGER</td><td>主键</td></tr><tr><td><code>name</code></td><td>TEXT</td><td>摄像头名称</td></tr><tr><td><code>ip</code></td><td>TEXT UNIQUE</td><td>虚拟摄像头 IP</td></tr><tr><td><code>stream_name</code></td><td>TEXT</td><td>RTSP 路径名</td></tr><tr><td><code>web_url</code></td><td>TEXT</td><td>网页地址</td></tr><tr><td><code>width</code></td><td>INTEGER</td><td>分辨率宽</td></tr><tr><td><code>height</code></td><td>INTEGER</td><td>分辨率高</td></tr><tr><td><code>fps</code></td><td>INTEGER</td><td>帧率</td></tr><tr><td><code>status</code></td><td>TEXT</td><td><code>running</code>、<code>stopped</code>、<code>error</code></td></tr><tr><td><code>display_targets</code></td><td>TEXT</td><td>JSON 数组，绑定的屏幕编号</td></tr><tr><td><code>display_region</code></td><td>TEXT</td><td>JSON 对象，矩形围栏区域</td></tr><tr><td><code>project_id</code></td><td>INTEGER</td><td>所属项目</td></tr><tr><td><code>created_at</code></td><td>DATETIME</td><td>创建时间</td></tr></tbody></table>
+<table><thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td><code>id</code></td><td>INTEGER</td><td>主键</td></tr><tr><td><code>name</code></td><td>TEXT</td><td>摄像头名称</td></tr><tr><td><code>ip</code></td><td>TEXT UNIQUE</td><td>虚拟摄像头 IP</td></tr><tr><td><code>source_type</code></td><td>TEXT</td><td><code>camera</code> 表示 ONVIF 独立 IP 摄像头；<code>rtsp</code> 表示共享网关 RTSP 流源</td></tr><tr><td><code>stream_name</code></td><td>TEXT</td><td>RTSP 路径名</td></tr><tr><td><code>web_url</code></td><td>TEXT</td><td>网页地址</td></tr><tr><td><code>width</code></td><td>INTEGER</td><td>分辨率宽</td></tr><tr><td><code>height</code></td><td>INTEGER</td><td>分辨率高</td></tr><tr><td><code>fps</code></td><td>INTEGER</td><td>帧率</td></tr><tr><td><code>status</code></td><td>TEXT</td><td><code>running</code>、<code>stopped</code>、<code>error</code></td></tr><tr><td><code>display_targets</code></td><td>TEXT</td><td>JSON 数组，绑定的屏幕编号</td></tr><tr><td><code>display_region</code></td><td>TEXT</td><td>JSON 对象，矩形围栏区域</td></tr><tr><td><code>project_id</code></td><td>INTEGER</td><td>所属项目</td></tr><tr><td><code>created_at</code></td><td>DATETIME</td><td>创建时间</td></tr></tbody></table>
 <h4 id="projects"><a class="anchor" href="#projects">#</a>projects</h4>
 <table><thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td><code>id</code></td><td>INTEGER</td><td>主键</td></tr><tr><td><code>name</code></td><td>TEXT UNIQUE</td><td>项目名称</td></tr><tr><td><code>rows</code></td><td>INTEGER</td><td>矩阵行数</td></tr><tr><td><code>cols</code></td><td>INTEGER</td><td>矩阵列数</td></tr><tr><td><code>prefix</code></td><td>TEXT</td><td>屏幕编号前缀，默认 <code>屏</code></td></tr><tr><td><code>created_at</code></td><td>DATETIME</td><td>创建时间</td></tr></tbody></table>
 <h4 id="settings"><a class="anchor" href="#settings">#</a>settings</h4>
 <p>兼容历史全局配置，目前保留 <code>screen_matrix</code> 作为默认矩阵配置。</p>
 <h4 id="audit-logs"><a class="anchor" href="#audit-logs">#</a>audit_logs</h4>
 <p>记录项目、摄像头和矩阵绑定的关键操作。</p>
-<h3 id="5-6-业务规则"><a class="anchor" href="#5-6-业务规则">#</a>5.6 业务规则</h3>
+<h3 id="5-7-业务规则"><a class="anchor" href="#5-7-业务规则">#</a>5.7 业务规则</h3>
 <ul>
 <li>单屏绑定：<code>display_targets</code> 只能包含一个屏幕编号，<code>display_region</code> 为 <code>null</code>。</li>
 <li>合并区域绑定：必须提供 <code>display_region</code>，后端根据矩形区域计算 <code>display_targets</code>。</li>
 <li>一个屏幕槽位同一时间只能被一个摄像头占用。</li>
 <li>批量生成只写入数据库，状态为 <code>stopped</code>，不立即启动 Docker 容器。</li>
 <li>单路创建会写入数据库，并尝试启动 Docker 容器。</li>
+<li>ONVIF 摄像头必须填写 <code>ip</code>，且 IP 在 <code>cameras.ip</code> 中唯一。</li>
+<li>RTSP 流源的 <code>ip</code> 为空，<code>stream_name</code> 在 RTSP 流源中必须唯一。</li>
 <li>编辑运行中的摄像头会重建容器，使 URL、分辨率、FPS 和流名生效。</li>
 <li>删除摄像头会删除数据库记录并强制删除对应容器。</li>
 </ul>
@@ -391,8 +447,9 @@ virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
 }</code></pre>
 <h3 id="6-3-摄像头"><a class="anchor" href="#6-3-摄像头">#</a>6.3 摄像头</h3>
 <table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/cameras?project_id=1</code></td><td>摄像头列表，并同步 Docker 状态</td></tr><tr><td>GET</td><td><code>/api/cameras/statuses?project_id=1</code></td><td>轻量刷新状态</td></tr><tr><td>GET</td><td><code>/api/resource-stats?project_id=1</code></td><td>采集摄像头容器 CPU、内存、网络和磁盘读写</td></tr><tr><td>POST</td><td><code>/api/cameras?project_id=1</code></td><td>创建并启动一路摄像头</td></tr><tr><td>POST</td><td><code>/api/cameras/bulk?project_id=1</code></td><td>批量生成摄像头配置，不启动</td></tr><tr><td>PUT</td><td><code>/api/cameras/:id</code></td><td>编辑摄像头配置</td></tr><tr><td>PATCH</td><td><code>/api/cameras/:id/display-targets</code></td><td>更新屏幕绑定</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/start</code></td><td>启动</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/stop</code></td><td>停止</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/restart</code></td><td>重启</td></tr><tr><td>DELETE</td><td><code>/api/cameras/:id</code></td><td>删除</td></tr><tr><td>GET</td><td><code>/api/cameras/:id/logs</code></td><td>获取容器日志</td></tr></tbody></table>
-<p>创建摄像头请求：</p>
+<p>创建 ONVIF 摄像头请求：</p>
 <pre><code class="language-json">{
+  &quot;source_type&quot;: &quot;camera&quot;,
   &quot;name&quot;: &quot;web-cam-01&quot;,
   &quot;ip&quot;: &quot;192.168.5.211&quot;,
   &quot;stream_name&quot;: &quot;screen01&quot;,
@@ -403,6 +460,24 @@ virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
   &quot;display_targets&quot;: [],
   &quot;display_region&quot;: null
 }</code></pre>
+<p>创建 RTSP 流源请求：</p>
+<pre><code class="language-json">{
+  &quot;source_type&quot;: &quot;rtsp&quot;,
+  &quot;name&quot;: &quot;rtsp-screen-01&quot;,
+  &quot;ip&quot;: null,
+  &quot;stream_name&quot;: &quot;screen01&quot;,
+  &quot;web_url&quot;: &quot;https://www.baidu.com&quot;,
+  &quot;width&quot;: 1280,
+  &quot;height&quot;: 720,
+  &quot;fps&quot;: 15,
+  &quot;display_targets&quot;: [],
+  &quot;display_region&quot;: null
+}</code></pre>
+<p>返回结果中：</p>
+<ul>
+<li>ONVIF 摄像头有 <code>rtsp_url</code>、<code>onvif_url</code>、<code>go2rtc_url</code>。</li>
+<li>RTSP 流源只有 <code>rtsp_url</code>，<code>onvif_url</code> 和 <code>go2rtc_url</code> 为 <code>null</code>。</li>
+</ul>
 <p>合并区域绑定请求：</p>
 <pre><code class="language-json">{
   &quot;display_targets&quot;: [1, 2, 3, 9, 10, 11],
@@ -485,12 +560,15 @@ camera.delete</code></pre>
 <li>状态统计。</li>
 <li>搜索。</li>
 <li>按状态筛选。</li>
+<li>源类型展示：ONVIF 摄像头显示独立 IP；RTSP 流源显示共享网关。</li>
+<li>列表字段显隐：默认精简展示名称、IP、网页 URL、状态、操作；可展开资源、投放屏幕、RTSP、ONVIF 等长字段。</li>
+<li>资源监控：展示项目汇总和单路容器的 CPU、内存、网络、磁盘读写。</li>
 <li>单行启动、停止、重启。</li>
-<li>配置面板：日志、编辑、复制、复制 RTSP、复制 ONVIF、打开 go2rtc、删除。</li>
+<li>配置面板：日志、编辑、复制为新视频源、复制 RTSP、复制 ONVIF、复制 mpv 命令、打开 go2rtc、删除。</li>
 <li>批量启动、停止、重启。</li>
 <li>定时状态刷新。</li>
 </ul>
-<p>运行中的摄像头不能再点击启动；已停止的摄像头不能点击停止；重启只对已存在配置的摄像头开放。</p>
+<p>运行中的摄像头不能再点击启动；已停止的摄像头不能点击停止；重启只对已存在配置的摄像头开放。 RTSP 流源没有 ONVIF 和 go2rtc 操作入口。</p>
 <h3 id="7-3-矩阵绑定"><a class="anchor" href="#7-3-矩阵绑定">#</a>7.3 矩阵绑定</h3>
 <p>矩阵绑定页用于维护摄像头与屏幕的管理映射，不直接改变视频流。</p>
 <p>交互规则：</p>
@@ -515,6 +593,10 @@ PORT=8177 \
 DOCKER_NETWORK=onvif_macvlan \
 DOCKER_EGRESS_NETWORK=bridge \
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
+CAMERA_RTSP_PORT=554 \
+RTSP_GATEWAY_HOST=192.168.5.111 \
+RTSP_GATEWAY_PORT=554 \
+RTSP_NETWORK=virtualwebcam_rtsp \
 npm run dev</code></pre>
 <h3 id="8-3-启动前端"><a class="anchor" href="#8-3-启动前端">#</a>8.3 启动前端</h3>
 <pre><code class="language-bash">cd frontend
@@ -536,6 +618,10 @@ npm run build</code></pre>
 <pre><code class="language-env">DOCKER_NETWORK=onvif_macvlan
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest
 CONTAINER_PREFIX=virtualwebcam
+CAMERA_RTSP_PORT=554
+RTSP_GATEWAY_HOST=192.168.5.111
+RTSP_GATEWAY_PORT=554
+RTSP_NETWORK=virtualwebcam_rtsp
 BACKEND_PORT=8177
 FRONTEND_PORT=5177
 HOST_IF=br0
@@ -545,7 +631,7 @@ IP_RANGE=192.168.5.208/28
 HOST_MACVLAN_IP=192.168.5.210
 ROUTE_CIDR=192.168.5.208/28</code></pre>
 <p>后端可用环境变量：</p>
-<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>API_TOKEN</code></td><td>可选 API 令牌</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单</td></tr></tbody></table>
+<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>CAMERA_RTSP_PORT</code></td><td>ONVIF 摄像头容器对外 RTSP 端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_HOST</code></td><td>RTSP 流源对外展示的宿主机 IP</td></tr><tr><td><code>RTSP_GATEWAY_PORT</code></td><td>共享 RTSP 网关宿主机端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_CONTAINER</code></td><td>共享 RTSP 网关容器名，默认 <code>virtualwebcam-rtsp-gateway</code></td></tr><tr><td><code>RTSP_NETWORK</code></td><td>RTSP 网关和发布器之间的 Docker bridge 网络</td></tr><tr><td><code>API_TOKEN</code></td><td>可选 API 令牌</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单</td></tr></tbody></table>
 <p>前端可用环境变量：</p>
 <table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>VITE_API_TOKEN</code></td><td>构建期注入 API Token</td></tr></tbody></table>
 <p>如果不想在构建时注入，也可以在浏览器 LocalStorage 写入：</p>
@@ -576,6 +662,7 @@ ROUTE_CIDR=192.168.5.208/28</code></pre>
 <h2 id="11-已知边界"><a class="anchor" href="#11-已知边界">#</a>11. 已知边界</h2>
 <ul>
 <li>宿主机直接访问 macvlan 容器 IP，需要额外配置 <code>macvlan-host</code> 辅助接口。</li>
+<li>RTSP 流源不占独立 IP，但需要宿主机 <code>554/tcp</code> 可用；如果端口已被其他服务占用，需要调整 <code>RTSP_GATEWAY_PORT</code>。</li>
 <li>部分视频播放器在 RTSP 源重启后会停在历史画面，需要重新打开播放器。推荐验收命令使用 <code>mpv --rtsp-transport=tcp</code>。</li>
 <li>网页自身加载失败时，RTSP 中会显示 Chrome 错误页，这属于网页网络或业务服务问题，不是 RTSP 管道错误。</li>
 <li>ONVIF 自动发现不保证成功，手动添加 ONVIF 地址已作为主要接入方式。</li>

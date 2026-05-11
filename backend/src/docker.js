@@ -1,4 +1,5 @@
 const Docker = require('dockerode');
+const os = require('os');
 
 const docker = new Docker({
   socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
@@ -10,6 +11,23 @@ const IMAGE = process.env.VIRTUALWEBCAM_IMAGE || 'virtualwebcam:latest';
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || 'virtualwebcam';
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
 const CAMERA_RTSP_PORT = process.env.CAMERA_RTSP_PORT || '554';
+const RTSP_GATEWAY_PORT = process.env.RTSP_GATEWAY_PORT || '554';
+const RTSP_GATEWAY_CONTAINER = process.env.RTSP_GATEWAY_CONTAINER || `${CONTAINER_PREFIX}-rtsp-gateway`;
+const RTSP_NETWORK = process.env.RTSP_NETWORK || `${CONTAINER_PREFIX}_rtsp`;
+
+function defaultGatewayHost() {
+  for (const addresses of Object.values(os.networkInterfaces())) {
+    for (const address of addresses || []) {
+      if (address.family === 'IPv4' && !address.internal) {
+        return address.address;
+      }
+    }
+  }
+
+  return '127.0.0.1';
+}
+
+const RTSP_GATEWAY_HOST = process.env.RTSP_GATEWAY_HOST || process.env.HOST_IP || defaultGatewayHost();
 
 function slugify(value) {
   return String(value || 'camera')
@@ -23,22 +41,40 @@ function containerName(camera) {
   return `${CONTAINER_PREFIX}-${camera.id}-${slugify(camera.name || camera.stream_name)}`;
 }
 
+function sourceType(camera) {
+  return camera.source_type === 'rtsp' ? 'rtsp' : 'camera';
+}
+
 function labels(camera) {
   return {
     'virtualwebcam.managed': 'true',
     'virtualwebcam.cameraId': String(camera.id),
+    'virtualwebcam.sourceType': sourceType(camera),
   };
 }
 
 function dockerEnv(camera) {
-  return [
+  const env = [
     `WEB_URL=${camera.web_url}`,
     `STREAM_NAME=${camera.stream_name}`,
     `WIDTH=${camera.width || 1280}`,
     `HEIGHT=${camera.height || 720}`,
     `FPS=${camera.fps || 15}`,
-    `GO2RTC_RTSP_PORT=${CAMERA_RTSP_PORT}`,
   ];
+
+  if (sourceType(camera) === 'rtsp') {
+    env.push(
+      'OUTPUT_MODE=rtsp-publisher',
+      `RTSP_PUSH_URL=rtsp://${RTSP_GATEWAY_CONTAINER}:${RTSP_GATEWAY_PORT}/${camera.stream_name}`,
+    );
+  } else {
+    env.push(
+      'OUTPUT_MODE=onvif',
+      `GO2RTC_RTSP_PORT=${CAMERA_RTSP_PORT}`,
+    );
+  }
+
+  return env;
 }
 
 function friendlyDockerError(error) {
@@ -125,6 +161,91 @@ async function assertCreatePrerequisites() {
   if (!status.image.exists) {
     throw new Error(status.image.error || `Docker 镜像不存在：${IMAGE}`);
   }
+}
+
+async function assertDockerAndImage() {
+  const status = await runtimeStatus();
+
+  if (!status.docker.available) {
+    throw new Error(status.docker.error || 'Docker daemon 不可用');
+  }
+
+  if (!status.image.exists) {
+    throw new Error(status.image.error || `Docker 镜像不存在：${IMAGE}`);
+  }
+}
+
+async function ensureRtspNetwork() {
+  try {
+    await docker.getNetwork(RTSP_NETWORK).inspect();
+  } catch (error) {
+    const message = error?.json?.message || error?.message || '';
+    if (!message.includes('No such network') && error.statusCode !== 404) {
+      throw error;
+    }
+
+    await docker.createNetwork({
+      Name: RTSP_NETWORK,
+      Driver: 'bridge',
+      CheckDuplicate: true,
+    });
+  }
+}
+
+async function ensureRtspGateway() {
+  await assertDockerAndImage();
+  await ensureRtspNetwork();
+
+  let container = null;
+  const found = await docker.listContainers({
+    all: true,
+    filters: {
+      name: [RTSP_GATEWAY_CONTAINER],
+      label: ['virtualwebcam.rtspGateway=true'],
+    },
+  });
+
+  if (found.length > 0) {
+    container = docker.getContainer(found[0].Id);
+  } else {
+    container = await docker.createContainer({
+      Image: IMAGE,
+      name: RTSP_GATEWAY_CONTAINER,
+      Env: [
+        'OUTPUT_MODE=rtsp-gateway',
+        `MEDIAMTX_RTSP_PORT=${RTSP_GATEWAY_PORT}`,
+      ],
+      Labels: {
+        'virtualwebcam.managed': 'true',
+        'virtualwebcam.rtspGateway': 'true',
+      },
+      ExposedPorts: {
+        [`${RTSP_GATEWAY_PORT}/tcp`]: {},
+      },
+      HostConfig: {
+        RestartPolicy: {
+          Name: 'unless-stopped',
+        },
+        PortBindings: {
+          [`${RTSP_GATEWAY_PORT}/tcp`]: [{ HostPort: RTSP_GATEWAY_PORT }],
+        },
+      },
+      NetworkingConfig: {
+        EndpointsConfig: {
+          [RTSP_NETWORK]: {
+            Aliases: [RTSP_GATEWAY_CONTAINER],
+          },
+        },
+      },
+    });
+  }
+
+  const info = await container.inspect();
+  if (!info.State.Running) {
+    await container.start();
+  }
+
+  return container.inspect();
 }
 
 function decodeDockerLog(buffer) {
@@ -352,6 +473,27 @@ async function cameraResourceStats(cameras) {
 }
 
 async function createContainer(camera) {
+  if (sourceType(camera) === 'rtsp') {
+    await ensureRtspGateway();
+
+    return docker.createContainer({
+      Image: IMAGE,
+      name: containerName(camera),
+      Env: dockerEnv(camera),
+      Labels: labels(camera),
+      HostConfig: {
+        RestartPolicy: {
+          Name: 'unless-stopped',
+        },
+      },
+      NetworkingConfig: {
+        EndpointsConfig: {
+          [RTSP_NETWORK]: {},
+        },
+      },
+    });
+  }
+
   await assertCreatePrerequisites();
 
   const endpointsConfig = {};
@@ -463,6 +605,8 @@ module.exports = {
   EGRESS_NETWORK,
   IMAGE,
   CAMERA_RTSP_PORT,
+  RTSP_GATEWAY_HOST,
+  RTSP_GATEWAY_PORT,
   cameraLogs,
   cameraResourceStats,
   ensureStarted,

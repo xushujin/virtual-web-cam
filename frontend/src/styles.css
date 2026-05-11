@@ -225,7 +225,23 @@ a:hover {
 }
 
 .project-create {
-  grid-template-columns: minmax(220px, 1fr) 76px 76px 94px auto;
+  grid-template-columns: minmax(220px, 1fr) 76px 76px 94px minmax(280px, auto);
+}
+
+.project-create-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-create-actions .count {
+  flex: 0 0 auto;
+}
+
+.project-create-actions button {
+  white-space: nowrap;
 }
 
 label {
@@ -303,6 +319,11 @@ select:focus {
   min-width: 112px;
   height: 38px;
   padding: 0 12px;
+}
+
+.project-create-actions .text-button,
+.project-create-actions .primary-button {
+  height: 38px;
 }
 
 button:disabled,
@@ -2969,6 +2990,15 @@ td small {
     grid-template-columns: 1fr 1fr 76px 76px 94px;
   }
 
+  .project-create {
+    grid-template-columns: minmax(220px, 1fr) 76px 76px 94px;
+  }
+
+  .project-create-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
   .project-main .primary-button {
     grid-column: 1 / -1;
     justify-self: start;
@@ -3053,6 +3083,15 @@ td small {
   .project-main,
   .project-create {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .project-create-actions {
+    justify-content: stretch;
+  }
+
+  .project-create-actions .text-button,
+  .project-create-actions .primary-button {
+    flex: 1 1 auto;
   }
 
   .project-title-row,

@@ -134,6 +134,7 @@ const newProject = reactive({
 });
 
 const form = reactive({
+  source_type: 'camera',
   name: '',
   ip: '',
   stream_name: 'screen01',
@@ -156,6 +157,7 @@ const bulkForm = reactive({
 });
 
 const editForm = reactive({
+  source_type: 'camera',
   name: '',
   ip: '',
   stream_name: '',
@@ -205,6 +207,7 @@ const filteredCameras = computed(() => {
     return [
       camera.name,
       camera.ip,
+      sourceTypeLabel(camera),
       camera.stream_name,
       camera.web_url,
       camera.rtsp_url,
@@ -353,6 +356,7 @@ function applyProject(project) {
 
 function resetForm() {
   const nextNumber = cameras.value.length + 1;
+  form.source_type = 'camera';
   form.name = '';
   form.ip = '';
   form.stream_name = `screen${String(nextNumber).padStart(2, '0')}`;
@@ -416,8 +420,9 @@ function incrementIp(value) {
 }
 
 function cloneCamera(camera) {
+  form.source_type = camera.source_type || 'camera';
   form.name = uniqueName(camera.name);
-  form.ip = incrementIp(camera.ip);
+  form.ip = camera.source_type === 'rtsp' ? '' : incrementIp(camera.ip);
   form.stream_name = incrementStreamName(camera.stream_name);
   form.web_url = camera.web_url;
   form.width = camera.width;
@@ -425,7 +430,14 @@ function cloneCamera(camera) {
   form.fps = camera.fps;
   form.display_targets = [];
   showCreateModal.value = true;
-  showToast(form.ip ? '已复制到新增弹窗' : '已复制，请补充虚拟 IP');
+  showToast(form.source_type === 'rtsp' || form.ip ? '已复制到新增弹窗' : '已复制，请补充虚拟 IP');
+}
+
+function sourcePayload(payload) {
+  return {
+    ...payload,
+    ip: payload.source_type === 'rtsp' ? null : payload.ip,
+  };
 }
 
 function toggleActionMenu(id) {
@@ -725,7 +737,7 @@ async function submit() {
   error.value = '';
 
   try {
-	    await createCamera({ ...form }, selectedProjectId.value);
+	    await createCamera(sourcePayload(form), selectedProjectId.value);
 	    resetForm();
 	    await refresh();
 	    showCreateModal.value = false;
@@ -759,8 +771,9 @@ async function submitBulk() {
 
 function openEditCamera(camera) {
   editingCamera.value = camera;
+  editForm.source_type = camera.source_type || 'camera';
   editForm.name = camera.name;
-  editForm.ip = camera.ip;
+  editForm.ip = camera.ip || '';
   editForm.stream_name = camera.stream_name;
   editForm.web_url = camera.web_url;
   editForm.width = camera.width;
@@ -776,7 +789,7 @@ async function saveCameraEdit() {
   error.value = '';
 
   try {
-    const updated = await updateCamera(camera.id, { ...editForm });
+    const updated = await updateCamera(camera.id, sourcePayload(editForm));
     editingCamera.value = null;
     await refresh();
     showToast(updated.warning ? '已保存，容器需检查' : '已保存');
@@ -1252,6 +1265,14 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
+function sourceTypeLabel(camera) {
+  return camera.source_type === 'rtsp' ? 'RTSP流' : 'ONVIF';
+}
+
+function sourceAddress(camera) {
+  return camera.source_type === 'rtsp' ? '共享网关' : (camera.ip || '-');
+}
+
 function formatPercent(value, digits = 1) {
   const number = Number(value || 0);
   return `${number.toFixed(digits)}%`;
@@ -1424,24 +1445,24 @@ onBeforeUnmount(() => {
       <section class="panel project-create-panel">
         <div class="panel-heading">
           <h2>创建管理项目</h2>
-          <div class="panel-heading-actions">
-            <span class="count">{{ projects.length }}</span>
-            <input ref="importInput" class="visually-hidden" type="file" accept="application/json,.json" @change="importProjectFromFile" />
-            <button class="text-button" type="button" :disabled="importingProject" @click="pickImportFile">
-              <Upload :size="16" />
-              <span>{{ importingProject ? '导入中' : '导入配置' }}</span>
-            </button>
-          </div>
         </div>
         <div class="project-create">
           <input v-model.trim="newProject.name" placeholder="项目名称" />
           <input v-model.number="newProject.rows" type="number" min="1" max="20" title="行" />
           <input v-model.number="newProject.cols" type="number" min="1" max="30" title="列" />
           <input v-model.trim="newProject.prefix" maxlength="8" title="前缀" />
-          <button type="button" :disabled="projectCreating || !newProject.name" @click="addProject">
-            <Plus :size="16" />
-            <span>{{ projectCreating ? '创建中' : '新建项目' }}</span>
-          </button>
+          <div class="project-create-actions">
+            <span class="count">{{ projects.length }}</span>
+            <input ref="importInput" class="visually-hidden" type="file" accept="application/json,.json" @change="importProjectFromFile" />
+            <button class="text-button" type="button" :disabled="importingProject" @click="pickImportFile">
+              <Upload :size="16" />
+              <span>{{ importingProject ? '导入中' : '导入配置' }}</span>
+            </button>
+            <button class="primary-button" type="button" :disabled="projectCreating || !newProject.name" @click="addProject">
+              <Plus :size="16" />
+              <span>{{ projectCreating ? '创建中' : '新建项目' }}</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1532,7 +1553,7 @@ onBeforeUnmount(() => {
               </button>
               <button class="primary-button" type="button" @click="showCreateModal = true">
                 <Plus :size="16" />
-                <span>新增摄像头</span>
+                <span>新增源</span>
               </button>
             </div>
           </div>
@@ -1698,7 +1719,10 @@ onBeforeUnmount(() => {
                     <strong>{{ camera.name }}</strong>
                     <small>{{ camera.stream_name }} · {{ camera.width }}x{{ camera.height }}@{{ camera.fps }}</small>
                   </td>
-                  <td v-if="cameraColumns.ip">{{ camera.ip }}</td>
+                  <td v-if="cameraColumns.ip">
+                    <strong>{{ sourceAddress(camera) }}</strong>
+                    <small>{{ sourceTypeLabel(camera) }}</small>
+                  </td>
                   <td v-if="cameraColumns.webUrl" class="url-cell">
                     <a :href="camera.web_url" target="_blank" rel="noreferrer">{{ camera.web_url }}</a>
                   </td>
@@ -1768,14 +1792,14 @@ onBeforeUnmount(() => {
                             <Copy :size="15" />
                             <span>复制 mpv 命令</span>
                           </button>
-                          <button type="button" @click="copy(camera.onvif_url); closeActionMenu()">
+                          <button v-if="camera.onvif_url" type="button" @click="copy(camera.onvif_url); closeActionMenu()">
                             <Copy :size="15" />
                             <span>复制 ONVIF</span>
                           </button>
                         </div>
                         <div class="action-group">
                           <span>访问</span>
-                          <a :href="camera.go2rtc_url" target="_blank" rel="noreferrer" @click="closeActionMenu">
+                          <a v-if="camera.go2rtc_url" :href="camera.go2rtc_url" target="_blank" rel="noreferrer" @click="closeActionMenu">
                             <ExternalLink :size="15" />
                             <span>打开 go2rtc</span>
                           </a>
@@ -1814,7 +1838,7 @@ onBeforeUnmount(() => {
               <GripVertical :size="16" />
               <div>
                 <strong>{{ camera.name }}</strong>
-                <span>{{ camera.ip }} · {{ camera.stream_name }}</span>
+                <span>{{ sourceAddress(camera) }} · {{ camera.stream_name }}</span>
               </div>
               <i :class="camera.status">{{ statusLabel(camera.status) }}</i>
             </article>
@@ -1845,7 +1869,7 @@ onBeforeUnmount(() => {
               <div>
                 <strong>{{ item.camera.name }}</strong>
                 <span>{{ regionSummary(item.region) }}</span>
-                <small>{{ item.camera.ip }} · {{ item.camera.stream_name }} · {{ item.region.targets.length }}块屏</small>
+                <small>{{ sourceAddress(item.camera) }} · {{ item.camera.stream_name }} · {{ item.region.targets.length }}块屏</small>
               </div>
               <button type="button" title="移除绑定" @click="clearCameraAssignment(item.camera)">
                 <X :size="14" />
@@ -1940,7 +1964,7 @@ onBeforeUnmount(() => {
                   <button type="button" title="复制 mpv 测试命令" @click="copy(mpvCommand(item.camera))">
                     <Play :size="13" />
                   </button>
-                  <button type="button" title="打开 go2rtc" @click="openUrl(item.camera.go2rtc_url)">
+                  <button v-if="item.camera.go2rtc_url" type="button" title="打开 go2rtc" @click="openUrl(item.camera.go2rtc_url)">
                     <ExternalLink :size="13" />
                   </button>
                   <button type="button" title="移除绑定" @click="clearCameraAssignment(item.camera)">
@@ -2029,19 +2053,26 @@ onBeforeUnmount(() => {
 	      <form class="modal-card" @submit.prevent="submit">
 	        <div class="modal-head">
 	          <div>
-	            <h2>新增摄像头</h2>
-	            <p>创建后会尝试启动 VirtualWebCam 容器。</p>
+	            <h2>新增视频源</h2>
+	            <p>ONVIF 摄像头使用独立 IP；RTSP 流源使用共享网关和不同流路径。</p>
 	          </div>
 	          <button class="icon-button" type="button" title="关闭" @click="showCreateModal = false">
 	            <X :size="16" />
 	          </button>
 	        </div>
 	        <div class="camera-form-grid modal-form-grid">
+	          <label class="wide-field source-type-field">
+	            <span>源类型</span>
+	            <select v-model="form.source_type">
+	              <option value="camera">ONVIF 摄像头（独立 IP）</option>
+	              <option value="rtsp">RTSP 流源（共享 IP + 流路径）</option>
+	            </select>
+	          </label>
 	          <label>
 	            <span>名称</span>
 	            <input v-model.trim="form.name" required placeholder="web-cam-01" />
 	          </label>
-	          <label>
+	          <label v-if="form.source_type === 'camera'">
 	            <span>虚拟 IP</span>
 	            <input v-model.trim="form.ip" required inputmode="numeric" placeholder="192.168.110.211" />
 	          </label>
@@ -2070,7 +2101,7 @@ onBeforeUnmount(() => {
 	          <button class="text-button" type="button" @click="showCreateModal = false">取消</button>
 	          <button class="primary-button" type="submit" :disabled="!canCreateCamera">
 	            <Plus :size="16" />
-	            <span>{{ saving ? '创建中' : '创建摄像头' }}</span>
+	            <span>{{ saving ? '创建中' : '创建视频源' }}</span>
 	          </button>
 	        </div>
 	      </form>
@@ -2135,7 +2166,7 @@ onBeforeUnmount(() => {
       <div class="drawer-head">
         <div>
           <h2>{{ activeLogs.name }}</h2>
-          <p>{{ activeLogs.ip }}</p>
+          <p>{{ sourceAddress(activeLogs) }} · {{ activeLogs.stream_name }}</p>
         </div>
         <div class="drawer-actions">
           <button type="button" @click="openLogs(activeLogs)">刷新</button>
@@ -2149,8 +2180,8 @@ onBeforeUnmount(() => {
     <div v-if="editingCamera" class="drawer edit-drawer" role="dialog" aria-modal="true">
       <div class="drawer-head">
         <div>
-          <h2>编辑摄像头</h2>
-          <p>{{ editingCamera.name }} · {{ editingCamera.ip }}</p>
+          <h2>编辑视频源</h2>
+          <p>{{ editingCamera.name }} · {{ sourceAddress(editingCamera) }} · {{ sourceTypeLabel(editingCamera) }}</p>
         </div>
         <div class="drawer-actions">
           <button type="button" @click="editingCamera = null">关闭</button>
@@ -2159,10 +2190,17 @@ onBeforeUnmount(() => {
 
       <form class="drawer-form" @submit.prevent="saveCameraEdit">
         <label>
+          <span>源类型</span>
+          <select v-model="editForm.source_type">
+            <option value="camera">ONVIF 摄像头（独立 IP）</option>
+            <option value="rtsp">RTSP 流源（共享 IP + 流路径）</option>
+          </select>
+        </label>
+        <label>
           <span>名称</span>
           <input v-model.trim="editForm.name" required />
         </label>
-        <label>
+        <label v-if="editForm.source_type === 'camera'">
           <span>虚拟 IP</span>
           <input v-model.trim="editForm.ip" required inputmode="numeric" />
         </label>

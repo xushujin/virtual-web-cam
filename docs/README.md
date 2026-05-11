@@ -4,9 +4,9 @@
 
 ## 文档清单
 
-- [开发技术文档](./development-guide.md)：面向研发，说明系统架构、代码分层、容器内部流程、API、数据库和扩展方式。
-- [部署运维文档](./deployment-ops-guide.md)：面向部署和运维，说明 Docker、macvlan、管理后台、验证、升级、备份和故障处理。
-- [用户使用指南](./user-guide.md)：面向业务用户和现场实施人员，说明项目、摄像头、矩阵绑定和日常操作。
+- [开发技术文档](./development-guide.md)：面向研发，说明系统架构、代码分层、容器运行模式、API、数据库、RTSP 网关和扩展方式。
+- [部署运维文档](./deployment-ops-guide.md)：面向部署和运维，说明 Docker、macvlan、共享 RTSP 网关、管理后台、验证、升级、备份和故障处理。
+- [用户使用指南](./user-guide.md)：面向业务用户和现场实施人员，说明项目、ONVIF 摄像头、RTSP 流源、矩阵绑定和日常操作。
 
 ## HTML 版本
 
@@ -23,4 +23,3 @@ node scripts/generate-docs-html.mjs
 ```
 
 生成结果会覆盖 `docs/*.html`。
-
