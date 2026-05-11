@@ -9,7 +9,7 @@
 VirtualWebCam 可以把一个网页变成一路虚拟摄像头。创建成功后，你可以得到：
 
 ```text
-RTSP 地址：rtsp://摄像头IP:8554/流名称
+RTSP 地址：rtsp://摄像头IP:554/流名称
 ONVIF 地址：http://摄像头IP/onvif/device_service
 go2rtc 页面：http://摄像头IP
 ```
@@ -145,10 +145,20 @@ Docker、macvlan 网络、VirtualWebCam 镜像可用
 - IP。
 - 网页 URL。
 - 状态。
+- 资源。
 - 投放屏幕。
 - RTSP。
 - ONVIF。
 - 操作。
+
+资源监控区域显示：
+
+- CPU 合计：当前项目下运行容器的 CPU 使用率合计。
+- 内存合计：当前运行容器的内存占用。
+- 网络速率：两次采样之间的接收和发送速率，同时保留累计值。
+- 磁盘读写速率：两次采样之间的读写速率，同时保留累计写入量。
+
+每一行摄像头也会显示该路摄像头的 CPU、内存、网络速率和磁盘读写速率。现场做硬件规划时，建议先启动少量真实网页，观察单路平均消耗，再按目标路数估算整机 CPU、内存和磁盘写入压力。
 
 ### 5.2 状态含义
 
@@ -283,7 +293,7 @@ web-cam-08 -> 192.168.5.218 -> screen08
 修改网页 URL 后，建议重新打开播放器：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 ```
 
 部分播放器可能停留在旧画面，重新打开即可。
@@ -477,7 +487,7 @@ http://192.168.5.211/onvif/device_service
 中控支持 RTSP 时填写：
 
 ```text
-rtsp://192.168.5.211:8554/screen01
+rtsp://192.168.5.211:554/screen01
 ```
 
 ### 9.3 ODM 测试
@@ -492,7 +502,7 @@ http://192.168.5.211/onvif/device_service
 
 ```text
 Profile：screen01
-Stream URI：rtsp://192.168.5.211:8554/screen01
+Stream URI：rtsp://192.168.5.211:554/screen01
 Live Video：网页画面
 ```
 
@@ -501,13 +511,13 @@ Live Video：网页画面
 推荐：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 ```
 
 也可以使用：
 
 ```bash
-ffplay -rtsp_transport tcp rtsp://192.168.5.211:8554/screen01
+ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
 ```
 
 如果修改了网页 URL 或重启了容器，播放器可能不会自动刷新。关闭播放器重新打开即可。

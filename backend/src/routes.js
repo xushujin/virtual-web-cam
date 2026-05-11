@@ -187,7 +187,7 @@ function addUrls(camera) {
     project_id: camera.project_id || 1,
     display_targets: parseDisplayTargets(camera.display_targets),
     display_region: parseDisplayRegion(camera.display_region),
-    rtsp_url: `rtsp://${camera.ip}:8554/${camera.stream_name}`,
+    rtsp_url: `rtsp://${camera.ip}:${dockerService.CAMERA_RTSP_PORT}/${camera.stream_name}`,
     onvif_url: `http://${camera.ip}/onvif/device_service`,
     go2rtc_url: `http://${camera.ip}`,
   };
@@ -641,6 +641,16 @@ router.get('/cameras/statuses', async (req, res) => {
       id: camera.id,
       status: camera.status,
     })));
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.get('/resource-stats', async (req, res) => {
+  try {
+    const projectId = projectIdFromRequest(req);
+    const cameras = await getDb().all('SELECT * FROM cameras WHERE project_id = ? ORDER BY id DESC', projectId);
+    res.json(await dockerService.cameraResourceStats(cameras));
   } catch (error) {
     errorResponse(res, error);
   }

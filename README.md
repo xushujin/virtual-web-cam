@@ -32,13 +32,13 @@ VirtualWebCam 是一个项目模板，分为两层：
 容器内部端口划分：
 
 - MediaMTX：`127.0.0.1:8556`，仅供 FFmpeg/go2rtc 内部使用
-- go2rtc RTSP：`0.0.0.0:8554`
+- go2rtc RTSP：`0.0.0.0:554`
 - go2rtc HTTP/ONVIF：`0.0.0.0:80`
 - go2rtc WebRTC：`0.0.0.0:8555`
 
 对外地址：
 
-- RTSP：`rtsp://<container_ip>:8554/<stream_name>`
+- RTSP：`rtsp://<container_ip>:554/<stream_name>`
 - ONVIF：`http://<container_ip>/onvif/device_service`
 - go2rtc Web：`http://<container_ip>`
 
@@ -122,7 +122,7 @@ sudo HOST_IF=br0 \
 
 如果当前登录用户不能免密 `sudo`，管理后台仍然可以创建和管理 macvlan 摄像头容器；只是宿主机本机无法直接访问 `192.168.5.211` 这类 macvlan 容器 IP。同网段其他设备、中控、ODM 通常可以直接访问。要让宿主机本机也能访问，需要由有 sudo 权限的用户执行上面的辅助接口命令。
 
-这个 all-in-one 镜像里的 MediaMTX 运行在摄像头容器内部，FFmpeg 推到 `127.0.0.1:8556`，go2rtc 再对外输出 `8554` 和 `80`。因此不再需要宿主机单独运行 `mediamtx`，也不需要让 go2rtc 从宿主机 `192.168.5.210:8554` 拉流。
+这个 all-in-one 镜像里的 MediaMTX 运行在摄像头容器内部，FFmpeg 推到 `127.0.0.1:8556`，go2rtc 再对外输出 `554` 和 `80`。因此不再需要宿主机单独运行 `mediamtx`，也不需要让 go2rtc 从宿主机 `192.168.5.210:554` 拉流。
 
 ## 单容器运行
 
@@ -149,7 +149,7 @@ docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}
 同网段其他机器或中控可访问：
 
 ```text
-RTSP:  rtsp://192.168.5.211:8554/screen01
+RTSP:  rtsp://192.168.5.211:554/screen01
 ONVIF: http://192.168.5.211/onvif/device_service
 Web:   http://192.168.5.211
 ```
@@ -268,7 +268,7 @@ curl -X POST http://localhost:8177/api/cameras \
 - 实测摄像头：`192.168.5.211 / screen01 / https://example.com`
 - 容器状态：`running healthy`
 - go2rtc Web：HTTP 200
-- RTSP：`rtsp://192.168.5.211:8554/screen01` 返回 H.264，分辨率 `640x360`
+- RTSP：`rtsp://192.168.5.211:554/screen01` 返回 H.264，分辨率 `640x360`
 - ONVIF：`GetDeviceInformation` 返回 `Model=go2rtc`、`FirmwareVersion=1.9.14`
 
 验证完成后，实测摄像头容器和演示摄像头数据已清理；当前数据库只保留一个空的 `默认项目`。

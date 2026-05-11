@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     FPS=15 \
     DISPLAY_ID=99 \
     MEDIAMTX_RTSP_PORT=8556 \
-    GO2RTC_RTSP_PORT=8554 \
+    GO2RTC_RTSP_PORT=554 \
     GO2RTC_API_PORT=80 \
     GO2RTC_WEBRTC_PORT=8555 \
     CHROME_BIN=/opt/google/chrome/chrome
@@ -52,7 +52,7 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY healthcheck.sh /usr/local/bin/healthcheck.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh
 
-EXPOSE 80/tcp 8554/tcp 8555/tcp 8555/udp 3702/udp
+EXPOSE 80/tcp 554/tcp 8555/tcp 8555/udp 3702/udp
 VOLUME ["/config"]
 
 HEALTHCHECK --interval=20s --timeout=10s --start-period=30s --retries=3 \

@@ -188,7 +188,7 @@
 <li>用户通过网页创建虚拟摄像头，不需要手写 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc 命令。</li>
 <li>每一路摄像头拥有独立 IP，便于中控按 IP 区分摄像头。</li>
 <li>输出地址稳定：</li>
-<li>RTSP：<code>rtsp://&lt;camera_ip&gt;:8554/&lt;stream_name&gt;</code></li>
+<li>RTSP：<code>rtsp://&lt;camera_ip&gt;:554/&lt;stream_name&gt;</code></li>
 <li>ONVIF：<code>http://&lt;camera_ip&gt;/onvif/device_service</code></li>
 <li>go2rtc Web：<code>http://&lt;camera_ip&gt;</code></li>
 <li>支持多项目、多矩阵规格和摄像头与矩阵屏幕区域绑定。</li>
@@ -217,7 +217,7 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 中控/ODM/mpv 使用 camera_ip 接入</code></pre>
 <p>容器内部端口：</p>
 <pre><code class="language-text">127.0.0.1:8556  MediaMTX RTSP 输入，仅容器内部使用
-0.0.0.0:8554   go2rtc RTSP 输出
+0.0.0.0:554   go2rtc RTSP 输出
 0.0.0.0:80     go2rtc Web/API/ONVIF
 0.0.0.0:8555   go2rtc WebRTC
 3702/udp       ONVIF WS-Discovery 预留</code></pre>
@@ -268,7 +268,7 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 <p>镜像构建完成后标签为：</p>
 <pre><code class="language-text">virtualwebcam:latest</code></pre>
 <h3 id="4-2-环境变量"><a class="anchor" href="#4-2-环境变量">#</a>4.2 环境变量</h3>
-<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率</td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>8554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
+<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率</td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
 <h3 id="4-3-entrypoint-主流程"><a class="anchor" href="#4-3-entrypoint-主流程">#</a>4.3 entrypoint 主流程</h3>
 <p><code>container/entrypoint.sh</code> 的执行顺序：</p>
 <ol>
@@ -285,7 +285,7 @@ go2rtc 对外输出 RTSP + ONVIF + Web UI
 <p>关键设计点：</p>
 <ul>
 <li>Chrome 使用 <code>--ozone-platform=x11</code>，保证网页进入 Xvfb，不进入真实桌面。</li>
-<li>FFmpeg 使用 <code>libx264 + baseline + zerolatency</code>，尽量兼容 ONVIF/RTSP 客户端。</li>
+<li>FFmpeg 使用 <code>libx264 + baseline</code>，尽量兼容 ONVIF/RTSP 客户端。</li>
 <li>MediaMTX 只监听 <code>127.0.0.1:8556</code>，不暴露给外部。</li>
 <li>go2rtc 对外提供 RTSP 与 ONVIF，是最终对接入口。</li>
 <li>Chrome profile 每次启动都会重建，修改网页 URL 后重启容器即可看到新页面。</li>
@@ -390,7 +390,7 @@ virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
   &quot;prefix&quot;: &quot;屏&quot;
 }</code></pre>
 <h3 id="6-3-摄像头"><a class="anchor" href="#6-3-摄像头">#</a>6.3 摄像头</h3>
-<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/cameras?project_id=1</code></td><td>摄像头列表，并同步 Docker 状态</td></tr><tr><td>GET</td><td><code>/api/cameras/statuses?project_id=1</code></td><td>轻量刷新状态</td></tr><tr><td>POST</td><td><code>/api/cameras?project_id=1</code></td><td>创建并启动一路摄像头</td></tr><tr><td>POST</td><td><code>/api/cameras/bulk?project_id=1</code></td><td>批量生成摄像头配置，不启动</td></tr><tr><td>PUT</td><td><code>/api/cameras/:id</code></td><td>编辑摄像头配置</td></tr><tr><td>PATCH</td><td><code>/api/cameras/:id/display-targets</code></td><td>更新屏幕绑定</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/start</code></td><td>启动</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/stop</code></td><td>停止</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/restart</code></td><td>重启</td></tr><tr><td>DELETE</td><td><code>/api/cameras/:id</code></td><td>删除</td></tr><tr><td>GET</td><td><code>/api/cameras/:id/logs</code></td><td>获取容器日志</td></tr></tbody></table>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/cameras?project_id=1</code></td><td>摄像头列表，并同步 Docker 状态</td></tr><tr><td>GET</td><td><code>/api/cameras/statuses?project_id=1</code></td><td>轻量刷新状态</td></tr><tr><td>GET</td><td><code>/api/resource-stats?project_id=1</code></td><td>采集摄像头容器 CPU、内存、网络和磁盘读写</td></tr><tr><td>POST</td><td><code>/api/cameras?project_id=1</code></td><td>创建并启动一路摄像头</td></tr><tr><td>POST</td><td><code>/api/cameras/bulk?project_id=1</code></td><td>批量生成摄像头配置，不启动</td></tr><tr><td>PUT</td><td><code>/api/cameras/:id</code></td><td>编辑摄像头配置</td></tr><tr><td>PATCH</td><td><code>/api/cameras/:id/display-targets</code></td><td>更新屏幕绑定</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/start</code></td><td>启动</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/stop</code></td><td>停止</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/restart</code></td><td>重启</td></tr><tr><td>DELETE</td><td><code>/api/cameras/:id</code></td><td>删除</td></tr><tr><td>GET</td><td><code>/api/cameras/:id/logs</code></td><td>获取容器日志</td></tr></tbody></table>
 <p>创建摄像头请求：</p>
 <pre><code class="language-json">{
   &quot;name&quot;: &quot;web-cam-01&quot;,
@@ -413,6 +413,33 @@ virtualwebcam.cameraId=&lt;camera_id&gt;</code></pre>
     &quot;col_span&quot;: 3
   }
 }</code></pre>
+<p>资源监控返回：</p>
+<pre><code class="language-json">{
+  &quot;collected_at&quot;: &quot;2026-05-11T12:59:00.792Z&quot;,
+  &quot;summary&quot;: {
+    &quot;cpuPercent&quot;: 69.48,
+    &quot;memoryUsageBytes&quot;: 618708992,
+    &quot;networkRxBytes&quot;: 2715308,
+    &quot;networkTxBytes&quot;: 792318,
+    &quot;blockReadBytes&quot;: 86016,
+    &quot;blockWriteBytes&quot;: 288608256,
+    &quot;running&quot;: 1,
+    &quot;total&quot;: 1
+  },
+  &quot;items&quot;: [
+    {
+      &quot;camera_id&quot;: 1,
+      &quot;status&quot;: &quot;running&quot;,
+      &quot;cpu_percent&quot;: 69.48,
+      &quot;memory_usage_bytes&quot;: 618708992,
+      &quot;network_rx_bytes&quot;: 2715308,
+      &quot;network_tx_bytes&quot;: 792318,
+      &quot;block_read_bytes&quot;: 86016,
+      &quot;block_write_bytes&quot;: 288608256
+    }
+  ]
+}</code></pre>
+<p>说明：网络和磁盘字段来自 Docker stats，属于容器启动后的累计值；前端会根据两次采样差值换算每秒速率，用于硬件规划。</p>
 <h3 id="6-4-矩阵"><a class="anchor" href="#6-4-矩阵">#</a>6.4 矩阵</h3>
 <table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/screen-matrix?project_id=1</code></td><td>获取项目矩阵规格</td></tr><tr><td>PUT</td><td><code>/api/screen-matrix?project_id=1</code></td><td>更新项目矩阵规格</td></tr></tbody></table>
 <h3 id="6-5-审计"><a class="anchor" href="#6-5-审计">#</a>6.5 审计</h3>

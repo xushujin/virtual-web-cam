@@ -178,7 +178,7 @@
 <p>版本：1.0 适用对象：项目管理员、现场实施人员、运维人员 访问地址：<code>http://&lt;宿主机IP&gt;:5177</code>，当前示例为 <code>http://192.168.5.111:5177</code></p>
 <h2 id="1-系统能做什么"><a class="anchor" href="#1-系统能做什么">#</a>1. 系统能做什么</h2>
 <p>VirtualWebCam 可以把一个网页变成一路虚拟摄像头。创建成功后，你可以得到：</p>
-<pre><code class="language-text">RTSP 地址：rtsp://摄像头IP:8554/流名称
+<pre><code class="language-text">RTSP 地址：rtsp://摄像头IP:554/流名称
 ONVIF 地址：http://摄像头IP/onvif/device_service
 go2rtc 页面：http://摄像头IP</code></pre>
 <p>中控、大屏系统、ONVIF Device Manager 或播放器可以用这些地址接入。</p>
@@ -275,11 +275,20 @@ go2rtc 页面：http://摄像头IP</code></pre>
 <li>IP。</li>
 <li>网页 URL。</li>
 <li>状态。</li>
+<li>资源。</li>
 <li>投放屏幕。</li>
 <li>RTSP。</li>
 <li>ONVIF。</li>
 <li>操作。</li>
 </ul>
+<p>资源监控区域显示：</p>
+<ul>
+<li>CPU 合计：当前项目下运行容器的 CPU 使用率合计。</li>
+<li>内存合计：当前运行容器的内存占用。</li>
+<li>网络速率：两次采样之间的接收和发送速率，同时保留累计值。</li>
+<li>磁盘读写速率：两次采样之间的读写速率，同时保留累计写入量。</li>
+</ul>
+<p>每一行摄像头也会显示该路摄像头的 CPU、内存、网络速率和磁盘读写速率。现场做硬件规划时，建议先启动少量真实网页，观察单路平均消耗，再按目标路数估算整机 CPU、内存和磁盘写入压力。</p>
 <h3 id="5-2-状态含义"><a class="anchor" href="#5-2-状态含义">#</a>5.2 状态含义</h3>
 <pre><code class="language-text">运行中：Docker 容器正在运行
 已停止：容器不存在或已停止
@@ -382,7 +391,7 @@ web-cam-08 -&gt; 192.168.5.218 -&gt; screen08</code></pre>
 </ul>
 <p>如果摄像头正在运行，保存后系统会尝试重建容器，使新配置生效。</p>
 <p>修改网页 URL 后，建议重新打开播放器：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <p>部分播放器可能停留在旧画面，重新打开即可。</p>
 <h3 id="5-9-查看日志"><a class="anchor" href="#5-9-查看日志">#</a>5.9 查看日志</h3>
 <p>点击“配置” -&gt; “查看日志”。</p>
@@ -529,19 +538,19 @@ IP：192.168.5.211
 <pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
 <h3 id="9-2-rtsp-直连"><a class="anchor" href="#9-2-rtsp-直连">#</a>9.2 RTSP 直连</h3>
 <p>中控支持 RTSP 时填写：</p>
-<pre><code class="language-text">rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-text">rtsp://192.168.5.211:554/screen01</code></pre>
 <h3 id="9-3-odm-测试"><a class="anchor" href="#9-3-odm-测试">#</a>9.3 ODM 测试</h3>
 <p>ONVIF Device Manager 手动添加：</p>
 <pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
 <p>成功后应能看到：</p>
 <pre><code class="language-text">Profile：screen01
-Stream URI：rtsp://192.168.5.211:8554/screen01
+Stream URI：rtsp://192.168.5.211:554/screen01
 Live Video：网页画面</code></pre>
 <h2 id="10-播放器测试"><a class="anchor" href="#10-播放器测试">#</a>10. 播放器测试</h2>
 <p>推荐：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <p>也可以使用：</p>
-<pre><code class="language-bash">ffplay -rtsp_transport tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <p>如果修改了网页 URL 或重启了容器，播放器可能不会自动刷新。关闭播放器重新打开即可。</p>
 <h2 id="11-推荐命名和-ip-规划"><a class="anchor" href="#11-推荐命名和-ip-规划">#</a>11. 推荐命名和 IP 规划</h2>
 <h3 id="11-1-ip-规划"><a class="anchor" href="#11-1-ip-规划">#</a>11.1 IP 规划</h3>

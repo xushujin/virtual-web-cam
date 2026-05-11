@@ -186,7 +186,7 @@
 <li>维护摄像头和矩阵屏幕的绑定关系。</li>
 </ul>
 <p>每一路摄像头最终表现为一个独立 IP 的虚拟摄像头：</p>
-<pre><code class="language-text">RTSP:  rtsp://192.168.5.211:8554/screen01
+<pre><code class="language-text">RTSP:  rtsp://192.168.5.211:554/screen01
 ONVIF: http://192.168.5.211/onvif/device_service
 Web:   http://192.168.5.211</code></pre>
 <h2 id="2-部署前检查"><a class="anchor" href="#2-部署前检查">#</a>2. 部署前检查</h2>
@@ -209,7 +209,7 @@ default via 192.168.5.1</code></pre>
 <p>宿主机需要保留：</p>
 <pre><code class="language-text">5177/tcp  前端管理页面
 8177/tcp  后端 API</code></pre>
-<p>摄像头容器使用独立 macvlan IP，不需要在宿主机映射 <code>80</code>、<code>8554</code>。</p>
+<p>摄像头容器使用独立 macvlan IP，不需要在宿主机映射 <code>80</code>、<code>554</code>。</p>
 <h2 id="3-快速部署"><a class="anchor" href="#3-快速部署">#</a>3. 快速部署</h2>
 <p>在项目根目录执行：</p>
 <pre><code class="language-bash">cp .env.example .env
@@ -249,7 +249,7 @@ Parent: br0</code></pre>
 <p>macvlan 的常见限制是：宿主机默认不能访问同一宿主机上的 macvlan 容器 IP。其他局域网设备通常可以直接访问。</p>
 <p>如果需要在宿主机本机打开：</p>
 <pre><code class="language-text">http://192.168.5.211
-rtsp://192.168.5.211:8554/screen01</code></pre>
+rtsp://192.168.5.211:554/screen01</code></pre>
 <p>需要创建宿主机侧辅助接口。</p>
 <h3 id="5-1-使用脚本"><a class="anchor" href="#5-1-使用脚本">#</a>5.1 使用脚本</h3>
 <pre><code class="language-bash">sudo HOST_IF=br0 \
@@ -378,10 +378,10 @@ sqlite3 backend/data/virtualwebcam.db \
 docker inspect &lt;容器名或容器ID&gt; | grep -A5 onvif_macvlan</code></pre>
 <p>从宿主机本机验证：</p>
 <pre><code class="language-bash">curl -I http://192.168.9.211
-mpv --rtsp-transport=tcp rtsp://192.168.9.211:8554/screen01</code></pre>
+mpv --rtsp-transport=tcp rtsp://192.168.9.211:554/screen01</code></pre>
 <p>从 ONVIF Device Manager 或中控手动添加：</p>
 <pre><code class="language-text">ONVIF：http://192.168.9.211/onvif/device_service
-RTSP：rtsp://192.168.9.211:8554/screen01</code></pre>
+RTSP：rtsp://192.168.9.211:554/screen01</code></pre>
 <p>迁移完成后，旧地址 <code>192.168.5.xxx</code> 不应再出现在摄像头列表、RTSP 地址、ONVIF 地址和中控配置中。</p>
 <h2 id="6-构建摄像头镜像"><a class="anchor" href="#6-构建摄像头镜像">#</a>6. 构建摄像头镜像</h2>
 <pre><code class="language-bash">docker build -t virtualwebcam:latest ./container</code></pre>
@@ -445,7 +445,7 @@ npm run dev -- --port 5177</code></pre>
 </ol>
 <p>创建成功后，列表会显示：</p>
 <pre><code class="language-text">状态：运行中
-RTSP：rtsp://192.168.5.211:8554/screen01
+RTSP：rtsp://192.168.5.211:554/screen01
 ONVIF：http://192.168.5.211/onvif/device_service</code></pre>
 <h3 id="9-2-通过-api-创建"><a class="anchor" href="#9-2-通过-api-创建">#</a>9.2 通过 API 创建</h3>
 <pre><code class="language-bash">curl -X POST &#39;http://localhost:8177/api/cameras?project_id=1&#39; \
@@ -489,9 +489,9 @@ docker inspect -f &#39;{{.State.Status}} {{if .State.Health}}{{.State.Health.Sta
 <pre><code class="language-text">http://192.168.5.211</code></pre>
 <h3 id="10-3-rtsp"><a class="anchor" href="#10-3-rtsp">#</a>10.3 RTSP</h3>
 <p>推荐使用 mpv：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <p>如果使用 ffplay：</p>
-<pre><code class="language-bash">ffplay -rtsp_transport tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <p>注意：部分播放器在容器重启或网页 URL 切换后可能停留历史帧，需要关闭后重新打开。mpv 在源重启时通常会退出，更适合作为验收工具。</p>
 <h3 id="10-4-onvif"><a class="anchor" href="#10-4-onvif">#</a>10.4 ONVIF</h3>
 <p>ONVIF Device Manager 手动添加：</p>
@@ -501,7 +501,7 @@ docker inspect -f &#39;{{.State.Status}} {{if .State.Health}}{{.State.Health.Sta
 <p>预期：</p>
 <pre><code class="language-text">设备类型：NVT
 Profile：screen01
-Stream URI：rtsp://192.168.5.211:8554/screen01
+Stream URI：rtsp://192.168.5.211:554/screen01
 Live Video：显示网页画面</code></pre>
 <p>自动发现依赖 UDP 3702、组播、交换机和客户端实现，不作为本项目核心验收项。手动添加成功即可满足当前接入方式。</p>
 <h2 id="11-日常运维"><a class="anchor" href="#11-日常运维">#</a>11. 日常运维</h2>
@@ -521,7 +521,7 @@ docker restart virtualwebcam-1-web-cam-01</code></pre>
 <h3 id="11-4-修改网页地址"><a class="anchor" href="#11-4-修改网页地址">#</a>11.4 修改网页地址</h3>
 <p>在管理后台编辑摄像头 URL。如果摄像头正在运行，后端会重建容器让配置生效。</p>
 <p>验证时请重新打开播放器：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <h3 id="11-5-状态同步"><a class="anchor" href="#11-5-状态同步">#</a>11.5 状态同步</h3>
 <p>摄像头列表会定时刷新状态，也可点击“刷新状态”。后端状态以 Docker 容器状态为准：</p>
 <pre><code class="language-text">running  -&gt; 运行中
@@ -639,7 +639,7 @@ ip route | grep 192.168.5.208</code></pre>
 <h3 id="15-7-rtsp-播放器停留旧画面"><a class="anchor" href="#15-7-rtsp-播放器停留旧画面">#</a>15.7 RTSP 播放器停留旧画面</h3>
 <p>容器重启后，部分播放器不会自动重新拉流，可能显示最后一帧。关闭播放器重新打开即可。</p>
 <p>推荐验收：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
 <h3 id="15-8-onvif-自动发现不到"><a class="anchor" href="#15-8-onvif-自动发现不到">#</a>15.8 ONVIF 自动发现不到</h3>
 <p>手动添加：</p>
 <pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
@@ -659,7 +659,15 @@ GOP = FPS * 2</code></pre>
 <p>上线前建议按真实网页压测：</p>
 <pre><code class="language-bash">docker stats
 top
-mpv --rtsp-transport=tcp rtsp://&lt;ip&gt;:8554/&lt;stream&gt;</code></pre>
+mpv --rtsp-transport=tcp rtsp://&lt;ip&gt;:554/&lt;stream&gt;</code></pre>
+<p>管理后台“摄像头管理”页面内置资源监控，会按项目汇总 CPU、内存、网络速率和磁盘读写速率，并在每路摄像头行内显示单路消耗。建议压测时记录以下数据：</p>
+<ul>
+<li>单路真实网页在目标分辨率和 FPS 下的 CPU 平均值与峰值。</li>
+<li>单路内存占用。</li>
+<li>所有运行摄像头的网络发送速率。</li>
+<li>磁盘写入速率和累计写入量。</li>
+</ul>
+<p>硬件规划可先用少量真实页面得到单路均值，再乘以目标路数，并预留 30% 以上余量。</p>
 <h2 id="17-验收清单"><a class="anchor" href="#17-验收清单">#</a>17. 验收清单</h2>
 <p>部署完成后逐项确认：</p>
 <ul>

@@ -8,7 +8,7 @@ HEIGHT="${HEIGHT:-720}"
 FPS="${FPS:-15}"
 DISPLAY_ID="${DISPLAY_ID:-99}"
 MEDIAMTX_RTSP_PORT="${MEDIAMTX_RTSP_PORT:-8556}"
-GO2RTC_RTSP_PORT="${GO2RTC_RTSP_PORT:-8554}"
+GO2RTC_RTSP_PORT="${GO2RTC_RTSP_PORT:-554}"
 GO2RTC_API_PORT="${GO2RTC_API_PORT:-80}"
 GO2RTC_WEBRTC_PORT="${GO2RTC_WEBRTC_PORT:-8555}"
 CHROME_BIN="${CHROME_BIN:-}"
@@ -230,7 +230,6 @@ ffmpeg_loop() {
       -i "${XVFB_DISPLAY}.0+0,0" \
       -c:v libx264 \
       -preset veryfast \
-      -tune zerolatency \
       -pix_fmt yuv420p \
       -profile:v baseline \
       -level 3.1 \

@@ -19,7 +19,7 @@
 每一路摄像头最终表现为一个独立 IP 的虚拟摄像头：
 
 ```text
-RTSP:  rtsp://192.168.5.211:8554/screen01
+RTSP:  rtsp://192.168.5.211:554/screen01
 ONVIF: http://192.168.5.211/onvif/device_service
 Web:   http://192.168.5.211
 ```
@@ -72,7 +72,7 @@ default via 192.168.5.1
 8177/tcp  后端 API
 ```
 
-摄像头容器使用独立 macvlan IP，不需要在宿主机映射 `80`、`8554`。
+摄像头容器使用独立 macvlan IP，不需要在宿主机映射 `80`、`554`。
 
 ## 3. 快速部署
 
@@ -148,7 +148,7 @@ macvlan 的常见限制是：宿主机默认不能访问同一宿主机上的 ma
 
 ```text
 http://192.168.5.211
-rtsp://192.168.5.211:8554/screen01
+rtsp://192.168.5.211:554/screen01
 ```
 
 需要创建宿主机侧辅助接口。
@@ -400,14 +400,14 @@ docker inspect <容器名或容器ID> | grep -A5 onvif_macvlan
 
 ```bash
 curl -I http://192.168.9.211
-mpv --rtsp-transport=tcp rtsp://192.168.9.211:8554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.9.211:554/screen01
 ```
 
 从 ONVIF Device Manager 或中控手动添加：
 
 ```text
 ONVIF：http://192.168.9.211/onvif/device_service
-RTSP：rtsp://192.168.9.211:8554/screen01
+RTSP：rtsp://192.168.9.211:554/screen01
 ```
 
 迁移完成后，旧地址 `192.168.5.xxx` 不应再出现在摄像头列表、RTSP 地址、ONVIF 地址和中控配置中。
@@ -516,7 +516,7 @@ localStorage.setItem('virtualwebcam-api-token', 'change-me')
 
 ```text
 状态：运行中
-RTSP：rtsp://192.168.5.211:8554/screen01
+RTSP：rtsp://192.168.5.211:554/screen01
 ONVIF：http://192.168.5.211/onvif/device_service
 ```
 
@@ -592,13 +592,13 @@ http://192.168.5.211
 推荐使用 mpv：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 ```
 
 如果使用 ffplay：
 
 ```bash
-ffplay -rtsp_transport tcp rtsp://192.168.5.211:8554/screen01
+ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
 ```
 
 注意：部分播放器在容器重启或网页 URL 切换后可能停留历史帧，需要关闭后重新打开。mpv 在源重启时通常会退出，更适合作为验收工具。
@@ -618,7 +618,7 @@ ONVIF Device Manager 手动添加：
 ```text
 设备类型：NVT
 Profile：screen01
-Stream URI：rtsp://192.168.5.211:8554/screen01
+Stream URI：rtsp://192.168.5.211:554/screen01
 Live Video：显示网页画面
 ```
 
@@ -662,7 +662,7 @@ docker restart virtualwebcam-1-web-cam-01
 验证时请重新打开播放器：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 ```
 
 ### 11.5 状态同步
@@ -900,7 +900,7 @@ ip route | grep 192.168.5.208
 推荐验收：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:8554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 ```
 
 ### 15.8 ONVIF 自动发现不到
@@ -936,8 +936,17 @@ GOP = FPS * 2
 ```bash
 docker stats
 top
-mpv --rtsp-transport=tcp rtsp://<ip>:8554/<stream>
+mpv --rtsp-transport=tcp rtsp://<ip>:554/<stream>
 ```
+
+管理后台“摄像头管理”页面内置资源监控，会按项目汇总 CPU、内存、网络速率和磁盘读写速率，并在每路摄像头行内显示单路消耗。建议压测时记录以下数据：
+
+- 单路真实网页在目标分辨率和 FPS 下的 CPU 平均值与峰值。
+- 单路内存占用。
+- 所有运行摄像头的网络发送速率。
+- 磁盘写入速率和累计写入量。
+
+硬件规划可先用少量真实页面得到单路均值，再乘以目标路数，并预留 30% 以上余量。
 
 ## 17. 验收清单
 

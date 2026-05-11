@@ -80,6 +80,10 @@ export function listCameraStatuses(projectId) {
   return request(withProject('/api/cameras/statuses', projectId));
 }
 
+export function getResourceStats(projectId) {
+  return request(withProject('/api/resource-stats', projectId));
+}
+
 export function createCamera(camera, projectId) {
   return request(withProject('/api/cameras', projectId), {
     method: 'POST',

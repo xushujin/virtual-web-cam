@@ -27,6 +27,7 @@ import {
   exportProjectConfig,
   getHealth,
   getLogs,
+  getResourceStats,
   importProjectConfig,
   listAuditLogs,
   listCameraStatuses,
@@ -50,6 +51,7 @@ const saving = ref(false);
 const bulkCreating = ref(false);
 const statusRefreshing = ref(false);
 let statusPollTimer = null;
+let resourcePollTimer = null;
 const error = ref('');
 const toast = ref('');
 const activeLogs = ref(null);
@@ -60,6 +62,10 @@ const auditLogs = ref([]);
 const auditLoading = ref(false);
 const systemStatus = ref(null);
 const systemLoading = ref(true);
+const resourceStats = ref(null);
+const previousResourceStats = ref(null);
+const resourceRates = ref(null);
+const resourceRefreshing = ref(false);
 const busyCameraIds = ref(new Set());
 const selectedCameraIds = ref(new Set());
 const cameraQuery = ref('');
@@ -78,6 +84,40 @@ const showCreateModal = ref(false);
 const showBulkModal = ref(false);
 const openActionMenuId = ref(null);
 const uiTheme = ref(window.localStorage.getItem('virtualwebcam-theme') || 'light');
+const defaultCameraColumns = {
+  ip: true,
+  webUrl: true,
+  status: true,
+  resource: false,
+  target: false,
+  rtsp: false,
+  onvif: false,
+};
+const cameraColumnOptions = [
+  { key: 'ip', label: 'IP' },
+  { key: 'webUrl', label: '网页 URL' },
+  { key: 'status', label: '状态' },
+  { key: 'resource', label: '资源' },
+  { key: 'target', label: '投放屏幕' },
+  { key: 'rtsp', label: 'RTSP' },
+  { key: 'onvif', label: 'ONVIF' },
+];
+
+function loadCameraColumns() {
+  try {
+    const raw = window.localStorage.getItem('virtualwebcam-camera-columns');
+    if (!raw) return { ...defaultCameraColumns };
+    const stored = JSON.parse(raw);
+    return {
+      ...defaultCameraColumns,
+      ...Object.fromEntries(Object.entries(stored).filter(([key]) => key in defaultCameraColumns)),
+    };
+  } catch {
+    return { ...defaultCameraColumns };
+  }
+}
+
+const cameraColumns = reactive(loadCameraColumns());
 
 const projectDraft = reactive({
   name: '',
@@ -177,6 +217,14 @@ const filteredCameras = computed(() => {
 const selectedCameras = computed(() => cameras.value.filter((camera) => selectedCameraIds.value.has(camera.id)));
 const allVisibleSelected = computed(() => filteredCameras.value.length > 0 && filteredCameras.value.every((camera) => selectedCameraIds.value.has(camera.id)));
 const hasCameraSelection = computed(() => selectedCameraIds.value.size > 0);
+const visibleCameraColumnCount = computed(() => Object.values(cameraColumns).filter(Boolean).length);
+const cameraTableColspan = computed(() => visibleCameraColumnCount.value + 3);
+const cameraTableClass = computed(() => ({
+  'hide-web-url': !cameraColumns.webUrl,
+  'hide-resource': !cameraColumns.resource,
+  'hide-rtsp': !cameraColumns.rtsp,
+  'hide-onvif': !cameraColumns.onvif,
+}));
 const cameraStats = computed(() => ({
   total: cameras.value.length,
   running: cameras.value.filter((camera) => camera.status === 'running').length,
@@ -185,6 +233,24 @@ const cameraStats = computed(() => ({
   bound: cameras.value.filter((camera) => (camera.display_targets || []).length > 0).length,
   unbound: cameras.value.filter((camera) => (camera.display_targets || []).length === 0).length,
 }));
+
+const resourceByCameraId = computed(() => new Map((resourceStats.value?.items || []).map((item) => [item.camera_id, item])));
+const resourceSummary = computed(() => resourceStats.value?.summary || {
+  cpuPercent: 0,
+  memoryUsageBytes: 0,
+  memoryLimitBytes: 0,
+  memoryPercent: 0,
+  networkRxBytes: 0,
+  networkTxBytes: 0,
+  blockReadBytes: 0,
+  blockWriteBytes: 0,
+  running: 0,
+  total: 0,
+});
+const resourceUpdatedAt = computed(() => {
+  if (!resourceStats.value?.collected_at) return '未采集';
+  return new Date(resourceStats.value.collected_at).toLocaleTimeString();
+});
 
 const screenCells = computed(() => {
   const total = projectDraft.rows * projectDraft.cols;
@@ -255,6 +321,26 @@ function toggleTheme() {
 watch(uiTheme, (theme) => {
   document.body.classList.toggle('virtualwebcam-cyber-body', theme === 'cyber');
 }, { immediate: true });
+
+watch(cameraColumns, (columns) => {
+  window.localStorage.setItem('virtualwebcam-camera-columns', JSON.stringify(columns));
+}, { deep: true });
+
+function showAllCameraColumns() {
+  Object.assign(cameraColumns, defaultCameraColumns);
+}
+
+function showCompactCameraColumns() {
+  Object.assign(cameraColumns, {
+    ip: true,
+    webUrl: true,
+    status: true,
+    resource: false,
+    target: false,
+    rtsp: false,
+    onvif: false,
+  });
+}
 
 function applyProject(project) {
   if (!project) return;
@@ -401,6 +487,9 @@ async function refresh() {
 	  try {
 	    cameras.value = await listCameras(selectedProjectId.value);
 	    syncSelectedCameras();
+      if (projectSection.value === 'cameras') {
+        await refreshResourceStats({ silent: true });
+      }
 	  } catch (err) {
     error.value = err.message;
   } finally {
@@ -465,11 +554,70 @@ async function refreshCameraStatuses(options = {}) {
     if (!options.silent) {
       showToast('状态已刷新');
     }
+    await refreshResourceStats({ silent: true });
   } catch (err) {
     error.value = err.message;
   } finally {
     statusRefreshing.value = false;
   }
+}
+
+async function refreshResourceStats(options = {}) {
+  if (!selectedProjectId.value || resourceRefreshing.value) return;
+
+  resourceRefreshing.value = true;
+
+  try {
+    const nextStats = await getResourceStats(selectedProjectId.value);
+    resourceRates.value = calculateResourceRates(resourceStats.value, nextStats);
+    previousResourceStats.value = resourceStats.value;
+    resourceStats.value = nextStats;
+    if (!options.silent) {
+      showToast('资源数据已刷新');
+    }
+  } catch (err) {
+    if (!options.silent) {
+      error.value = err.message;
+    }
+  } finally {
+    resourceRefreshing.value = false;
+  }
+}
+
+function bytesDelta(current = 0, previous = 0) {
+  return Math.max(Number(current || 0) - Number(previous || 0), 0);
+}
+
+function calculateResourceRates(previous, current) {
+  if (!previous?.collected_at || !current?.collected_at) return null;
+
+  const seconds = (new Date(current.collected_at).getTime() - new Date(previous.collected_at).getTime()) / 1000;
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+
+  const previousById = new Map((previous.items || []).map((item) => [item.camera_id, item]));
+  const items = new Map();
+
+  for (const item of current.items || []) {
+    const before = previousById.get(item.camera_id);
+    if (!before) continue;
+    items.set(item.camera_id, {
+      network_rx_bps: bytesDelta(item.network_rx_bytes, before.network_rx_bytes) / seconds,
+      network_tx_bps: bytesDelta(item.network_tx_bytes, before.network_tx_bytes) / seconds,
+      block_read_bps: bytesDelta(item.block_read_bytes, before.block_read_bytes) / seconds,
+      block_write_bps: bytesDelta(item.block_write_bytes, before.block_write_bytes) / seconds,
+    });
+  }
+
+  return {
+    seconds,
+    summary: {
+      network_rx_bps: bytesDelta(current.summary?.networkRxBytes, previous.summary?.networkRxBytes) / seconds,
+      network_tx_bps: bytesDelta(current.summary?.networkTxBytes, previous.summary?.networkTxBytes) / seconds,
+      block_read_bps: bytesDelta(current.summary?.blockReadBytes, previous.summary?.blockReadBytes) / seconds,
+      block_write_bps: bytesDelta(current.summary?.blockWriteBytes, previous.summary?.blockWriteBytes) / seconds,
+    },
+    items,
+  };
 }
 
 async function saveProject() {
@@ -1072,6 +1220,10 @@ async function copy(value) {
   showToast('已复制');
 }
 
+function mpvCommand(camera) {
+  return `mpv --rtsp-transport=tcp ${camera.rtsp_url}`;
+}
+
 function openUrl(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
@@ -1098,6 +1250,62 @@ function statusLabel(status) {
     error: '异常',
   };
   return map[status] || status;
+}
+
+function formatPercent(value, digits = 1) {
+  const number = Number(value || 0);
+  return `${number.toFixed(digits)}%`;
+}
+
+function formatBytes(value) {
+  const number = Number(value || 0);
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let current = number;
+  let index = 0;
+
+  while (current >= 1024 && index < units.length - 1) {
+    current /= 1024;
+    index += 1;
+  }
+
+  return `${current >= 10 || index === 0 ? current.toFixed(0) : current.toFixed(1)} ${units[index]}`;
+}
+
+function formatByteRate(value) {
+  return `${formatBytes(value)}/s`;
+}
+
+function resourceForCamera(camera) {
+  return resourceByCameraId.value.get(camera.id);
+}
+
+function resourceRateForCamera(camera) {
+  return resourceRates.value?.items?.get(camera.id);
+}
+
+function resourceStatusText(camera) {
+  const stats = resourceForCamera(camera);
+  if (!stats) return '未采集';
+  if (stats.status !== 'running') return statusLabel(stats.status);
+  return `${formatPercent(stats.cpu_percent)} / ${formatBytes(stats.memory_usage_bytes)}`;
+}
+
+function resourceNetworkText(stats) {
+  if (!stats || stats.status !== 'running') return '-';
+  const rate = resourceRates.value?.items?.get(stats.camera_id);
+  if (rate) {
+    return `网络 ↓${formatByteRate(rate.network_rx_bps)} ↑${formatByteRate(rate.network_tx_bps)}`;
+  }
+  return `网络累计 ↓${formatBytes(stats.network_rx_bytes)} ↑${formatBytes(stats.network_tx_bytes)}`;
+}
+
+function resourceDiskText(stats) {
+  if (!stats || stats.status !== 'running') return '-';
+  const rate = resourceRates.value?.items?.get(stats.camera_id);
+  if (rate) {
+    return `磁盘 读 ${formatByteRate(rate.block_read_bps)} / 写 ${formatByteRate(rate.block_write_bps)}`;
+  }
+  return `磁盘累计 读 ${formatBytes(stats.block_read_bytes)} / 写 ${formatBytes(stats.block_write_bytes)}`;
 }
 
 function projectSectionLabel(section) {
@@ -1157,11 +1365,19 @@ onMounted(async () => {
       refreshCameraStatuses({ silent: true });
     }
   }, 10000);
+  resourcePollTimer = window.setInterval(() => {
+    if (currentView.value === 'project' && projectSection.value === 'cameras') {
+      refreshResourceStats({ silent: true });
+    }
+  }, 15000);
 });
 
 onBeforeUnmount(() => {
   if (statusPollTimer) {
     window.clearInterval(statusPollTimer);
+  }
+  if (resourcePollTimer) {
+    window.clearInterval(resourcePollTimer);
   }
 });
 </script>
@@ -1306,6 +1522,10 @@ onBeforeUnmount(() => {
                 <RefreshCw :size="16" />
                 <span>{{ statusRefreshing ? '刷新中' : '刷新状态' }}</span>
               </button>
+              <button class="text-button" type="button" :disabled="resourceRefreshing" @click="refreshResourceStats">
+                <RefreshCw :size="16" />
+                <span>{{ resourceRefreshing ? '采集中' : '刷新资源' }}</span>
+              </button>
               <button class="text-button" type="button" @click="showBulkModal = true">
                 <Plus :size="16" />
                 <span>批量生成</span>
@@ -1344,6 +1564,38 @@ onBeforeUnmount(() => {
 	            </button>
 	          </div>
 
+            <div class="resource-monitor">
+              <div class="resource-monitor-head">
+                <div>
+                  <h3>资源监控</h3>
+                  <p>实时采集 Docker 容器 CPU、内存、网络与磁盘读写，用于估算单路和整机负载。</p>
+                </div>
+                <span>更新 {{ resourceUpdatedAt }}</span>
+              </div>
+              <div class="resource-stat-grid">
+                <article>
+                  <span>CPU 合计</span>
+                  <strong>{{ formatPercent(resourceSummary.cpuPercent) }}</strong>
+                  <small>运行 {{ resourceSummary.running }} 路，共 {{ resourceSummary.total }} 路</small>
+                </article>
+                <article>
+                  <span>内存合计</span>
+                  <strong>{{ formatBytes(resourceSummary.memoryUsageBytes) }}</strong>
+                  <small>{{ formatPercent(resourceSummary.memoryPercent) }} / 限额 {{ formatBytes(resourceSummary.memoryLimitBytes) }}</small>
+                </article>
+                <article>
+                  <span>网络速率</span>
+                  <strong>↓{{ formatByteRate(resourceRates?.summary?.network_rx_bps || 0) }}</strong>
+                  <small>↑{{ formatByteRate(resourceRates?.summary?.network_tx_bps || 0) }} · 累计 ↓{{ formatBytes(resourceSummary.networkRxBytes) }}</small>
+                </article>
+                <article>
+                  <span>磁盘读写速率</span>
+                  <strong>写 {{ formatByteRate(resourceRates?.summary?.block_write_bps || 0) }}</strong>
+                  <small>读 {{ formatByteRate(resourceRates?.summary?.block_read_bps || 0) }} · 累计写 {{ formatBytes(resourceSummary.blockWriteBytes) }}</small>
+                </article>
+              </div>
+            </div>
+
 	          <div class="camera-filter-bar">
 	            <input v-model.trim="cameraQuery" placeholder="搜索名称 / IP / 流名 / URL / 屏幕" />
 	            <select v-model="cameraStatusFilter">
@@ -1357,6 +1609,23 @@ onBeforeUnmount(() => {
 	              <span>清除筛选</span>
 	            </button>
 	          </div>
+
+            <div class="column-visibility-bar">
+              <div>
+                <strong>列表字段</strong>
+                <span>根据当前排查目标隐藏长字段，配置会保存在本机浏览器。</span>
+              </div>
+              <div class="column-toggles">
+                <label v-for="column in cameraColumnOptions" :key="column.key">
+                  <input v-model="cameraColumns[column.key]" type="checkbox" />
+                  <span>{{ column.label }}</span>
+                </label>
+              </div>
+              <div class="column-actions">
+                <button type="button" @click="showCompactCameraColumns">精简</button>
+                <button type="button" @click="showAllCameraColumns">全部</button>
+              </div>
+            </div>
 
           <div class="camera-operation-bar" :class="{ muted: !hasCameraSelection }">
             <div>
@@ -1381,31 +1650,44 @@ onBeforeUnmount(() => {
           </div>
 
 	          <div class="table-wrap">
-            <table>
+            <table :class="cameraTableClass">
+              <colgroup>
+                <col class="col-select" />
+                <col class="col-name" />
+                <col v-if="cameraColumns.ip" class="col-ip" />
+                <col v-if="cameraColumns.webUrl" class="col-web-url" />
+                <col v-if="cameraColumns.status" class="col-status" />
+                <col v-if="cameraColumns.resource" class="col-resource" />
+                <col v-if="cameraColumns.target" class="col-target" />
+                <col v-if="cameraColumns.rtsp" class="col-rtsp" />
+                <col v-if="cameraColumns.onvif" class="col-onvif" />
+                <col class="col-actions" />
+              </colgroup>
 	              <thead>
 	                <tr>
 	                  <th class="select-cell">
 	                    <input type="checkbox" :checked="allVisibleSelected" @change="toggleAllCameras($event.target.checked)" />
 	                  </th>
 	                  <th>名称</th>
-                  <th>IP</th>
-                  <th>网页 URL</th>
-                  <th>状态</th>
-                  <th>投放屏幕</th>
-                  <th>RTSP</th>
-                  <th>ONVIF</th>
+                  <th v-if="cameraColumns.ip">IP</th>
+                  <th v-if="cameraColumns.webUrl">网页 URL</th>
+                  <th v-if="cameraColumns.status">状态</th>
+                  <th v-if="cameraColumns.resource">资源</th>
+                  <th v-if="cameraColumns.target">投放屏幕</th>
+                  <th v-if="cameraColumns.rtsp">RTSP</th>
+                  <th v-if="cameraColumns.onvif">ONVIF</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="loading">
-	                  <td colspan="9" class="empty">加载中</td>
+	                  <td :colspan="cameraTableColspan" class="empty">加载中</td>
 	                </tr>
 		                <tr v-else-if="cameras.length === 0">
-		                  <td colspan="9" class="empty">暂无摄像头</td>
+		                  <td :colspan="cameraTableColspan" class="empty">暂无摄像头</td>
 		                </tr>
 		                <tr v-else-if="filteredCameras.length === 0">
-		                  <td colspan="9" class="empty">没有匹配的摄像头</td>
+		                  <td :colspan="cameraTableColspan" class="empty">没有匹配的摄像头</td>
 		                </tr>
 		                <template v-for="camera in filteredCameras" :key="camera.id">
 		                <tr>
@@ -1416,16 +1698,21 @@ onBeforeUnmount(() => {
                     <strong>{{ camera.name }}</strong>
                     <small>{{ camera.stream_name }} · {{ camera.width }}x{{ camera.height }}@{{ camera.fps }}</small>
                   </td>
-                  <td>{{ camera.ip }}</td>
-                  <td class="url-cell">
+                  <td v-if="cameraColumns.ip">{{ camera.ip }}</td>
+                  <td v-if="cameraColumns.webUrl" class="url-cell">
                     <a :href="camera.web_url" target="_blank" rel="noreferrer">{{ camera.web_url }}</a>
                   </td>
-                  <td>
+                  <td v-if="cameraColumns.status">
                     <span class="status" :class="camera.status">{{ statusLabel(camera.status) }}</span>
                   </td>
-                  <td class="target-cell">{{ targetSummary(camera) }}</td>
-                  <td class="url-cell">{{ camera.rtsp_url }}</td>
-                  <td class="url-cell">{{ camera.onvif_url }}</td>
+                  <td v-if="cameraColumns.resource" class="resource-cell">
+                    <strong>{{ resourceStatusText(camera) }}</strong>
+                    <small>{{ resourceNetworkText(resourceForCamera(camera)) }}</small>
+                    <small>{{ resourceDiskText(resourceForCamera(camera)) }}</small>
+                  </td>
+                  <td v-if="cameraColumns.target" class="target-cell">{{ targetSummary(camera) }}</td>
+                  <td v-if="cameraColumns.rtsp" class="url-cell">{{ camera.rtsp_url }}</td>
+                  <td v-if="cameraColumns.onvif" class="url-cell">{{ camera.onvif_url }}</td>
                   <td>
                     <div class="actions row-actions" @click.stop>
                       <div class="quick-actions" aria-label="常用操作">
@@ -1449,7 +1736,7 @@ onBeforeUnmount(() => {
                   </td>
                 </tr>
                 <tr v-if="openActionMenuId === camera.id" class="action-detail-row">
-                  <td colspan="9">
+                  <td :colspan="cameraTableColspan">
                     <div class="row-action-sheet" @click.stop>
                       <div>
                         <strong>{{ camera.name }}</strong>
@@ -1476,6 +1763,10 @@ onBeforeUnmount(() => {
                           <button type="button" @click="copy(camera.rtsp_url); closeActionMenu()">
                             <Copy :size="15" />
                             <span>复制 RTSP</span>
+                          </button>
+                          <button type="button" @click="copy(mpvCommand(camera)); closeActionMenu()">
+                            <Copy :size="15" />
+                            <span>复制 mpv 命令</span>
                           </button>
                           <button type="button" @click="copy(camera.onvif_url); closeActionMenu()">
                             <Copy :size="15" />
@@ -1645,6 +1936,9 @@ onBeforeUnmount(() => {
                 <div class="assignment-card-actions">
                   <button type="button" title="复制 RTSP" @click="copy(item.camera.rtsp_url)">
                     <Copy :size="13" />
+                  </button>
+                  <button type="button" title="复制 mpv 测试命令" @click="copy(mpvCommand(item.camera))">
+                    <Play :size="13" />
                   </button>
                   <button type="button" title="打开 go2rtc" @click="openUrl(item.camera.go2rtc_url)">
                     <ExternalLink :size="13" />

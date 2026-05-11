@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 ARG VITE_API_TOKEN=

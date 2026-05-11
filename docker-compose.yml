@@ -18,6 +18,7 @@ services:
       DOCKER_NETWORK: ${DOCKER_NETWORK:-onvif_macvlan}
       VIRTUALWEBCAM_IMAGE: ${VIRTUALWEBCAM_IMAGE:-virtualwebcam:latest}
       CONTAINER_PREFIX: ${CONTAINER_PREFIX:-virtualwebcam}
+      CAMERA_RTSP_PORT: ${CAMERA_RTSP_PORT:-554}
       API_TOKEN: ${API_TOKEN:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
     volumes:
