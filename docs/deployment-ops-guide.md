@@ -499,20 +499,37 @@ npm run dev -- --port 5177
 
 1. 只部署在内网。
 2. 不直接暴露 `8177` 到公网。
-3. 启用 `API_TOKEN`。
-4. 放到公司统一认证网关后面。
-5. 限制能访问管理后台的 IP 段。
+3. 修改默认管理员密码和 `SESSION_SECRET`。
+4. 按项目给普通用户授权。
+5. 放到公司统一认证网关后面。
+6. 限制能访问管理后台的 IP 段。
 
-启用令牌：
+首次启动时如果数据库中没有用户，系统会自动创建管理员：
+
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123456
+SESSION_SECRET=change-this-session-secret
+```
+
+上线前请改成强密码：
+
+```bash
+ADMIN_USERNAME="admin" \
+ADMIN_PASSWORD="replace-with-strong-password" \
+SESSION_SECRET="$(openssl rand -hex 32)" \
+docker compose up -d --build manager-backend manager-frontend
+```
+
+管理员登录后，打开系统级“用户管理”，可创建普通用户，并把项目资源授权为：
+
+- `仅查看`：只能查看项目、摄像头、矩阵、日志和地址。
+- `可操作`：可以管理授权项目内的视频源、容器启停、矩阵绑定和项目设置。
+
+`API_TOKEN` 仍可作为脚本或内网网关的服务令牌。启用后，请求带 `X-API-Token` 或 `Authorization: Bearer <token>` 会按系统管理员权限处理：
 
 ```bash
 API_TOKEN="change-me" docker compose up -d --build manager-backend manager-frontend
-```
-
-前端构建时会通过 `VITE_API_TOKEN` 注入同一个令牌。如果前端已经构建，也可在浏览器控制台写入：
-
-```js
-localStorage.setItem('virtualwebcam-api-token', 'change-me')
 ```
 
 ## 9. 创建视频源
@@ -522,7 +539,7 @@ localStorage.setItem('virtualwebcam-api-token', 'change-me')
 1. 打开 `http://192.168.5.111:5177`。
 2. 进入项目。
 3. 打开“摄像头管理”。
-4. 点击“新增摄像头”。
+4. 点击“新增源”。
 5. 源类型选择“ONVIF 摄像头（独立 IP）”。
 6. 填写：
    - 名称：`web-cam-01`
@@ -548,7 +565,7 @@ ONVIF：http://192.168.5.211/onvif/device_service
 1. 打开 `http://192.168.5.111:5177`。
 2. 进入项目。
 3. 打开“摄像头管理”。
-4. 点击“新增摄像头”。
+4. 点击“新增源”。
 5. 源类型选择“RTSP 流源（共享 IP + 流路径）”。
 6. 填写：
    - 名称：`rtsp-screen-01`

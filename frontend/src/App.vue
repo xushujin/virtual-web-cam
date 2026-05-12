@@ -6,7 +6,7 @@ import {
   ExternalLink,
   FileText,
   GripVertical,
-  MoreHorizontal,
+  LogOut,
   Play,
   Plus,
   RefreshCw,
@@ -17,14 +17,20 @@ import {
   Square,
   Trash2,
   Upload,
+  UserPlus,
   X,
 } from 'lucide-vue-next';
 import {
   bulkCreateCameras,
+  changePassword,
   createCamera,
   createProject,
+  createScreenUrl,
+  createUser,
   deleteCamera,
+  deleteScreenUrl,
   exportProjectConfig,
+  getCurrentUser,
   getHealth,
   getLogs,
   getResourceStats,
@@ -33,18 +39,29 @@ import {
   listCameraStatuses,
   listCameras,
   listProjects,
+  listScreenUrls,
+  listUserProjects,
+  listUsers,
+  login,
   restartCamera,
   startCamera,
   stopCamera,
+  storeAuthToken,
   updateCamera,
   updateCameraTargets,
   updateProject,
+  updateScreenUrl,
+  updateUserProjects,
 } from './api';
 
 const projects = ref([]);
 const selectedProjectId = ref(null);
 const currentView = ref('projects');
 const projectSection = ref('cameras');
+const authChecking = ref(true);
+const currentUser = ref(null);
+const loginLoading = ref(false);
+const loginError = ref('');
 const cameras = ref([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -60,6 +77,11 @@ const logText = ref('');
 const logLoading = ref(false);
 const auditLogs = ref([]);
 const auditLoading = ref(false);
+const screenUrls = ref([]);
+const screenUrlsLoading = ref(false);
+const screenUrlSaving = ref(false);
+const editingScreenUrlId = ref(null);
+const screenUrlQuery = ref('');
 const systemStatus = ref(null);
 const systemLoading = ref(true);
 const resourceStats = ref(null);
@@ -82,8 +104,16 @@ const importInput = ref(null);
 const importingProject = ref(false);
 const showCreateModal = ref(false);
 const showBulkModal = ref(false);
+const showPasswordModal = ref(false);
+const passwordSaving = ref(false);
 const openActionMenuId = ref(null);
 const uiTheme = ref(window.localStorage.getItem('virtualwebcam-theme') || 'light');
+const users = ref([]);
+const selectedUserId = ref(null);
+const userProjectRoles = ref({});
+const membersLoading = ref(false);
+const membersSaving = ref(false);
+const userCreating = ref(false);
 const defaultCameraColumns = {
   ip: true,
   webUrl: true,
@@ -133,6 +163,30 @@ const newProject = reactive({
   prefix: '屏',
 });
 
+const loginForm = reactive({
+  username: 'admin',
+  password: '',
+});
+
+const newUserForm = reactive({
+  username: '',
+  display_name: '',
+  password: '',
+  role: 'user',
+});
+
+const passwordForm = reactive({
+  old_password: '',
+  new_password: '',
+  confirm_password: '',
+});
+
+const screenUrlForm = reactive({
+  name: '',
+  url: '',
+  remark: '',
+});
+
 const form = reactive({
   source_type: 'camera',
   name: '',
@@ -168,6 +222,14 @@ const editForm = reactive({
 });
 
 const selectedProject = computed(() => projects.value.find((project) => project.id === selectedProjectId.value));
+const selectedManagedUser = computed(() => users.value.find((user) => user.id === selectedUserId.value));
+const isAuthenticated = computed(() => Boolean(currentUser.value));
+const isSystemAdmin = computed(() => currentUser.value?.role === 'admin');
+const selectedProjectPermission = computed(() => selectedProject.value?.permission_role || (isSystemAdmin.value ? 'admin' : ''));
+const canManageSelectedProject = computed(() => (
+  isSystemAdmin.value || selectedProjectPermission.value === 'operator' || selectedProjectPermission.value === 'admin'
+));
+const canCreateProjects = computed(() => isSystemAdmin.value);
 
 const systemProblems = computed(() => {
   const runtime = systemStatus.value?.runtime;
@@ -191,7 +253,7 @@ const systemProblems = computed(() => {
   return problems;
 });
 
-const canCreateCamera = computed(() => !saving.value && Boolean(selectedProjectId.value));
+const canCreateCamera = computed(() => !saving.value && Boolean(selectedProjectId.value) && canManageSelectedProject.value);
 const filteredCameras = computed(() => {
   const keyword = cameraQuery.value.trim().toLowerCase();
 
@@ -236,6 +298,20 @@ const cameraStats = computed(() => ({
   bound: cameras.value.filter((camera) => (camera.display_targets || []).length > 0).length,
   unbound: cameras.value.filter((camera) => (camera.display_targets || []).length === 0).length,
 }));
+
+const filteredScreenUrls = computed(() => {
+  const keyword = screenUrlQuery.value.trim().toLowerCase();
+
+  if (!keyword) {
+    return screenUrls.value;
+  }
+
+  return screenUrls.value.filter((item) => [
+    item.name,
+    item.url,
+    item.remark,
+  ].some((value) => String(value || '').toLowerCase().includes(keyword)));
+});
 
 const resourceByCameraId = computed(() => new Map((resourceStats.value?.items || []).map((item) => [item.camera_id, item])));
 const resourceSummary = computed(() => resourceStats.value?.summary || {
@@ -314,6 +390,147 @@ function showToast(message) {
       toast.value = '';
     }
   }, 1800);
+}
+
+function userRoleLabel(role) {
+  return role === 'admin' ? '系统管理员' : '普通用户';
+}
+
+function projectRoleLabel(role) {
+  if (role === 'admin') return '系统管理员';
+  if (role === 'operator') return '可操作';
+  if (role === 'viewer') return '仅查看';
+  return '未授权';
+}
+
+function canManageProject(project) {
+  return isSystemAdmin.value || project?.permission_role === 'operator' || project?.permission_role === 'admin';
+}
+
+function resetSessionState() {
+  projects.value = [];
+  selectedProjectId.value = null;
+  currentView.value = 'projects';
+  projectSection.value = 'cameras';
+  cameras.value = [];
+  auditLogs.value = [];
+  users.value = [];
+  selectedUserId.value = null;
+  userProjectRoles.value = {};
+  activeLogs.value = null;
+  editingCamera.value = null;
+  error.value = '';
+}
+
+function startBackgroundPolling() {
+  if (!statusPollTimer) {
+    statusPollTimer = window.setInterval(() => {
+      if (isAuthenticated.value && currentView.value === 'project' && projectSection.value === 'cameras') {
+        refreshCameraStatuses({ silent: true });
+      }
+    }, 10000);
+  }
+
+  if (!resourcePollTimer) {
+    resourcePollTimer = window.setInterval(() => {
+      if (isAuthenticated.value && currentView.value === 'project' && projectSection.value === 'cameras') {
+        refreshResourceStats({ silent: true });
+      }
+    }, 15000);
+  }
+}
+
+function stopBackgroundPolling() {
+  if (statusPollTimer) {
+    window.clearInterval(statusPollTimer);
+    statusPollTimer = null;
+  }
+  if (resourcePollTimer) {
+    window.clearInterval(resourcePollTimer);
+    resourcePollTimer = null;
+  }
+}
+
+async function bootstrapAfterAuth() {
+  await refreshProjects();
+  await refreshSystemStatus();
+  startBackgroundPolling();
+}
+
+async function loadCurrentSession() {
+  authChecking.value = true;
+  loginError.value = '';
+
+  try {
+    const session = await getCurrentUser();
+    currentUser.value = session.user;
+    await bootstrapAfterAuth();
+  } catch {
+    storeAuthToken('');
+    currentUser.value = null;
+  } finally {
+    authChecking.value = false;
+  }
+}
+
+async function submitLogin() {
+  if (loginLoading.value) return;
+
+  loginLoading.value = true;
+  loginError.value = '';
+
+  try {
+    const session = await login({ ...loginForm });
+    storeAuthToken(session.token);
+    currentUser.value = session.user;
+    loginForm.password = '';
+    resetSessionState();
+    await bootstrapAfterAuth();
+  } catch (err) {
+    loginError.value = err.message;
+  } finally {
+    loginLoading.value = false;
+  }
+}
+
+function logout() {
+  storeAuthToken('');
+  stopBackgroundPolling();
+  currentUser.value = null;
+  resetSessionState();
+}
+
+function openPasswordModal() {
+  passwordForm.old_password = '';
+  passwordForm.new_password = '';
+  passwordForm.confirm_password = '';
+  showPasswordModal.value = true;
+}
+
+async function submitPasswordChange() {
+  if (passwordSaving.value) return;
+
+  if (passwordForm.new_password !== passwordForm.confirm_password) {
+    error.value = '两次输入的新密码不一致';
+    return;
+  }
+
+  passwordSaving.value = true;
+  error.value = '';
+
+  try {
+    await changePassword({
+      old_password: passwordForm.old_password,
+      new_password: passwordForm.new_password,
+    });
+    showPasswordModal.value = false;
+    showToast('密码已修改，请重新登录');
+    logout();
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    passwordSaving.value = false;
+  }
 }
 
 function toggleTheme() {
@@ -486,10 +703,20 @@ async function refresh() {
     return;
   }
 
+  if (currentView.value === 'users') {
+    await refreshUserManagement();
+    return;
+  }
+
   if (!selectedProjectId.value) return;
 
   if (projectSection.value === 'audit') {
     await refreshAuditLogs();
+    return;
+  }
+
+  if (projectSection.value === 'screenUrls') {
+    await refreshScreenUrls();
     return;
   }
 
@@ -500,6 +727,7 @@ async function refresh() {
 	    cameras.value = await listCameras(selectedProjectId.value);
 	    syncSelectedCameras();
       if (projectSection.value === 'cameras') {
+        await refreshScreenUrls();
         await refreshResourceStats({ silent: true });
       }
 	  } catch (err) {
@@ -526,12 +754,22 @@ function backToProjects() {
   refreshProjects();
 }
 
+async function openUserManagement() {
+  currentView.value = 'users';
+  activeLogs.value = null;
+  editingCamera.value = null;
+  clearDraftRegion();
+  await refreshUserManagement();
+}
+
 async function switchProjectSection(section) {
   projectSection.value = section;
   clearDraftRegion();
 
   if (section === 'audit') {
     await refreshAuditLogs();
+  } else if (section === 'screenUrls') {
+    await refreshScreenUrls();
   }
 }
 
@@ -547,6 +785,200 @@ async function refreshAuditLogs() {
     error.value = err.message;
   } finally {
     auditLoading.value = false;
+  }
+}
+
+async function refreshScreenUrls() {
+  if (!selectedProjectId.value) return;
+
+  screenUrlsLoading.value = true;
+  error.value = '';
+
+  try {
+    screenUrls.value = await listScreenUrls(selectedProjectId.value);
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    screenUrlsLoading.value = false;
+  }
+}
+
+function resetScreenUrlForm() {
+  editingScreenUrlId.value = null;
+  screenUrlForm.name = '';
+  screenUrlForm.url = '';
+  screenUrlForm.remark = '';
+}
+
+function editScreenUrl(item) {
+  editingScreenUrlId.value = item.id;
+  screenUrlForm.name = item.name;
+  screenUrlForm.url = item.url;
+  screenUrlForm.remark = item.remark || '';
+}
+
+async function saveScreenUrl() {
+  if (!selectedProjectId.value || !canManageSelectedProject.value || screenUrlSaving.value) return;
+
+  screenUrlSaving.value = true;
+  error.value = '';
+
+  try {
+    if (editingScreenUrlId.value) {
+      await updateScreenUrl(editingScreenUrlId.value, { ...screenUrlForm });
+      showToast('大屏地址已更新');
+    } else {
+      await createScreenUrl({ ...screenUrlForm }, selectedProjectId.value);
+      showToast('大屏地址已添加');
+    }
+    resetScreenUrlForm();
+    await refreshScreenUrls();
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    screenUrlSaving.value = false;
+  }
+}
+
+async function removeScreenUrl(item) {
+  if (!canManageSelectedProject.value || !window.confirm(`删除大屏地址「${item.name}」？`)) return;
+
+  error.value = '';
+
+  try {
+    await deleteScreenUrl(item.id);
+    if (editingScreenUrlId.value === item.id) {
+      resetScreenUrlForm();
+    }
+    await refreshScreenUrls();
+    showToast('大屏地址已删除');
+  } catch (err) {
+    error.value = err.message;
+  }
+}
+
+function applyScreenUrl(target, item) {
+  target.web_url = item.url;
+  showToast(`已选择：${item.name}`);
+}
+
+async function refreshUserManagement() {
+  if (!isSystemAdmin.value) return;
+
+  membersLoading.value = true;
+  error.value = '';
+
+  try {
+    const [loadedUsers, loadedProjects] = await Promise.all([
+      listUsers(),
+      listProjects(),
+    ]);
+    users.value = loadedUsers;
+    projects.value = loadedProjects;
+
+    const selectableUser = loadedUsers.find((user) => user.role !== 'admin') || loadedUsers[0] || null;
+    if (!selectedUserId.value || !loadedUsers.some((user) => user.id === selectedUserId.value)) {
+      selectedUserId.value = selectableUser?.id || null;
+    }
+
+    if (selectedUserId.value) {
+      await loadUserProjectRoles(selectedUserId.value);
+    }
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    membersLoading.value = false;
+  }
+}
+
+async function loadUserProjectRoles(userId) {
+  if (!userId || !isSystemAdmin.value) return;
+
+  const result = await listUserProjects(userId);
+  userProjectRoles.value = Object.fromEntries(
+    result.projects
+      .filter((project) => project.role === 'viewer' || project.role === 'operator' || project.role === 'admin')
+      .map((project) => [project.project_id, project.role]),
+  );
+}
+
+async function selectManagedUser(user) {
+  selectedUserId.value = user.id;
+  error.value = '';
+
+  try {
+    await loadUserProjectRoles(user.id);
+  } catch (err) {
+    error.value = err.message;
+  }
+}
+
+async function addUser() {
+  if (!isSystemAdmin.value || userCreating.value) return;
+
+  userCreating.value = true;
+  error.value = '';
+
+  try {
+    const created = await createUser({ ...newUserForm });
+    users.value = [...users.value, created];
+    selectedUserId.value = created.id;
+    userProjectRoles.value = {};
+    newUserForm.username = '';
+    newUserForm.display_name = '';
+    newUserForm.password = '';
+    newUserForm.role = 'user';
+    showToast('用户已创建');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    userCreating.value = false;
+  }
+}
+
+async function saveUserProjectAccess() {
+  if (!selectedUserId.value || !isSystemAdmin.value || membersSaving.value) return;
+
+  const user = selectedManagedUser.value;
+  if (user?.role === 'admin') {
+    showToast('系统管理员默认拥有全部项目权限');
+    return;
+  }
+
+  membersSaving.value = true;
+  error.value = '';
+
+  try {
+    const authorizedProjects = Object.entries(userProjectRoles.value)
+      .filter(([, role]) => role === 'viewer' || role === 'operator')
+      .map(([projectId, role]) => ({
+        project_id: Number.parseInt(projectId, 10),
+        role,
+      }));
+    const saved = await updateUserProjects(selectedUserId.value, authorizedProjects);
+    userProjectRoles.value = Object.fromEntries(
+      saved.projects
+        .filter((project) => project.role === 'viewer' || project.role === 'operator' || project.role === 'admin')
+        .map((project) => [project.project_id, project.role]),
+    );
+    showToast('用户项目授权已保存');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    membersSaving.value = false;
+  }
+}
+
+function setUserProjectRole(projectId, role) {
+  userProjectRoles.value = {
+    ...userProjectRoles.value,
+    [projectId]: role,
+  };
+
+  if (!role) {
+    const next = { ...userProjectRoles.value };
+    delete next[projectId];
+    userProjectRoles.value = next;
   }
 }
 
@@ -633,7 +1065,7 @@ function calculateResourceRates(previous, current) {
 }
 
 async function saveProject() {
-  if (!selectedProjectId.value) return;
+  if (!selectedProjectId.value || !canManageSelectedProject.value) return;
 
   projectSaving.value = true;
   error.value = '';
@@ -710,6 +1142,8 @@ async function importProjectFromFile(event) {
 }
 
 async function addProject() {
+  if (!canCreateProjects.value) return;
+
   projectCreating.value = true;
   error.value = '';
 
@@ -731,7 +1165,7 @@ async function addProject() {
 }
 
 async function submit() {
-  if (!canCreateCamera.value) return;
+  if (!canCreateCamera.value || !canManageSelectedProject.value) return;
 
   saving.value = true;
   error.value = '';
@@ -751,7 +1185,7 @@ async function submit() {
 }
 
 async function submitBulk() {
-  if (!selectedProjectId.value || bulkCreating.value) return;
+  if (!selectedProjectId.value || bulkCreating.value || !canManageSelectedProject.value) return;
 
   bulkCreating.value = true;
   error.value = '';
@@ -782,7 +1216,7 @@ function openEditCamera(camera) {
 }
 
 async function saveCameraEdit() {
-  if (!editingCamera.value || isCameraBusy(editingCamera.value.id)) return;
+  if (!editingCamera.value || isCameraBusy(editingCamera.value.id) || !canManageSelectedProject.value) return;
 
   const camera = editingCamera.value;
   setCameraBusy(camera.id, true);
@@ -968,6 +1402,11 @@ function screenCellClass(index) {
 }
 
 function beginDrag(camera, event) {
+  if (!canManageSelectedProject.value) {
+    event.preventDefault();
+    return;
+  }
+
   draggedCameraId.value = camera.id;
   event.dataTransfer.effectAllowed = 'copyMove';
   event.dataTransfer.setData('text/plain', String(camera.id));
@@ -979,6 +1418,7 @@ function endDrag() {
 }
 
 function beginRegionSelection(cell, event) {
+  if (!canManageSelectedProject.value) return;
   if (event.button !== 0) return;
   if (event.target.closest('button, a, input, select')) return;
 
@@ -1024,6 +1464,8 @@ function dropRegionForCell(index, regionOverride = null) {
 
 async function dropCameraOnScreen(index, event, regionOverride = null) {
   event.preventDefault();
+  if (!canManageSelectedProject.value) return;
+
   const cameraId = Number.parseInt(event.dataTransfer.getData('text/plain') || draggedCameraId.value, 10);
   const camera = cameras.value.find((item) => item.id === cameraId);
   const region = dropRegionForCell(index, regionOverride);
@@ -1047,6 +1489,7 @@ async function dropCameraOnScreen(index, event, regionOverride = null) {
 }
 
 async function clearCameraAssignment(camera) {
+  if (!canManageSelectedProject.value) return;
   await saveCameraTargets(camera, [], null, '已移除绑定');
 }
 
@@ -1147,19 +1590,19 @@ function isCameraBusy(id) {
 }
 
 function canStartCamera(camera) {
-  return camera.status !== 'running' && !isCameraBusy(camera.id);
+  return canManageSelectedProject.value && camera.status !== 'running' && !isCameraBusy(camera.id);
 }
 
 function canStopCamera(camera) {
-  return camera.status === 'running' && !isCameraBusy(camera.id);
+  return canManageSelectedProject.value && camera.status === 'running' && !isCameraBusy(camera.id);
 }
 
 function canRestartCamera(camera) {
-  return camera.status === 'running' && !isCameraBusy(camera.id);
+  return canManageSelectedProject.value && camera.status === 'running' && !isCameraBusy(camera.id);
 }
 
 async function runAction(action, camera, doneMessage) {
-  if (isCameraBusy(camera.id)) return;
+  if (isCameraBusy(camera.id) || !canManageSelectedProject.value) return;
 
   error.value = '';
   setCameraBusy(camera.id, true);
@@ -1333,6 +1776,7 @@ function projectSectionLabel(section) {
   const map = {
     cameras: '摄像头管理',
     matrix: '矩阵绑定',
+    screenUrls: '大屏地址',
     settings: '项目设置',
     audit: '操作审计',
   };
@@ -1343,6 +1787,10 @@ function auditActionLabel(action) {
   const map = {
     'project.create': '创建项目',
     'project.update': '更新项目',
+    'user.projects_update': '更新用户授权',
+    'screen_url.create': '添加大屏地址',
+    'screen_url.update': '更新大屏地址',
+    'screen_url.delete': '删除大屏地址',
     'matrix.update': '更新矩阵',
     'camera.create': '创建摄像头',
     'camera.create_failed': '创建摄像头失败',
@@ -1375,36 +1823,57 @@ function auditDetailSummary(log) {
     return detail.rows && detail.cols ? `${detail.rows} 行 x ${detail.cols} 列` : log.target_name || '-';
   }
 
+  if (log.action?.startsWith('user.')) {
+    return `授权项目 ${detail.project_count ?? '-'} 个`;
+  }
+
+  if (log.action?.startsWith('screen_url.')) {
+    return detail.url || detail.after?.url || log.target_name || '-';
+  }
+
   return log.target_name || '-';
 }
 
 onMounted(async () => {
-  await refreshProjects();
-  refreshSystemStatus();
-  statusPollTimer = window.setInterval(() => {
-    if (currentView.value === 'project' && projectSection.value === 'cameras') {
-      refreshCameraStatuses({ silent: true });
-    }
-  }, 10000);
-  resourcePollTimer = window.setInterval(() => {
-    if (currentView.value === 'project' && projectSection.value === 'cameras') {
-      refreshResourceStats({ silent: true });
-    }
-  }, 15000);
+  await loadCurrentSession();
 });
 
 onBeforeUnmount(() => {
-  if (statusPollTimer) {
-    window.clearInterval(statusPollTimer);
-  }
-  if (resourcePollTimer) {
-    window.clearInterval(resourcePollTimer);
-  }
+  stopBackgroundPolling();
 });
 </script>
 
 <template>
   <main class="shell" :class="{ 'theme-cyber': uiTheme === 'cyber' }" @click="closeActionMenu">
+    <section v-if="authChecking" class="auth-screen">
+      <div class="auth-card">
+        <h1>VirtualWebCam</h1>
+        <p>正在校验登录状态</p>
+      </div>
+    </section>
+
+    <section v-else-if="!isAuthenticated" class="auth-screen">
+      <form class="auth-card" @submit.prevent="submitLogin">
+        <div>
+          <h1>VirtualWebCam</h1>
+          <p>登录后仅能访问已授权的项目</p>
+        </div>
+        <label>
+          <span>用户名</span>
+          <input v-model.trim="loginForm.username" autocomplete="username" required />
+        </label>
+        <label>
+          <span>密码</span>
+          <input v-model="loginForm.password" autocomplete="current-password" required type="password" />
+        </label>
+        <p v-if="loginError" class="error">{{ loginError }}</p>
+        <button class="primary-button auth-submit" type="submit" :disabled="loginLoading">
+          <span>{{ loginLoading ? '登录中' : '登录系统' }}</span>
+        </button>
+      </form>
+    </section>
+
+    <template v-else>
 	    <header class="topbar">
 	      <div>
 	        <div class="title-line">
@@ -1414,16 +1883,40 @@ onBeforeUnmount(() => {
 	          </button>
 	        </div>
 	        <p v-if="currentView === 'projects'">项目入口 · 网页转 RTSP + ONVIF 摄像头实例管理</p>
+	        <p v-else-if="currentView === 'users'">系统管理 · 登录人员与项目授权</p>
 	        <p v-else>{{ selectedProject?.name }} · {{ projectSectionLabel(projectSection) }}</p>
 	      </div>
 	      <div class="topbar-actions">
+	        <div class="account-strip">
+	          <span>{{ userRoleLabel(currentUser.role) }}</span>
+	          <strong>{{ currentUser.display_name }}</strong>
+	          <small>{{ currentUser.username }}</small>
+	        </div>
+        <div class="topbar-button-row">
+          <button class="text-button" type="button" title="修改当前账号密码" @click="openPasswordModal">
+            <Settings :size="16" />
+            <span>修改密码</span>
+          </button>
 	        <button v-if="currentView === 'project'" class="text-button" type="button" @click="backToProjects">
 	          <ArrowLeft :size="16" />
           <span>项目列表</span>
         </button>
+        <button v-if="isSystemAdmin && currentView !== 'users'" class="text-button" type="button" @click="openUserManagement">
+          <UserPlus :size="16" />
+          <span>用户管理</span>
+        </button>
+        <button v-if="currentView === 'users'" class="text-button" type="button" @click="backToProjects">
+          <ArrowLeft :size="16" />
+          <span>项目列表</span>
+        </button>
+        <button class="text-button" type="button" title="退出登录" @click="logout">
+          <LogOut :size="16" />
+          <span>退出</span>
+        </button>
         <button class="icon-button" type="button" title="刷新" @click="refresh">
           <RefreshCw :size="18" />
         </button>
+        </div>
       </div>
     </header>
 
@@ -1441,8 +1934,12 @@ onBeforeUnmount(() => {
 
     <p v-if="error" class="error global-error">{{ error }}</p>
 
+    <datalist id="screen-url-options">
+      <option v-for="item in screenUrls" :key="item.id" :value="item.url">{{ item.name }}</option>
+    </datalist>
+
     <section v-if="currentView === 'projects'" class="project-home">
-      <section class="panel project-create-panel">
+      <section v-if="canCreateProjects" class="panel project-create-panel">
         <div class="panel-heading">
           <h2>创建管理项目</h2>
         </div>
@@ -1466,6 +1963,14 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
+      <section v-else class="panel project-access-panel">
+        <div>
+          <h2>授权项目</h2>
+          <p>当前账号只能看到管理员授权的项目。需要新增项目或调整权限时，请联系系统管理员。</p>
+        </div>
+        <span class="count">{{ projects.length }}</span>
+      </section>
+
       <section class="project-grid">
         <article v-for="project in projects" :key="project.id" class="project-card">
           <div class="project-card-head">
@@ -1475,7 +1980,7 @@ onBeforeUnmount(() => {
               <button type="button" title="导出配置" @click="downloadProjectConfig(project)">
                 <FileText :size="15" />
               </button>
-              <button type="button" title="项目设置" @click="enterProject(project, 'settings')">
+              <button v-if="canManageProject(project)" type="button" title="项目设置" @click="enterProject(project, 'settings')">
                 <Settings :size="15" />
               </button>
             </div>
@@ -1499,9 +2004,104 @@ onBeforeUnmount(() => {
               <span>矩阵绑定</span>
             </button>
           </div>
+          <p class="project-permission">权限：{{ projectRoleLabel(project.permission_role) }}</p>
         </article>
 
         <div v-if="projects.length === 0" class="empty project-empty">暂无项目</div>
+      </section>
+    </section>
+
+    <section v-else-if="currentView === 'users' && isSystemAdmin" class="members-page">
+      <section class="panel members-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>用户管理</h2>
+            <p>登录人员是系统级主体；项目是分配给用户的资源。</p>
+          </div>
+          <div class="panel-heading-actions">
+            <button class="text-button" type="button" :disabled="membersLoading" @click="refreshUserManagement">
+              <RefreshCw :size="15" />
+              <span>{{ membersLoading ? '刷新中' : '刷新' }}</span>
+            </button>
+            <button class="primary-button" type="button" :disabled="membersSaving || !selectedManagedUser || selectedManagedUser.role === 'admin'" @click="saveUserProjectAccess">
+              <Save :size="16" />
+              <span>{{ membersSaving ? '保存中' : '保存授权' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <form class="user-create-row" @submit.prevent="addUser">
+          <label>
+            <span>用户名</span>
+            <input v-model.trim="newUserForm.username" required placeholder="operator01" />
+          </label>
+          <label>
+            <span>显示名</span>
+            <input v-model.trim="newUserForm.display_name" placeholder="值班人员" />
+          </label>
+          <label>
+            <span>初始密码</span>
+            <input v-model="newUserForm.password" required type="password" minlength="8" placeholder="至少 8 位" />
+          </label>
+          <label>
+            <span>系统角色</span>
+            <select v-model="newUserForm.role">
+              <option value="user">普通用户</option>
+              <option value="admin">系统管理员</option>
+            </select>
+          </label>
+          <button class="text-button" type="submit" :disabled="userCreating || !newUserForm.username || !newUserForm.password">
+            <UserPlus :size="15" />
+            <span>{{ userCreating ? '创建中' : '创建用户' }}</span>
+          </button>
+        </form>
+
+        <div class="user-admin-layout">
+          <aside class="user-list-panel">
+            <div class="members-table-head compact-head">
+              <span>登录人员</span>
+            </div>
+            <button
+              v-for="user in users"
+              :key="user.id"
+              class="user-row-button"
+              type="button"
+              :class="{ active: selectedUserId === user.id }"
+              @click="selectManagedUser(user)"
+            >
+              <strong>{{ user.display_name }}</strong>
+              <span>{{ user.username }} · {{ userRoleLabel(user.role) }}</span>
+            </button>
+            <div v-if="!membersLoading && users.length === 0" class="empty small">暂无用户</div>
+          </aside>
+
+          <section class="project-access-list">
+            <div class="members-table-head">
+              <span>项目资源</span>
+              <span>矩阵</span>
+              <span>授权</span>
+            </div>
+            <div v-if="membersLoading" class="empty small">加载中</div>
+            <article v-for="project in projects" v-else :key="project.id" class="member-row">
+              <div>
+                <strong>{{ project.name }}</strong>
+                <span>{{ project.prefix }}01 - {{ project.prefix }}{{ String(project.rows * project.cols).padStart(2, '0') }}</span>
+              </div>
+              <span>{{ project.rows }} 行 x {{ project.cols }} 列</span>
+              <select
+                v-if="selectedManagedUser?.role !== 'admin'"
+                :value="userProjectRoles[project.id] || ''"
+                :disabled="!selectedManagedUser"
+                @change="setUserProjectRole(project.id, $event.target.value)"
+              >
+                <option value="">不授权</option>
+                <option value="viewer">仅查看</option>
+                <option value="operator">可操作</option>
+              </select>
+              <strong v-else>全部项目</strong>
+            </article>
+          </section>
+        </div>
       </section>
     </section>
 
@@ -1519,7 +2119,10 @@ onBeforeUnmount(() => {
             <button type="button" :class="{ active: projectSection === 'matrix' }" @click="switchProjectSection('matrix')">
               矩阵绑定
             </button>
-            <button type="button" :class="{ active: projectSection === 'settings' }" @click="switchProjectSection('settings')">
+            <button type="button" :class="{ active: projectSection === 'screenUrls' }" @click="switchProjectSection('screenUrls')">
+              大屏地址
+            </button>
+            <button v-if="canManageSelectedProject" type="button" :class="{ active: projectSection === 'settings' }" @click="switchProjectSection('settings')">
               项目设置
             </button>
             <button type="button" :class="{ active: projectSection === 'audit' }" @click="switchProjectSection('audit')">
@@ -1547,11 +2150,11 @@ onBeforeUnmount(() => {
                 <RefreshCw :size="16" />
                 <span>{{ resourceRefreshing ? '采集中' : '刷新资源' }}</span>
               </button>
-              <button class="text-button" type="button" @click="showBulkModal = true">
+              <button v-if="canManageSelectedProject" class="text-button" type="button" @click="showBulkModal = true">
                 <Plus :size="16" />
                 <span>批量生成</span>
               </button>
-              <button class="primary-button" type="button" @click="showCreateModal = true">
+              <button v-if="canManageSelectedProject" class="primary-button" type="button" @click="showCreateModal = true">
                 <Plus :size="16" />
                 <span>新增源</span>
               </button>
@@ -1773,14 +2376,14 @@ onBeforeUnmount(() => {
                             <FileText :size="15" />
                             <span>查看日志</span>
                           </button>
-                          <button type="button" :disabled="isCameraBusy(camera.id)" @click="openEditCamera(camera); closeActionMenu()">
+                          <button type="button" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="openEditCamera(camera); closeActionMenu()">
                             <Settings :size="15" />
                             <span>编辑配置</span>
                           </button>
                         </div>
                         <div class="action-group">
                           <span>复制</span>
-                          <button type="button" @click="cloneCamera(camera); closeActionMenu()">
+                          <button type="button" :disabled="!canManageSelectedProject" @click="cloneCamera(camera); closeActionMenu()">
                             <Plus :size="15" />
                             <span>复制为新摄像头</span>
                           </button>
@@ -1803,7 +2406,7 @@ onBeforeUnmount(() => {
                             <ExternalLink :size="15" />
                             <span>打开 go2rtc</span>
                           </a>
-                          <button type="button" class="danger" :disabled="isCameraBusy(camera.id)" @click="remove(camera); closeActionMenu()">
+                          <button type="button" class="danger" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="remove(camera); closeActionMenu()">
                             <Trash2 :size="15" />
                             <span>删除摄像头</span>
                           </button>
@@ -1831,7 +2434,7 @@ onBeforeUnmount(() => {
               v-for="camera in unassignedCameras"
               :key="camera.id"
               class="camera-card"
-              draggable="true"
+              :draggable="canManageSelectedProject"
               @dragstart="beginDrag(camera, $event)"
               @dragend="endDrag"
             >
@@ -1977,6 +2580,74 @@ onBeforeUnmount(() => {
         </section>
       </section>
 
+      <section v-else-if="projectSection === 'screenUrls'" class="screen-url-page">
+        <section class="panel screen-url-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>大屏地址管理</h2>
+              <p>维护项目常用网页地址，新增或编辑视频源时可搜索选择。</p>
+            </div>
+            <div class="panel-heading-actions">
+              <span class="count">{{ screenUrls.length }}</span>
+              <button class="text-button" type="button" :disabled="screenUrlsLoading" @click="refreshScreenUrls">
+                <RefreshCw :size="15" />
+                <span>{{ screenUrlsLoading ? '刷新中' : '刷新' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <form v-if="canManageSelectedProject" class="screen-url-form" @submit.prevent="saveScreenUrl">
+            <label>
+              <span>名称</span>
+              <input v-model.trim="screenUrlForm.name" required placeholder="大厅信息屏" />
+            </label>
+            <label class="wide-field">
+              <span>网页地址</span>
+              <input v-model.trim="screenUrlForm.url" required type="url" placeholder="https://example.com/dashboard" />
+            </label>
+            <label>
+              <span>备注</span>
+              <input v-model.trim="screenUrlForm.remark" maxlength="200" placeholder="可选" />
+            </label>
+            <div class="screen-url-form-actions">
+              <button class="text-button" type="button" :disabled="!editingScreenUrlId" @click="resetScreenUrlForm">清空</button>
+              <button class="primary-button" type="submit" :disabled="screenUrlSaving || !screenUrlForm.name || !screenUrlForm.url">
+                <Save :size="15" />
+                <span>{{ screenUrlSaving ? '保存中' : (editingScreenUrlId ? '保存地址' : '添加地址') }}</span>
+              </button>
+            </div>
+          </form>
+
+          <div class="screen-url-toolbar">
+            <input v-model.trim="screenUrlQuery" placeholder="搜索名称 / URL / 备注" />
+          </div>
+
+          <div class="screen-url-list">
+            <div v-if="screenUrlsLoading" class="empty small">加载中</div>
+            <div v-else-if="screenUrls.length === 0" class="empty small">暂无大屏地址</div>
+            <div v-else-if="filteredScreenUrls.length === 0" class="empty small">没有匹配的大屏地址</div>
+            <article v-for="item in filteredScreenUrls" v-else :key="item.id" class="screen-url-row">
+              <div>
+                <strong>{{ item.name }}</strong>
+                <a :href="item.url" target="_blank" rel="noreferrer">{{ item.url }}</a>
+                <span v-if="item.remark">{{ item.remark }}</span>
+              </div>
+              <div class="screen-url-actions">
+                <button type="button" title="复制 URL" @click="copy(item.url)">
+                  <Copy :size="14" />
+                </button>
+                <button v-if="canManageSelectedProject" type="button" title="编辑" @click="editScreenUrl(item)">
+                  <Settings :size="14" />
+                </button>
+                <button v-if="canManageSelectedProject" type="button" title="删除" @click="removeScreenUrl(item)">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+      </section>
+
       <section v-else-if="projectSection === 'settings'" class="settings-page">
         <section class="panel settings-panel">
           <div class="panel-heading">
@@ -2078,7 +2749,14 @@ onBeforeUnmount(() => {
 	          </label>
 	          <label class="wide-field">
 	            <span>网页 URL</span>
-	            <input v-model.trim="form.web_url" required type="url" placeholder="https://www.baidu.com" />
+	            <div class="url-picker-field">
+	              <input v-model.trim="form.web_url" required type="url" list="screen-url-options" placeholder="输入或搜索选择大屏地址" />
+	              <div v-if="screenUrls.length > 0" class="url-suggestion-row">
+	                <button v-for="item in screenUrls.slice(0, 6)" :key="item.id" type="button" @click="applyScreenUrl(form, item)">
+	                  {{ item.name }}
+	                </button>
+	              </div>
+	            </div>
 	          </label>
 	          <label>
 	            <span>流名称</span>
@@ -2137,7 +2815,14 @@ onBeforeUnmount(() => {
 	          </label>
 	          <label class="wide-field">
 	            <span>网页 URL</span>
-	            <input v-model.trim="bulkForm.web_url" type="url" />
+	            <div class="url-picker-field">
+	              <input v-model.trim="bulkForm.web_url" type="url" list="screen-url-options" placeholder="输入或搜索选择大屏地址" />
+	              <div v-if="screenUrls.length > 0" class="url-suggestion-row">
+	                <button v-for="item in screenUrls.slice(0, 6)" :key="item.id" type="button" @click="applyScreenUrl(bulkForm, item)">
+	                  {{ item.name }}
+	                </button>
+	              </div>
+	            </div>
 	          </label>
 	          <label>
 	            <span>宽度</span>
@@ -2160,6 +2845,41 @@ onBeforeUnmount(() => {
 	          </button>
 	        </div>
 	      </section>
+	    </div>
+
+	    <div v-if="showPasswordModal" class="modal-backdrop" role="dialog" aria-modal="true" @click.self="showPasswordModal = false">
+	      <form class="modal-card password-modal-card" @submit.prevent="submitPasswordChange">
+	        <div class="modal-head">
+	          <div>
+	            <h2>修改密码</h2>
+	            <p>{{ currentUser.display_name }} · {{ currentUser.username }}</p>
+	          </div>
+	          <button class="icon-button" type="button" title="关闭" @click="showPasswordModal = false">
+	            <X :size="16" />
+	          </button>
+	        </div>
+	        <div class="password-form-grid">
+	          <label>
+	            <span>当前密码</span>
+	            <input v-model="passwordForm.old_password" required type="password" autocomplete="current-password" />
+	          </label>
+	          <label>
+	            <span>新密码</span>
+	            <input v-model="passwordForm.new_password" required type="password" minlength="8" autocomplete="new-password" />
+	          </label>
+	          <label>
+	            <span>确认新密码</span>
+	            <input v-model="passwordForm.confirm_password" required type="password" minlength="8" autocomplete="new-password" />
+	          </label>
+	        </div>
+	        <div class="modal-actions">
+	          <button class="text-button" type="button" @click="showPasswordModal = false">取消</button>
+	          <button class="primary-button" type="submit" :disabled="passwordSaving || passwordForm.new_password.length < 8 || passwordForm.new_password !== passwordForm.confirm_password">
+	            <Save :size="16" />
+	            <span>{{ passwordSaving ? '保存中' : '保存密码' }}</span>
+	          </button>
+	        </div>
+	      </form>
 	    </div>
 
 	    <div v-if="activeLogs" class="drawer" role="dialog" aria-modal="true">
@@ -2206,7 +2926,14 @@ onBeforeUnmount(() => {
         </label>
         <label>
           <span>网页 URL</span>
-          <input v-model.trim="editForm.web_url" required type="url" />
+          <div class="url-picker-field">
+            <input v-model.trim="editForm.web_url" required type="url" list="screen-url-options" placeholder="输入或搜索选择大屏地址" />
+            <div v-if="screenUrls.length > 0" class="url-suggestion-row">
+              <button v-for="item in screenUrls.slice(0, 6)" :key="item.id" type="button" @click="applyScreenUrl(editForm, item)">
+                {{ item.name }}
+              </button>
+            </div>
+          </div>
         </label>
         <label>
           <span>流名称</span>
@@ -2234,5 +2961,6 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="toast" class="toast">{{ toast }}</div>
+    </template>
   </main>
 </template>

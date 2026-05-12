@@ -204,11 +204,17 @@ http://<host_ip>:5177
 http://<host_ip>:8177/api
 ```
 
-如果要给管理后台 API 增加简单访问令牌，启动时配置同一个 `API_TOKEN`。后端会校验 `X-API-Token` 或 `Authorization: Bearer <token>`；前端构建时可以通过 `VITE_API_TOKEN` 注入，也可以在浏览器本地存储 `virtualwebcam-api-token`：
+管理后台内置简单登录与项目授权：
 
-```bash
-API_TOKEN="change-me" VITE_API_TOKEN="change-me" docker compose up -d --build manager-backend manager-frontend
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123456
+SESSION_SECRET=change-this-session-secret
 ```
+
+首次启动时如果 `users` 表为空，系统会创建默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；普通用户登录后只能看到被授权项目。
+
+`API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。
 
 生产环境建议继续放到公司内网认证网关后面，避免直接暴露挂载了 Docker socket 的管理后台。
 
@@ -220,7 +226,7 @@ API_TOKEN="change-me" VITE_API_TOKEN="change-me" docker compose up -d --build ma
 - 哪一路摄像头投向了哪些屏幕
 - 哪些相邻屏幕被合并给同一路摄像头使用
 
-页面入口按层级拆分为项目列表和项目内功能页。进入项目后，`摄像头管理` 用于创建、编辑、复制、批量生成、启动、停止、重启、删除和查看日志；`矩阵绑定` 用于维护摄像头和矩阵屏幕的映射关系；`项目设置` 用于调整项目矩阵；`操作审计` 用于查看关键变更记录。
+页面入口按层级拆分为登录页、项目列表、系统级用户管理和项目内功能页。`用户管理` 用于管理员维护登录人员，并给登录人员分配可访问项目；进入项目后，`摄像头管理` 用于创建、编辑、复制、批量生成、启动、停止、重启、删除和查看日志；`矩阵绑定` 用于维护摄像头和矩阵屏幕的映射关系；`项目设置` 用于调整项目矩阵；`操作审计` 用于查看关键变更记录。
 
 矩阵绑定页支持直接在屏幕矩阵上拖拽框选连续矩形区域，形成类似电子围栏的合并区域；没有框选时，每块屏幕就是一个单屏区域。把左侧未绑定摄像头源拖到围栏或单屏区域内即可完成绑定。绑定后该摄像头会从未绑定列表移除；一个屏幕槽位同一时间只允许被一路摄像头占用。
 
@@ -246,7 +252,11 @@ API_TOKEN="change-me" VITE_API_TOKEN="change-me" docker compose up -d --build ma
 - `GET /api/cameras/statuses?project_id=1`：只同步并返回摄像头状态，用于轻量刷新
 - `GET /api/resource-stats?project_id=1`：采集视频源容器 CPU、内存、网络和磁盘读写
 - `GET /api/health`：管理后台、Docker socket、macvlan 网络、镜像状态
-- `GET /api/projects`：项目列表
+- `POST /api/auth/login`：用户名密码登录，返回会话令牌
+- `GET /api/auth/me`：当前登录人信息
+- `GET /api/users` / `POST /api/users` / `PUT /api/users/:id`：管理员维护系统登录人员
+- `GET /api/users/:id/projects` / `PUT /api/users/:id/projects`：管理员维护某个登录人的项目资源授权
+- `GET /api/projects`：项目列表，普通用户只返回授权项目
 - `POST /api/projects`：创建项目
 - `GET /api/projects/:id/export`：导出项目配置 JSON，包含项目、摄像头、绑定、RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址
 - `POST /api/projects/import`：导入项目配置 JSON 为新项目，IP 冲突时自动重映射到同网段可用地址
@@ -371,6 +381,6 @@ docker compose -f examples/multi-camera.compose.yml up -d
 ## 运行约束
 
 - 宿主机必须能访问 Docker daemon。
-- 管理后台容器挂载 `/var/run/docker.sock`，只建议放在可信内网或接入你自己的认证网关。
+- 管理后台容器挂载 `/var/run/docker.sock`，只建议放在可信内网；上线前必须修改默认管理员密码和 `SESSION_SECRET`，并按项目授权普通用户。
 - 摄像头容器使用 macvlan 固定 IP 时，IP 不要和局域网内现有设备冲突。
 - go2rtc ONVIF 服务对 RTSP 使用 TCP 传输。

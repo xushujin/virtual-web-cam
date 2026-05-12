@@ -23,6 +23,9 @@ services:
       RTSP_GATEWAY_PORT: ${RTSP_GATEWAY_PORT:-554}
       RTSP_NETWORK: ${RTSP_NETWORK:-virtualwebcam_rtsp}
       API_TOKEN: ${API_TOKEN:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

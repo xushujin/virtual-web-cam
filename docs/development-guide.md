@@ -240,7 +240,7 @@ ffmpeg -hide_banner -loglevel info -re \
 - 启用 CORS。
 - 启用 JSON body parser。
 - 使用 `morgan` 输出访问日志。
-- 可选启用 `API_TOKEN` 鉴权。
+- 启用登录会话鉴权，并保留可选 `API_TOKEN` 服务令牌。
 - 挂载 `/api` 路由。
 
 后端默认端口：
@@ -373,6 +373,27 @@ Docker Compose 部署时挂载到：
 
 记录项目、摄像头和矩阵绑定的关键操作。
 
+#### users
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 主键 |
+| `username` | TEXT UNIQUE | 登录用户名 |
+| `password_hash` | TEXT | PBKDF2-SHA256 密码哈希 |
+| `display_name` | TEXT | 显示名称 |
+| `role` | TEXT | `admin` 或 `user` |
+| `enabled` | INTEGER | 是否启用 |
+| `created_at` | DATETIME | 创建时间 |
+
+#### project_members
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `project_id` | INTEGER | 项目 ID |
+| `user_id` | INTEGER | 用户 ID |
+| `role` | TEXT | `viewer` 仅查看，`operator` 可操作 |
+| `created_at` | DATETIME | 创建时间 |
+
 ### 5.7 业务规则
 
 - 单屏绑定：`display_targets` 只能包含一个屏幕编号，`display_region` 为 `null`。
@@ -384,10 +405,27 @@ Docker Compose 部署时挂载到：
 - RTSP 流源的 `ip` 为空，`stream_name` 在 RTSP 流源中必须唯一。
 - 编辑运行中的摄像头会重建容器，使 URL、分辨率、FPS 和流名生效。
 - 删除摄像头会删除数据库记录并强制删除对应容器。
+- 系统管理员默认拥有全部项目权限。
+- 普通用户只能看到 `project_members` 授权的项目。
+- `viewer` 只能读取授权项目，`operator` 可以管理授权项目内的视频源、容器启停、矩阵绑定和项目设置。
 
 ## 6. API 说明
 
 所有 API 以 `/api` 为前缀。
+
+### 6.0 认证与用户
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/auth/login` | 用户名密码登录 |
+| GET | `/api/auth/me` | 当前登录用户 |
+| GET | `/api/users` | 用户列表，系统管理员可用 |
+| POST | `/api/users` | 创建用户，系统管理员可用 |
+| PUT | `/api/users/:id` | 更新用户，系统管理员可用 |
+| GET | `/api/users/:id/projects` | 查询某个登录人的项目资源授权 |
+| PUT | `/api/users/:id/projects` | 更新某个登录人的项目资源授权 |
+
+登录成功返回会话 token，前端使用 `Authorization: Bearer <token>` 访问后续 API。`API_TOKEN` 仍可作为脚本调用的服务令牌，命中后按系统管理员权限处理。
 
 ### 6.1 健康检查
 
@@ -401,7 +439,7 @@ GET /api/health
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/projects` | 项目列表 |
+| GET | `/api/projects` | 项目列表，普通用户只返回授权项目 |
 | POST | `/api/projects` | 创建项目 |
 | PUT | `/api/projects/:id` | 更新项目名称和矩阵规格 |
 | GET | `/api/projects/:id/export` | 导出项目配置 |
@@ -706,16 +744,19 @@ ROUTE_CIDR=192.168.5.208/28
 | `RTSP_GATEWAY_PORT` | 共享 RTSP 网关宿主机端口，默认 `554` |
 | `RTSP_GATEWAY_CONTAINER` | 共享 RTSP 网关容器名，默认 `virtualwebcam-rtsp-gateway` |
 | `RTSP_NETWORK` | RTSP 网关和发布器之间的 Docker bridge 网络 |
-| `API_TOKEN` | 可选 API 令牌 |
+| `ADMIN_USERNAME` | 首次初始化默认管理员用户名 |
+| `ADMIN_PASSWORD` | 首次初始化默认管理员密码，上线必须修改 |
+| `SESSION_SECRET` | 登录会话签名密钥，上线必须修改 |
+| `API_TOKEN` | 可选服务令牌，命中后按系统管理员权限处理 |
 | `CORS_ORIGIN` | 可选 CORS 白名单 |
 
-前端可用环境变量：
+前端可选环境变量：
 
 | 变量 | 说明 |
 | --- | --- |
-| `VITE_API_TOKEN` | 构建期注入 API Token |
+| `VITE_API_TOKEN` | 构建期注入服务令牌，通常只用于内网自动化或网关场景 |
 
-如果不想在构建时注入，也可以在浏览器 LocalStorage 写入：
+如果不想在构建时注入服务令牌，也可以在浏览器 LocalStorage 写入：
 
 ```js
 localStorage.setItem('virtualwebcam-api-token', 'change-me')
@@ -723,15 +764,11 @@ localStorage.setItem('virtualwebcam-api-token', 'change-me')
 
 ## 10. 扩展建议
 
-### 10.1 增加认证
-
-当前内置 `API_TOKEN` 是轻量保护。生产建议放到公司统一认证网关后面，例如 Nginx、Traefik、OAuth2 Proxy 或内部 SSO。
-
-### 10.2 增加 WS-Discovery
+### 10.1 增加 WS-Discovery
 
 go2rtc 已提供 ONVIF 手动添加能力，但自动发现依赖网络广播、交换机和客户端实现。后续如果必须自动发现，需要专项验证 UDP 3702、组播、容器网络和 go2rtc ONVIF 行为。
 
-### 10.3 大规模摄像头
+### 10.2 大规模摄像头
 
 几十路摄像头会消耗 CPU、内存和 Chrome 资源。建议：
 
@@ -740,18 +777,9 @@ go2rtc 已提供 ONVIF 手动添加能力，但自动发现依赖网络广播、
 - 每台宿主机按 CPU、内存、网页复杂度压测后确定路数。
 - 对复杂 Web 页面启用页面自身的轻量化模式。
 
-### 10.4 任务队列
+### 10.3 任务队列
 
 当前后端直接调用 Docker API。后续如果要支持几百路实例、任务重试和排队，可以引入队列，把创建、重建、启动、停止做成异步任务。
-
-### 10.5 权限模型
-
-当前项目没有用户、角色和项目级权限。后续可增加：
-
-- 管理员。
-- 项目管理员。
-- 只读用户。
-- 操作审计绑定用户身份。
 
 ## 11. 已知边界
 

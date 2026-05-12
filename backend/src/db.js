@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
+const { hashPassword } = require('./auth');
 
 const databasePath = process.env.SQLITE_PATH || path.join(__dirname, '..', 'data', 'virtualwebcam.db');
 
@@ -98,9 +99,41 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE INDEX IF NOT EXISTS idx_cameras_project_id ON cameras(project_id);
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+      enabled INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS project_members (
+      project_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      role TEXT DEFAULT 'operator' CHECK (role IN ('viewer', 'operator')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (project_id, user_id),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS screen_urls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      remark TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_audit_logs_project_id ON audit_logs(project_id, id DESC);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_camera_id ON audit_logs(camera_id, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_screen_urls_project_id ON screen_urls(project_id, id DESC);
   `);
 
   const cameraColumns = await api.all('PRAGMA table_info(cameras)');
@@ -153,6 +186,32 @@ async function initDb() {
   }
 
   await api.run('UPDATE cameras SET project_id = 1 WHERE project_id IS NULL');
+  await api.exec('CREATE INDEX IF NOT EXISTS idx_cameras_project_id ON cameras(project_id);');
+
+  const adminUser = await api.get("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+  if (!adminUser) {
+    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123456';
+    const existingUser = await api.get('SELECT id FROM users WHERE username = ?', adminUsername);
+
+    if (existingUser) {
+      await api.run(
+        'UPDATE users SET password_hash = ?, display_name = ?, role = ?, enabled = 1 WHERE id = ?',
+        hashPassword(adminPassword),
+        '系统管理员',
+        'admin',
+        existingUser.id,
+      );
+    } else {
+      await api.run(
+        'INSERT INTO users (username, password_hash, display_name, role, enabled) VALUES (?, ?, ?, ?, 1)',
+        adminUsername,
+        hashPassword(adminPassword),
+        '系统管理员',
+        'admin',
+      );
+    }
+  }
 
   return api;
 }

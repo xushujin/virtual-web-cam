@@ -1,5 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
+const { createToken, hashPassword, publicUser, verifyPassword } = require('./auth');
 const { getDb } = require('./db');
 const dockerService = require('./docker');
 
@@ -58,10 +59,57 @@ const projectSchema = matrixSchema.extend({
   name: z.string().trim().min(1).max(80),
 });
 
+const screenUrlSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  url: z.string().trim().url().refine((value) => value.startsWith('http://') || value.startsWith('https://'), {
+    message: 'url must start with http:// or https://',
+  }),
+  remark: z.string().trim().max(200).optional().default(''),
+});
+
 const projectImportSchema = z.object({
   project: projectSchema,
   cameras: z.array(cameraBaseSchema.passthrough().superRefine(requireCameraIp)).max(1000).default([]),
 }).passthrough();
+
+const loginSchema = z.object({
+  username: z.string().trim().min(1).max(80),
+  password: z.string().min(1).max(200),
+});
+
+const userCreateSchema = z.object({
+  username: z.string().trim().regex(/^[A-Za-z0-9._-]+$/).min(3).max(60),
+  password: z.string().min(8).max(200),
+  display_name: z.string().trim().min(1).max(80).optional().default(''),
+  role: z.enum(['admin', 'user']).default('user'),
+  enabled: z.coerce.boolean().default(true),
+});
+
+const userUpdateSchema = z.object({
+  password: z.string().min(8).max(200).optional().or(z.literal('')),
+  display_name: z.string().trim().min(1).max(80).optional().default(''),
+  role: z.enum(['admin', 'user']).default('user'),
+  enabled: z.coerce.boolean().default(true),
+});
+
+const passwordChangeSchema = z.object({
+  old_password: z.string().min(1).max(200),
+  new_password: z.string().min(8).max(200),
+});
+
+const projectMembersSchema = z.object({
+  members: z.array(z.object({
+    user_id: z.coerce.number().int().min(1),
+    role: z.enum(['viewer', 'operator']).default('operator'),
+  })).max(500).default([]),
+});
+
+const userProjectsSchema = z.object({
+  projects: z.array(z.object({
+    project_id: z.coerce.number().int().min(1),
+    role: z.enum(['viewer', 'operator']).default('operator'),
+  })).max(1000).default([]),
+});
 
 const cameraBulkCreateSchema = z.object({
   count: z.coerce.number().int().min(1).max(200),
@@ -134,6 +182,59 @@ class ApiError extends Error {
   }
 }
 
+function isSystemAdmin(req) {
+  return req.user?.role === 'admin';
+}
+
+function assertSystemAdmin(req, res) {
+  if (isSystemAdmin(req)) {
+    return true;
+  }
+
+  res.status(403).json({ error: 'Admin permission required' });
+  return false;
+}
+
+async function projectAccessRole(user, projectId) {
+  if (!user) {
+    return null;
+  }
+
+  if (user.role === 'admin') {
+    return 'admin';
+  }
+
+  const membership = await getDb().get(
+    'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+    projectId,
+    user.id,
+  );
+
+  return membership?.role || null;
+}
+
+async function requireProjectAccess(req, res, projectId, options = {}) {
+  const id = Number.parseInt(projectId, 10);
+
+  if (!Number.isFinite(id) || id <= 0) {
+    res.status(400).json({ error: 'Invalid project id' });
+    return null;
+  }
+
+  const role = await projectAccessRole(req.user, id);
+  if (!role) {
+    res.status(403).json({ error: 'Project permission required' });
+    return null;
+  }
+
+  if (options.write && role === 'viewer') {
+    res.status(403).json({ error: 'Project operator permission required' });
+    return null;
+  }
+
+  return role;
+}
+
 function projectIdFromRequest(req) {
   const raw = req.query.project_id || req.params.projectId || req.body.project_id || 1;
   const id = Number.parseInt(raw, 10);
@@ -150,6 +251,12 @@ async function getProjectOr404(req, res) {
     return null;
   }
 
+  const role = await requireProjectAccess(req, res, project.id);
+  if (!role) {
+    return null;
+  }
+
+  project.permission_role = role;
   return project;
 }
 
@@ -356,6 +463,12 @@ async function getCameraOr404(req, res) {
     return null;
   }
 
+  const role = await requireProjectAccess(req, res, camera.project_id || 1);
+  if (!role) {
+    return null;
+  }
+
+  camera.permission_role = role;
   return camera;
 }
 
@@ -425,6 +538,368 @@ async function recordAudit({
   }
 }
 
+router.post('/auth/login', async (req, res) => {
+  const parsed = loginSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid login payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  const { username, password } = parsed.data;
+  const user = await getDb().get(
+    'SELECT id, username, password_hash, display_name, role, enabled FROM users WHERE username = ?',
+    username,
+  );
+
+  if (!user || !user.enabled || !verifyPassword(password, user.password_hash)) {
+    return res.status(401).json({ error: '用户名或密码错误' });
+  }
+
+  const responseUser = publicUser(user);
+  return res.json({
+    token: createToken(responseUser),
+    user: responseUser,
+  });
+});
+
+router.get('/auth/me', async (req, res) => {
+  res.json({ user: req.user });
+});
+
+router.put('/auth/password', async (req, res) => {
+  const parsed = passwordChangeSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid password payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  if (req.user?.is_service || !req.user?.id) {
+    return res.status(403).json({ error: 'Service token cannot change password' });
+  }
+
+  const user = await getDb().get(
+    'SELECT id, username, password_hash, display_name, role, enabled FROM users WHERE id = ?',
+    req.user.id,
+  );
+
+  if (!user || !user.enabled) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!verifyPassword(parsed.data.old_password, user.password_hash)) {
+    return res.status(400).json({ error: '当前密码不正确' });
+  }
+
+  await getDb().run(
+    'UPDATE users SET password_hash = ? WHERE id = ?',
+    hashPassword(parsed.data.new_password),
+    user.id,
+  );
+
+  await recordAudit({
+    action: 'user.password_change',
+    targetType: 'user',
+    targetName: user.username,
+    detail: { user_id: user.id },
+  });
+
+  return res.json({ ok: true });
+});
+
+router.get('/users', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  try {
+    const users = await getDb().all(
+      `SELECT id, username, display_name, role, enabled, created_at
+       FROM users
+       ORDER BY role = 'admin' DESC, id ASC`,
+    );
+    res.json(users.map(publicUser));
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.post('/users', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const parsed = userCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid user payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const payload = parsed.data;
+    const result = await getDb().run(
+      'INSERT INTO users (username, password_hash, display_name, role, enabled) VALUES (?, ?, ?, ?, ?)',
+      payload.username,
+      hashPassword(payload.password),
+      payload.display_name || payload.username,
+      payload.role,
+      payload.enabled ? 1 : 0,
+    );
+    const user = await getDb().get(
+      'SELECT id, username, display_name, role, enabled FROM users WHERE id = ?',
+      result.lastID,
+    );
+    res.status(201).json(publicUser(user));
+  } catch (error) {
+    if (String(error.message).includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+    return errorResponse(res, error);
+  }
+});
+
+router.put('/users/:id', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const id = Number.parseInt(req.params.id, 10);
+  const existing = await getDb().get('SELECT * FROM users WHERE id = ?', id);
+  if (!existing) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const parsed = userUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid user payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  const payload = parsed.data;
+  const enabled = existing.role === 'admin' && existing.id === req.user.id ? 1 : (payload.enabled ? 1 : 0);
+  const role = existing.id === req.user.id ? 'admin' : payload.role;
+  const displayName = payload.display_name || existing.username;
+
+  try {
+    if (payload.password) {
+      await getDb().run(
+        'UPDATE users SET password_hash = ?, display_name = ?, role = ?, enabled = ? WHERE id = ?',
+        hashPassword(payload.password),
+        displayName,
+        role,
+        enabled,
+        id,
+      );
+    } else {
+      await getDb().run(
+        'UPDATE users SET display_name = ?, role = ?, enabled = ? WHERE id = ?',
+        displayName,
+        role,
+        enabled,
+        id,
+      );
+    }
+
+    const user = await getDb().get(
+      'SELECT id, username, display_name, role, enabled FROM users WHERE id = ?',
+      id,
+    );
+    res.json(publicUser(user));
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.get('/users/:id/projects', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const id = Number.parseInt(req.params.id, 10);
+  const user = await getDb().get(
+    'SELECT id, username, display_name, role, enabled FROM users WHERE id = ?',
+    id,
+  );
+
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  try {
+    const rows = await getDb().all(
+      `SELECT
+         p.id AS project_id,
+         p.name AS project_name,
+         p.rows,
+         p.cols,
+         p.prefix,
+         CASE WHEN u.role = 'admin' THEN 'admin' ELSE pm.role END AS role
+       FROM projects p
+       CROSS JOIN users u
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = u.id
+       WHERE u.id = ?
+       ORDER BY p.id ASC`,
+      user.id,
+    );
+
+    res.json({
+      user: publicUser(user),
+      projects: rows,
+    });
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.put('/users/:id/projects', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const id = Number.parseInt(req.params.id, 10);
+  const user = await getDb().get('SELECT id, username, display_name, role, enabled FROM users WHERE id = ?', id);
+
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  if (user.role === 'admin') {
+    return res.status(400).json({ error: 'Admin users already have access to all projects' });
+  }
+
+  const parsed = userProjectsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid user projects payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM project_members WHERE user_id = ?', user.id);
+
+    for (const project of parsed.data.projects) {
+      const existingProject = await db.get('SELECT id FROM projects WHERE id = ?', project.project_id);
+      if (!existingProject) {
+        continue;
+      }
+      await db.run(
+        'INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)',
+        existingProject.id,
+        user.id,
+        project.role,
+      );
+    }
+
+    await recordAudit({
+      action: 'user.projects_update',
+      targetType: 'user',
+      targetName: user.username,
+      detail: {
+        user_id: user.id,
+        project_count: parsed.data.projects.length,
+      },
+    });
+
+    const rows = await db.all(
+      `SELECT
+         p.id AS project_id,
+         p.name AS project_name,
+         p.rows,
+         p.cols,
+         p.prefix,
+         pm.role
+       FROM projects p
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ?
+       ORDER BY p.id ASC`,
+      user.id,
+    );
+
+    res.json({
+      user: publicUser(user),
+      projects: rows,
+    });
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.get('/projects/:id/members', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const project = await getProjectOr404(req, res);
+  if (!project) return;
+
+  try {
+    const members = await getDb().all(
+      `SELECT pm.project_id, pm.user_id, pm.role, u.username, u.display_name, u.enabled
+       FROM project_members pm
+       JOIN users u ON u.id = pm.user_id
+       WHERE pm.project_id = ?
+       ORDER BY u.username ASC`,
+      project.id,
+    );
+    res.json(members);
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.put('/projects/:id/members', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const project = await getProjectOr404(req, res);
+  if (!project) return;
+
+  const parsed = projectMembersSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid project members payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM project_members WHERE project_id = ?', project.id);
+
+    for (const member of parsed.data.members) {
+      const user = await db.get('SELECT id, role FROM users WHERE id = ? AND enabled = 1', member.user_id);
+      if (!user || user.role === 'admin') {
+        continue;
+      }
+      await db.run(
+        'INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)',
+        project.id,
+        user.id,
+        member.role,
+      );
+    }
+
+    await recordAudit({
+      projectId: project.id,
+      action: 'project.members_update',
+      targetType: 'project',
+      targetName: project.name,
+      detail: {
+        count: parsed.data.members.length,
+      },
+    });
+
+    const members = await db.all(
+      `SELECT pm.project_id, pm.user_id, pm.role, u.username, u.display_name, u.enabled
+       FROM project_members pm
+       JOIN users u ON u.id = pm.user_id
+       WHERE pm.project_id = ?
+       ORDER BY u.username ASC`,
+      project.id,
+    );
+    res.json(members);
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
 router.get('/health', async (req, res) => {
   const runtime = await dockerService.runtimeStatus();
 
@@ -438,7 +913,16 @@ router.get('/health', async (req, res) => {
 
 router.get('/projects', async (req, res) => {
   try {
-    const projects = await getDb().all('SELECT * FROM projects ORDER BY id ASC');
+    const projects = isSystemAdmin(req)
+      ? await getDb().all("SELECT *, 'admin' AS permission_role FROM projects ORDER BY id ASC")
+      : await getDb().all(
+        `SELECT p.*, pm.role AS permission_role
+         FROM projects p
+         JOIN project_members pm ON pm.project_id = p.id
+         WHERE pm.user_id = ?
+         ORDER BY p.id ASC`,
+        req.user.id,
+      );
     res.json(projects);
   } catch (error) {
     errorResponse(res, error);
@@ -472,6 +956,9 @@ router.get('/audit-logs', async (req, res) => {
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit || '80', 10) || 80, 1), 300);
 
   try {
+    const role = await requireProjectAccess(req, res, projectId);
+    if (!role) return;
+
     const rows = await getDb().all(
       `SELECT id, project_id, camera_id, action, target_type, target_name, detail, created_at
        FROM audit_logs
@@ -492,6 +979,8 @@ router.get('/audit-logs', async (req, res) => {
 });
 
 router.post('/projects', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
   const parsed = projectSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -528,6 +1017,8 @@ router.post('/projects', async (req, res) => {
 });
 
 router.post('/projects/import', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
   const rawPayload = req.body?.project ? req.body : req.body?.config;
   const parsed = projectImportSchema.safeParse(rawPayload);
 
@@ -624,6 +1115,8 @@ router.post('/projects/import', async (req, res) => {
 router.put('/projects/:id', async (req, res) => {
   const project = await getProjectOr404(req, res);
   if (!project) return;
+  const role = await requireProjectAccess(req, res, project.id, { write: true });
+  if (!role) return;
 
   const parsed = projectSchema.safeParse(req.body);
 
@@ -664,6 +1157,9 @@ router.put('/projects/:id', async (req, res) => {
 router.get('/cameras', async (req, res) => {
   try {
     const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId);
+    if (!role) return;
+
     const cameras = await syncCameraStatuses(projectId);
     res.json(cameras.map(addUrls));
   } catch (error) {
@@ -673,7 +1169,11 @@ router.get('/cameras', async (req, res) => {
 
 router.get('/cameras/statuses', async (req, res) => {
   try {
-    const cameras = await syncCameraStatuses(projectIdFromRequest(req));
+    const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId);
+    if (!role) return;
+
+    const cameras = await syncCameraStatuses(projectId);
     res.json(cameras.map((camera) => ({
       id: camera.id,
       status: camera.status,
@@ -686,6 +1186,9 @@ router.get('/cameras/statuses', async (req, res) => {
 router.get('/resource-stats', async (req, res) => {
   try {
     const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId);
+    if (!role) return;
+
     const cameras = await getDb().all('SELECT * FROM cameras WHERE project_id = ? ORDER BY id DESC', projectId);
     res.json(await dockerService.cameraResourceStats(cameras));
   } catch (error) {
@@ -695,7 +1198,147 @@ router.get('/resource-stats', async (req, res) => {
 
 router.get('/screen-matrix', async (req, res) => {
   try {
-    res.json(await getScreenMatrix(projectIdFromRequest(req)));
+    const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId);
+    if (!role) return;
+
+    res.json(await getScreenMatrix(projectId));
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.get('/screen-urls', async (req, res) => {
+  try {
+    const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId);
+    if (!role) return;
+
+    const rows = await getDb().all(
+      `SELECT id, project_id, name, url, remark, created_at, updated_at
+       FROM screen_urls
+       WHERE project_id = ?
+       ORDER BY id DESC`,
+      projectId,
+    );
+    res.json(rows);
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.post('/screen-urls', async (req, res) => {
+  const parsed = screenUrlSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid screen URL payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId, { write: true });
+    if (!role) return;
+
+    const project = await getDb().get('SELECT id FROM projects WHERE id = ?', projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const payload = parsed.data;
+    const result = await getDb().run(
+      `INSERT INTO screen_urls (project_id, name, url, remark)
+       VALUES (?, ?, ?, ?)`,
+      projectId,
+      payload.name,
+      payload.url,
+      payload.remark,
+    );
+    const created = await getDb().get('SELECT * FROM screen_urls WHERE id = ?', result.lastID);
+    await recordAudit({
+      projectId,
+      action: 'screen_url.create',
+      targetType: 'screen_url',
+      targetName: created.name,
+      detail: created,
+    });
+    res.status(201).json(created);
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.put('/screen-urls/:id', async (req, res) => {
+  const parsed = screenUrlSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid screen URL payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const existing = await getDb().get('SELECT * FROM screen_urls WHERE id = ?', id);
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Screen URL not found' });
+    }
+
+    const role = await requireProjectAccess(req, res, existing.project_id, { write: true });
+    if (!role) return;
+
+    const payload = parsed.data;
+    await getDb().run(
+      `UPDATE screen_urls
+       SET name = ?, url = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      payload.name,
+      payload.url,
+      payload.remark,
+      id,
+    );
+    const updated = await getDb().get('SELECT * FROM screen_urls WHERE id = ?', id);
+    await recordAudit({
+      projectId: existing.project_id,
+      action: 'screen_url.update',
+      targetType: 'screen_url',
+      targetName: updated.name,
+      detail: {
+        before: existing,
+        after: updated,
+      },
+    });
+    res.json(updated);
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.delete('/screen-urls/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const existing = await getDb().get('SELECT * FROM screen_urls WHERE id = ?', id);
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Screen URL not found' });
+    }
+
+    const role = await requireProjectAccess(req, res, existing.project_id, { write: true });
+    if (!role) return;
+
+    await getDb().run('DELETE FROM screen_urls WHERE id = ?', id);
+    await recordAudit({
+      projectId: existing.project_id,
+      action: 'screen_url.delete',
+      targetType: 'screen_url',
+      targetName: existing.name,
+      detail: existing,
+    });
+    res.status(204).send();
   } catch (error) {
     errorResponse(res, error);
   }
@@ -712,9 +1355,13 @@ router.put('/screen-matrix', async (req, res) => {
   }
 
   try {
-    await setScreenMatrix(parsed.data, projectIdFromRequest(req));
+    const projectId = projectIdFromRequest(req);
+    const role = await requireProjectAccess(req, res, projectId, { write: true });
+    if (!role) return;
+
+    await setScreenMatrix(parsed.data, projectId);
     await recordAudit({
-      projectId: projectIdFromRequest(req),
+      projectId,
       action: 'matrix.update',
       targetType: 'project',
       targetName: 'screen_matrix',
@@ -738,6 +1385,9 @@ router.post('/cameras/bulk', async (req, res) => {
 
   const projectId = projectIdFromRequest(req);
   const db = getDb();
+  const role = await requireProjectAccess(req, res, projectId, { write: true });
+  if (!role) return;
+
   const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId);
 
   if (!project) {
@@ -824,6 +1474,9 @@ router.post('/cameras', async (req, res) => {
   const camera = parsed.data;
   const projectId = projectIdFromRequest(req);
   const db = getDb();
+  const role = await requireProjectAccess(req, res, projectId, { write: true });
+  if (!role) return;
+
   const project = await db.get('SELECT id, rows, cols, prefix FROM projects WHERE id = ?', projectId);
 
   if (!project) {
@@ -901,6 +1554,8 @@ router.post('/cameras', async (req, res) => {
 router.put('/cameras/:id', async (req, res) => {
   const camera = await getCameraOr404(req, res);
   if (!camera) return;
+  const accessRole = await requireProjectAccess(req, res, camera.project_id || 1, { write: true });
+  if (!accessRole) return;
 
   const parsed = cameraUpdateSchema.safeParse(req.body);
 
@@ -992,6 +1647,8 @@ router.put('/cameras/:id', async (req, res) => {
 router.patch('/cameras/:id/display-targets', async (req, res) => {
   const camera = await getCameraOr404(req, res);
   if (!camera) return;
+  const accessRole = await requireProjectAccess(req, res, camera.project_id || 1, { write: true });
+  if (!accessRole) return;
 
   const parsed = displayTargetsPayloadSchema.safeParse(req.body);
 
@@ -1047,6 +1704,8 @@ router.patch('/cameras/:id/display-targets', async (req, res) => {
 router.post('/cameras/:id/start', async (req, res) => {
   const camera = await getCameraOr404(req, res);
   if (!camera) return;
+  const accessRole = await requireProjectAccess(req, res, camera.project_id || 1, { write: true });
+  if (!accessRole) return;
 
   try {
     await dockerService.ensureStarted(camera);
@@ -1068,6 +1727,8 @@ router.post('/cameras/:id/start', async (req, res) => {
 router.post('/cameras/:id/stop', async (req, res) => {
   const camera = await getCameraOr404(req, res);
   if (!camera) return;
+  const accessRole = await requireProjectAccess(req, res, camera.project_id || 1, { write: true });
+  if (!accessRole) return;
 
   try {
     await dockerService.stopCamera(camera);
@@ -1089,6 +1750,8 @@ router.post('/cameras/:id/stop', async (req, res) => {
 router.post('/cameras/:id/restart', async (req, res) => {
   const camera = await getCameraOr404(req, res);
   if (!camera) return;
+  const accessRole = await requireProjectAccess(req, res, camera.project_id || 1, { write: true });
+  if (!accessRole) return;
 
   try {
     await dockerService.restartCamera(camera);
@@ -1110,6 +1773,8 @@ router.post('/cameras/:id/restart', async (req, res) => {
 router.delete('/cameras/:id', async (req, res) => {
   const camera = await getCameraOr404(req, res);
   if (!camera) return;
+  const accessRole = await requireProjectAccess(req, res, camera.project_id || 1, { write: true });
+  if (!accessRole) return;
 
   try {
     await dockerService.removeCameraContainer(camera);

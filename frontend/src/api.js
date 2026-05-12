@@ -3,8 +3,18 @@ const JSON_HEADERS = {
 };
 
 const API_TOKEN = import.meta.env.VITE_API_TOKEN || window.localStorage.getItem('virtualwebcam-api-token') || '';
+const AUTH_TOKEN_KEY = 'virtualwebcam-auth-token';
 
 function withAuthHeaders(headers = {}) {
+  const sessionToken = window.localStorage.getItem(AUTH_TOKEN_KEY) || '';
+
+  if (sessionToken) {
+    return {
+      ...headers,
+      Authorization: `Bearer ${sessionToken}`,
+    };
+  }
+
   if (!API_TOKEN) {
     return headers;
   }
@@ -29,6 +39,70 @@ async function request(path, options = {}) {
   }
 
   return payload;
+}
+
+export function storeAuthToken(token) {
+  if (token) {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+export function hasStoredAuthToken() {
+  return Boolean(window.localStorage.getItem(AUTH_TOKEN_KEY) || API_TOKEN);
+}
+
+export function login(credentials) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(credentials),
+  });
+}
+
+export function getCurrentUser() {
+  return request('/api/auth/me');
+}
+
+export function changePassword(payload) {
+  return request('/api/auth/password', {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listUsers() {
+  return request('/api/users');
+}
+
+export function createUser(user) {
+  return request('/api/users', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(user),
+  });
+}
+
+export function updateUser(id, user) {
+  return request(`/api/users/${id}`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(user),
+  });
+}
+
+export function listUserProjects(id) {
+  return request(`/api/users/${id}/projects`);
+}
+
+export function updateUserProjects(id, projects) {
+  return request(`/api/users/${id}/projects`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ projects }),
+  });
 }
 
 function withProject(path, projectId) {
@@ -157,4 +231,28 @@ export function updateScreenMatrix(matrix, projectId) {
     headers: JSON_HEADERS,
     body: JSON.stringify(matrix),
   });
+}
+
+export function listScreenUrls(projectId) {
+  return request(withProject('/api/screen-urls', projectId));
+}
+
+export function createScreenUrl(payload, projectId) {
+  return request(withProject('/api/screen-urls', projectId), {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateScreenUrl(id, payload) {
+  return request(`/api/screen-urls/${id}`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteScreenUrl(id) {
+  return request(`/api/screen-urls/${id}`, { method: 'DELETE' });
 }
