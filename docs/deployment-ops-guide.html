@@ -450,8 +450,10 @@ docker compose up -d --build manager-backend manager-frontend</code></pre>
 </ul>
 <p><code>API_TOKEN</code> 仍可作为脚本或内网网关的服务令牌。启用后，请求带 <code>X-API-Token</code> 或 <code>Authorization: Bearer &lt;token&gt;</code> 会按系统管理员权限处理：</p>
 <pre><code class="language-bash">API_TOKEN=&quot;change-me&quot; docker compose up -d --build manager-backend manager-frontend</code></pre>
+<p>服务令牌不会注入前端构建产物。生产环境不要把 <code>API_TOKEN</code> 写入浏览器 LocalStorage 或公开页面，网页用户应使用账号密码登录，并通过“用户管理”授权项目资源。</p>
 <h2 id="9-创建视频源"><a class="anchor" href="#9-创建视频源">#</a>9. 创建视频源</h2>
 <h3 id="9-1-通过网页创建-onvif-摄像头"><a class="anchor" href="#9-1-通过网页创建-onvif-摄像头">#</a>9.1 通过网页创建 ONVIF 摄像头</h3>
+<p>如果项目里已经维护了“大屏地址”，网页 URL 可以直接搜索选择；也可以手动输入任意合法的 <code>http://</code> 或 <code>https://</code> 地址。</p>
 <ol>
 <li>打开 <code>http://192.168.5.111:5177</code>。</li>
 <li>进入项目。</li>
@@ -477,6 +479,7 @@ RTSP：rtsp://192.168.5.211:554/screen01
 ONVIF：http://192.168.5.211/onvif/device_service</code></pre>
 <h3 id="9-2-通过网页创建-rtsp-流源"><a class="anchor" href="#9-2-通过网页创建-rtsp-流源">#</a>9.2 通过网页创建 RTSP 流源</h3>
 <p>当现场 IP 地址不足，或者中控支持直接 RTSP 接入时，可以创建 RTSP 流源：</p>
+<p>如果项目里已经维护了“大屏地址”，网页 URL 可以直接搜索选择；也可以手动输入。</p>
 <ol>
 <li>打开 <code>http://192.168.5.111:5177</code>。</li>
 <li>进入项目。</li>
@@ -639,10 +642,11 @@ docker compose start manager-backend</code></pre>
 <li>项目名称。</li>
 <li>矩阵规格。</li>
 <li>摄像头配置。</li>
+<li>大屏地址库。</li>
 <li>屏幕绑定。</li>
 <li>RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址。</li>
 </ul>
-<p>导入时如果 IP 冲突，后端会在同网段内自动寻找可用 IP 并返回重映射结果。</p>
+<p>导入时会同时导入大屏地址库。ONVIF 摄像头 IP 冲突时，后端会在同网段内自动寻找可用 IP 并返回重映射结果；RTSP 流源路径冲突时会自动改名，例如 <code>screen01</code> 可能变成 <code>screen01-import</code>。如果导入过程中出现矩阵绑定冲突等校验错误，后端会清理已经临时创建的项目和资源，避免留下半成品数据。</p>
 <h2 id="13-升级流程"><a class="anchor" href="#13-升级流程">#</a>13. 升级流程</h2>
 <h3 id="13-1-升级前"><a class="anchor" href="#13-1-升级前">#</a>13.1 升级前</h3>
 <pre><code class="language-bash">docker compose ps

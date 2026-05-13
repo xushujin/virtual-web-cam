@@ -70,6 +70,7 @@ const screenUrlSchema = z.object({
 const projectImportSchema = z.object({
   project: projectSchema,
   cameras: z.array(cameraBaseSchema.passthrough().superRefine(requireCameraIp)).max(1000).default([]),
+  screen_urls: z.array(screenUrlSchema.passthrough()).max(1000).default([]),
 }).passthrough();
 
 const loginSchema = z.object({
@@ -401,6 +402,30 @@ async function availableIp(preferredIp, reservedIps = new Set()) {
   }
 
   throw new ApiError(`No available IP in subnet for ${preferredIp}`, 409);
+}
+
+async function availableRtspStreamName(preferredName, reservedStreamNames = new Set()) {
+  const db = getDb();
+  const existingRows = await db.all("SELECT stream_name FROM cameras WHERE source_type = 'rtsp'");
+  const used = new Set(existingRows.map((camera) => camera.stream_name));
+
+  if (!used.has(preferredName) && !reservedStreamNames.has(preferredName)) {
+    return preferredName;
+  }
+
+  const baseName = `${preferredName}-import`;
+  if (!used.has(baseName) && !reservedStreamNames.has(baseName)) {
+    return baseName;
+  }
+
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = `${baseName}-${index}`;
+    if (!used.has(candidate) && !reservedStreamNames.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new ApiError(`No available RTSP stream name for ${preferredName}`, 409);
 }
 
 function resolveDisplayAssignment(displayTargets, displayRegion, project) {
@@ -935,13 +960,22 @@ router.get('/projects/:id/export', async (req, res) => {
 
   try {
     const cameras = await getDb().all('SELECT * FROM cameras WHERE project_id = ? ORDER BY id ASC', project.id);
+    const screenUrls = await getDb().all(
+      `SELECT id, project_id, name, url, remark, created_at, updated_at
+       FROM screen_urls
+       WHERE project_id = ?
+       ORDER BY id ASC`,
+      project.id,
+    );
     res.json({
       version: 1,
       exported_at: new Date().toISOString(),
       project,
       cameras: cameras.map(addUrls),
+      screen_urls: screenUrls,
       summary: {
         camera_count: cameras.length,
+        screen_url_count: screenUrls.length,
         bound_camera_count: cameras.filter((camera) => parseDisplayTargets(camera.display_targets).length > 0).length,
         screen_count: project.rows * project.cols,
       },
@@ -1029,6 +1063,8 @@ router.post('/projects/import', async (req, res) => {
     });
   }
 
+  let createdProjectId = null;
+
   try {
     const db = getDb();
     const payload = parsed.data;
@@ -1041,10 +1077,27 @@ router.post('/projects/import', async (req, res) => {
       payload.project.prefix,
     );
     const project = await db.get('SELECT * FROM projects WHERE id = ?', projectResult.lastID);
+    createdProjectId = project.id;
     const reservedIps = new Set();
+    const reservedRtspStreamNames = new Set();
     const remappedIps = [];
+    const remappedStreams = [];
     const occupiedTargets = new Set();
     const importedCameras = [];
+    const importedScreenUrls = [];
+
+    for (const screenUrl of payload.screen_urls) {
+      const result = await db.run(
+        `INSERT INTO screen_urls (project_id, name, url, remark)
+         VALUES (?, ?, ?, ?)`,
+        project.id,
+        screenUrl.name,
+        screenUrl.url,
+        screenUrl.remark || '',
+      );
+      const createdScreenUrl = await db.get('SELECT * FROM screen_urls WHERE id = ?', result.lastID);
+      importedScreenUrls.push(createdScreenUrl);
+    }
 
     for (const camera of payload.cameras) {
       const assignment = resolveDisplayAssignment(camera.display_targets, camera.display_region, project);
@@ -1058,8 +1111,16 @@ router.post('/projects/import', async (req, res) => {
 
       const sourceType = camera.source_type === 'rtsp' ? 'rtsp' : 'camera';
       const nextIp = sourceType === 'camera' ? await availableIp(camera.ip, reservedIps) : null;
+      const nextStreamName = sourceType === 'rtsp'
+        ? await availableRtspStreamName(camera.stream_name, reservedRtspStreamNames)
+        : camera.stream_name;
+
       if (nextIp) {
         reservedIps.add(nextIp);
+      }
+
+      if (sourceType === 'rtsp') {
+        reservedRtspStreamNames.add(nextStreamName);
       }
 
       if (nextIp && nextIp !== camera.ip) {
@@ -1070,6 +1131,14 @@ router.post('/projects/import', async (req, res) => {
         });
       }
 
+      if (nextStreamName !== camera.stream_name) {
+        remappedStreams.push({
+          name: camera.name,
+          from: camera.stream_name,
+          to: nextStreamName,
+        });
+      }
+
       const result = await db.run(
         `INSERT INTO cameras
           (name, ip, source_type, stream_name, web_url, width, height, fps, status, display_targets, display_region, project_id)
@@ -1077,7 +1146,7 @@ router.post('/projects/import', async (req, res) => {
         camera.name,
         nextIp,
         sourceType,
-        camera.stream_name,
+        nextStreamName,
         camera.web_url,
         camera.width,
         camera.height,
@@ -1098,16 +1167,38 @@ router.post('/projects/import', async (req, res) => {
       detail: {
         source_project: payload.project.name,
         camera_count: importedCameras.length,
+        screen_url_count: importedScreenUrls.length,
         remapped_ips: remappedIps,
+        remapped_streams: remappedStreams,
       },
     });
 
     return res.status(201).json({
       project,
       cameras: importedCameras,
+      screen_urls: importedScreenUrls,
       remapped_ips: remappedIps,
+      remapped_streams: remappedStreams,
     });
   } catch (error) {
+    if (createdProjectId) {
+      try {
+        const db = getDb();
+        await db.run('DELETE FROM cameras WHERE project_id = ?', createdProjectId);
+        await db.run('DELETE FROM screen_urls WHERE project_id = ?', createdProjectId);
+        await db.run('DELETE FROM project_members WHERE project_id = ?', createdProjectId);
+        await db.run('DELETE FROM projects WHERE id = ?', createdProjectId);
+      } catch (cleanupError) {
+        console.warn('Failed to clean failed project import:', cleanupError.message);
+      }
+    }
+
+    if (error instanceof ApiError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    if (String(error.message).includes('SQLITE_CONSTRAINT') || String(error.message).includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Imported project conflicts with existing data' });
+    }
     return errorResponse(res, error);
   }
 });

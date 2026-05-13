@@ -82,6 +82,21 @@ const screenUrlsLoading = ref(false);
 const screenUrlSaving = ref(false);
 const editingScreenUrlId = ref(null);
 const screenUrlQuery = ref('');
+const urlPickerLimit = 20;
+const urlPickerState = reactive({
+  create: {
+    open: false,
+    query: '',
+  },
+  bulk: {
+    open: false,
+    query: '',
+  },
+  edit: {
+    open: false,
+    query: '',
+  },
+});
 const systemStatus = ref(null);
 const systemLoading = ref(true);
 const resourceStats = ref(null);
@@ -312,6 +327,56 @@ const filteredScreenUrls = computed(() => {
     item.remark,
   ].some((value) => String(value || '').toLowerCase().includes(keyword)));
 });
+
+function matchScreenUrls(keyword) {
+  const normalized = keyword.trim().toLowerCase();
+
+  if (!normalized) {
+    return screenUrls.value;
+  }
+
+  return screenUrls.value.filter((item) => [
+    item.name,
+    item.url,
+    item.remark,
+  ].some((value) => String(value || '').toLowerCase().includes(normalized)));
+}
+
+function urlPickerMatches(key) {
+  return matchScreenUrls(urlPickerState[key]?.query || '').slice(0, urlPickerLimit);
+}
+
+function urlPickerMatchCount(key) {
+  return matchScreenUrls(urlPickerState[key]?.query || '').length;
+}
+
+function openUrlPicker(key) {
+  Object.keys(urlPickerState).forEach((itemKey) => {
+    urlPickerState[itemKey].open = itemKey === key;
+  });
+}
+
+function toggleUrlPicker(key) {
+  if (urlPickerState[key].open) {
+    urlPickerState[key].open = false;
+    return;
+  }
+
+  openUrlPicker(key);
+}
+
+function closeUrlPicker(key) {
+  urlPickerState[key].open = false;
+}
+
+function resetUrlPicker(key) {
+  urlPickerState[key].open = false;
+  urlPickerState[key].query = '';
+}
+
+function resetAllUrlPickers() {
+  Object.keys(urlPickerState).forEach(resetUrlPicker);
+}
 
 const resourceByCameraId = computed(() => new Map((resourceStats.value?.items || []).map((item) => [item.camera_id, item])));
 const resourceSummary = computed(() => resourceStats.value?.summary || {
@@ -636,7 +701,19 @@ function incrementIp(value) {
   return '';
 }
 
-function cloneCamera(camera) {
+async function openCreateSourceModal() {
+  await refreshScreenUrls();
+  resetUrlPicker('create');
+  showCreateModal.value = true;
+}
+
+async function openBulkCreateModal() {
+  await refreshScreenUrls();
+  resetUrlPicker('bulk');
+  showBulkModal.value = true;
+}
+
+async function cloneCamera(camera) {
   form.source_type = camera.source_type || 'camera';
   form.name = uniqueName(camera.name);
   form.ip = camera.source_type === 'rtsp' ? '' : incrementIp(camera.ip);
@@ -646,6 +723,8 @@ function cloneCamera(camera) {
   form.height = camera.height;
   form.fps = camera.fps;
   form.display_targets = [];
+  await refreshScreenUrls();
+  resetUrlPicker('create');
   showCreateModal.value = true;
   showToast(form.source_type === 'rtsp' || form.ip ? '已复制到新增弹窗' : '已复制，请补充虚拟 IP');
 }
@@ -860,6 +939,24 @@ async function removeScreenUrl(item) {
 function applyScreenUrl(target, item) {
   target.web_url = item.url;
   showToast(`已选择：${item.name}`);
+}
+
+function applyScreenUrlFromPicker(key, target, item) {
+  applyScreenUrl(target, item);
+  closeUrlPicker(key);
+}
+
+function openScreenUrlManagerFromModal(modalKey) {
+  if (modalKey === 'create') {
+    showCreateModal.value = false;
+  } else if (modalKey === 'bulk') {
+    showBulkModal.value = false;
+  } else if (modalKey === 'edit') {
+    editingCamera.value = null;
+  }
+
+  resetAllUrlPickers();
+  switchProjectSection('screenUrls');
 }
 
 async function refreshUserManagement() {
@@ -1132,7 +1229,13 @@ async function importProjectFromFile(event) {
     const imported = await importProjectConfig(config);
     projects.value = [...projects.value, imported.project];
     const remappedCount = imported.remapped_ips?.length || 0;
-    showToast(remappedCount ? `已导入，${remappedCount} 个 IP 已重映射` : '项目已导入');
+    const remappedStreamCount = imported.remapped_streams?.length || 0;
+    const screenUrlCount = imported.screen_urls?.length || 0;
+    const suffixParts = [];
+    if (remappedCount) suffixParts.push(`${remappedCount} 个 IP 已重映射`);
+    if (remappedStreamCount) suffixParts.push(`${remappedStreamCount} 个 RTSP 流名已改名`);
+    if (screenUrlCount) suffixParts.push(`含 ${screenUrlCount} 个大屏地址`);
+    showToast(suffixParts.length ? `已导入，${suffixParts.join('，')}` : '项目已导入');
     await enterProject(imported.project, 'cameras');
   } catch (err) {
     error.value = err instanceof SyntaxError ? '导入文件不是有效 JSON' : err.message;
@@ -1203,7 +1306,7 @@ async function submitBulk() {
   }
 }
 
-function openEditCamera(camera) {
+async function openEditCamera(camera) {
   editingCamera.value = camera;
   editForm.source_type = camera.source_type || 'camera';
   editForm.name = camera.name;
@@ -1213,6 +1316,8 @@ function openEditCamera(camera) {
   editForm.width = camera.width;
   editForm.height = camera.height;
   editForm.fps = camera.fps;
+  await refreshScreenUrls();
+  resetUrlPicker('edit');
 }
 
 async function saveCameraEdit() {
@@ -1934,10 +2039,6 @@ onBeforeUnmount(() => {
 
     <p v-if="error" class="error global-error">{{ error }}</p>
 
-    <datalist id="screen-url-options">
-      <option v-for="item in screenUrls" :key="item.id" :value="item.url">{{ item.name }}</option>
-    </datalist>
-
     <section v-if="currentView === 'projects'" class="project-home">
       <section v-if="canCreateProjects" class="panel project-create-panel">
         <div class="panel-heading">
@@ -2150,11 +2251,11 @@ onBeforeUnmount(() => {
                 <RefreshCw :size="16" />
                 <span>{{ resourceRefreshing ? '采集中' : '刷新资源' }}</span>
               </button>
-              <button v-if="canManageSelectedProject" class="text-button" type="button" @click="showBulkModal = true">
+              <button v-if="canManageSelectedProject" class="text-button" type="button" @click="openBulkCreateModal">
                 <Plus :size="16" />
                 <span>批量生成</span>
               </button>
-              <button v-if="canManageSelectedProject" class="primary-button" type="button" @click="showCreateModal = true">
+              <button v-if="canManageSelectedProject" class="primary-button" type="button" @click="openCreateSourceModal">
                 <Plus :size="16" />
                 <span>新增源</span>
               </button>
@@ -2750,11 +2851,30 @@ onBeforeUnmount(() => {
 	          <label class="wide-field">
 	            <span>网页 URL</span>
 	            <div class="url-picker-field">
-	              <input v-model.trim="form.web_url" required type="url" list="screen-url-options" placeholder="输入或搜索选择大屏地址" />
-	              <div v-if="screenUrls.length > 0" class="url-suggestion-row">
-	                <button v-for="item in screenUrls.slice(0, 6)" :key="item.id" type="button" @click="applyScreenUrl(form, item)">
-	                  {{ item.name }}
+	              <div class="url-input-row">
+	                <input v-model.trim="form.web_url" required type="url" placeholder="可手动输入，或从大屏地址库选择" />
+	                <button class="url-picker-trigger" type="button" @click="toggleUrlPicker('create')">
+	                  {{ urlPickerState.create.open ? '收起' : '选择地址' }}
 	                </button>
+	              </div>
+	              <div v-if="urlPickerState.create.open" class="url-picker-panel">
+	                <input v-model.trim="urlPickerState.create.query" class="url-picker-search" placeholder="搜索名称 / URL / 备注" />
+	                <div v-if="screenUrlsLoading" class="url-picker-empty">地址库加载中</div>
+	                <div v-else-if="screenUrls.length === 0" class="url-picker-empty">
+	                  <span>暂无可选大屏地址</span>
+	                  <button type="button" @click="openScreenUrlManagerFromModal('create')">去维护</button>
+	                </div>
+	                <div v-else-if="urlPickerMatchCount('create') === 0" class="url-picker-empty">没有匹配的大屏地址</div>
+	                <div v-else class="url-picker-list">
+	                  <button v-for="item in urlPickerMatches('create')" :key="item.id" type="button" @click="applyScreenUrlFromPicker('create', form, item)">
+	                    <strong>{{ item.name }}</strong>
+	                    <span>{{ item.url }}</span>
+	                    <em v-if="item.remark">{{ item.remark }}</em>
+	                  </button>
+	                  <div v-if="urlPickerMatchCount('create') > urlPickerLimit" class="url-picker-more">
+	                    已显示前 {{ urlPickerLimit }} 条，请继续输入关键字缩小范围
+	                  </div>
+	                </div>
 	              </div>
 	            </div>
 	          </label>
@@ -2816,11 +2936,30 @@ onBeforeUnmount(() => {
 	          <label class="wide-field">
 	            <span>网页 URL</span>
 	            <div class="url-picker-field">
-	              <input v-model.trim="bulkForm.web_url" type="url" list="screen-url-options" placeholder="输入或搜索选择大屏地址" />
-	              <div v-if="screenUrls.length > 0" class="url-suggestion-row">
-	                <button v-for="item in screenUrls.slice(0, 6)" :key="item.id" type="button" @click="applyScreenUrl(bulkForm, item)">
-	                  {{ item.name }}
+	              <div class="url-input-row">
+	                <input v-model.trim="bulkForm.web_url" type="url" placeholder="可手动输入，或从大屏地址库选择" />
+	                <button class="url-picker-trigger" type="button" @click="toggleUrlPicker('bulk')">
+	                  {{ urlPickerState.bulk.open ? '收起' : '选择地址' }}
 	                </button>
+	              </div>
+	              <div v-if="urlPickerState.bulk.open" class="url-picker-panel">
+	                <input v-model.trim="urlPickerState.bulk.query" class="url-picker-search" placeholder="搜索名称 / URL / 备注" />
+	                <div v-if="screenUrlsLoading" class="url-picker-empty">地址库加载中</div>
+	                <div v-else-if="screenUrls.length === 0" class="url-picker-empty">
+	                  <span>暂无可选大屏地址</span>
+	                  <button type="button" @click="openScreenUrlManagerFromModal('bulk')">去维护</button>
+	                </div>
+	                <div v-else-if="urlPickerMatchCount('bulk') === 0" class="url-picker-empty">没有匹配的大屏地址</div>
+	                <div v-else class="url-picker-list">
+	                  <button v-for="item in urlPickerMatches('bulk')" :key="item.id" type="button" @click="applyScreenUrlFromPicker('bulk', bulkForm, item)">
+	                    <strong>{{ item.name }}</strong>
+	                    <span>{{ item.url }}</span>
+	                    <em v-if="item.remark">{{ item.remark }}</em>
+	                  </button>
+	                  <div v-if="urlPickerMatchCount('bulk') > urlPickerLimit" class="url-picker-more">
+	                    已显示前 {{ urlPickerLimit }} 条，请继续输入关键字缩小范围
+	                  </div>
+	                </div>
 	              </div>
 	            </div>
 	          </label>
@@ -2927,11 +3066,30 @@ onBeforeUnmount(() => {
         <label>
           <span>网页 URL</span>
           <div class="url-picker-field">
-            <input v-model.trim="editForm.web_url" required type="url" list="screen-url-options" placeholder="输入或搜索选择大屏地址" />
-            <div v-if="screenUrls.length > 0" class="url-suggestion-row">
-              <button v-for="item in screenUrls.slice(0, 6)" :key="item.id" type="button" @click="applyScreenUrl(editForm, item)">
-                {{ item.name }}
+            <div class="url-input-row">
+              <input v-model.trim="editForm.web_url" required type="url" placeholder="可手动输入，或从大屏地址库选择" />
+              <button class="url-picker-trigger" type="button" @click="toggleUrlPicker('edit')">
+                {{ urlPickerState.edit.open ? '收起' : '选择地址' }}
               </button>
+            </div>
+            <div v-if="urlPickerState.edit.open" class="url-picker-panel">
+              <input v-model.trim="urlPickerState.edit.query" class="url-picker-search" placeholder="搜索名称 / URL / 备注" />
+              <div v-if="screenUrlsLoading" class="url-picker-empty">地址库加载中</div>
+              <div v-else-if="screenUrls.length === 0" class="url-picker-empty">
+                <span>暂无可选大屏地址</span>
+                <button type="button" @click="openScreenUrlManagerFromModal('edit')">去维护</button>
+              </div>
+              <div v-else-if="urlPickerMatchCount('edit') === 0" class="url-picker-empty">没有匹配的大屏地址</div>
+              <div v-else class="url-picker-list compact">
+                <button v-for="item in urlPickerMatches('edit')" :key="item.id" type="button" @click="applyScreenUrlFromPicker('edit', editForm, item)">
+                  <strong>{{ item.name }}</strong>
+                  <span>{{ item.url }}</span>
+                  <em v-if="item.remark">{{ item.remark }}</em>
+                </button>
+                <div v-if="urlPickerMatchCount('edit') > urlPickerLimit" class="url-picker-more">
+                  已显示前 {{ urlPickerLimit }} 条，请继续输入关键字缩小范围
+                </div>
+              </div>
             </div>
           </div>
         </label>

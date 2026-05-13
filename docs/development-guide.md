@@ -394,11 +394,24 @@ Docker Compose 部署时挂载到：
 | `role` | TEXT | `viewer` 仅查看，`operator` 可操作 |
 | `created_at` | DATETIME | 创建时间 |
 
+#### screen_urls
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 主键 |
+| `project_id` | INTEGER | 所属项目 |
+| `name` | TEXT | 地址名称，例如大厅信息屏 |
+| `url` | TEXT | 大屏网页地址 |
+| `remark` | TEXT | 备注 |
+| `created_at` | DATETIME | 创建时间 |
+| `updated_at` | DATETIME | 更新时间 |
+
 ### 5.7 业务规则
 
 - 单屏绑定：`display_targets` 只能包含一个屏幕编号，`display_region` 为 `null`。
 - 合并区域绑定：必须提供 `display_region`，后端根据矩形区域计算 `display_targets`。
 - 一个屏幕槽位同一时间只能被一个摄像头占用。
+- 大屏地址属于项目资源，普通用户只能读取授权项目的大屏地址；`operator` 或系统管理员才能新增、编辑、删除。
 - 批量生成只写入数据库，状态为 `stopped`，不立即启动 Docker 容器。
 - 单路创建会写入数据库，并尝试启动 Docker 容器。
 - ONVIF 摄像头必须填写 `ip`，且 IP 在 `cameras.ip` 中唯一。
@@ -442,8 +455,8 @@ GET /api/health
 | GET | `/api/projects` | 项目列表，普通用户只返回授权项目 |
 | POST | `/api/projects` | 创建项目 |
 | PUT | `/api/projects/:id` | 更新项目名称和矩阵规格 |
-| GET | `/api/projects/:id/export` | 导出项目配置 |
-| POST | `/api/projects/import` | 导入项目配置 |
+| GET | `/api/projects/:id/export` | 导出项目配置，包含项目、摄像头和大屏地址库 |
+| POST | `/api/projects/import` | 导入项目配置，自动导入大屏地址库，处理 IP 和 RTSP 流名冲突 |
 
 项目创建请求：
 
@@ -565,7 +578,28 @@ GET /api/health
 | GET | `/api/screen-matrix?project_id=1` | 获取项目矩阵规格 |
 | PUT | `/api/screen-matrix?project_id=1` | 更新项目矩阵规格 |
 
-### 6.5 审计
+### 6.5 大屏地址
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/screen-urls?project_id=1` | 查询项目大屏地址库 |
+| POST | `/api/screen-urls?project_id=1` | 新增大屏地址 |
+| PUT | `/api/screen-urls/:id` | 更新大屏地址 |
+| DELETE | `/api/screen-urls/:id` | 删除大屏地址 |
+
+请求体：
+
+```json
+{
+  "name": "大厅信息屏",
+  "url": "https://example.com/dashboard",
+  "remark": "一楼大厅常用看板"
+}
+```
+
+该地址库不直接创建容器，只作为项目内常用网页 URL 的管理资源。前端在新增、批量生成和编辑视频源时使用它做搜索选择。
+
+### 6.6 审计
 
 ```http
 GET /api/audit-logs?project_id=1&limit=80
@@ -701,10 +735,13 @@ docker compose --profile image build virtualwebcam-image
 ```bash
 cd backend
 npm run lint
+npm run test:api
 
 cd ../frontend
 npm run build
 ```
+
+`npm run test:api` 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
 
 ## 9. 关键配置
 
@@ -750,13 +787,9 @@ ROUTE_CIDR=192.168.5.208/28
 | `API_TOKEN` | 可选服务令牌，命中后按系统管理员权限处理 |
 | `CORS_ORIGIN` | 可选 CORS 白名单 |
 
-前端可选环境变量：
+`API_TOKEN` 只应供脚本、内网网关或自动化系统调用后端 API。前端构建不会注入服务令牌，网页用户应通过账号密码登录，避免把管理员级服务令牌暴露到浏览器。
 
-| 变量 | 说明 |
-| --- | --- |
-| `VITE_API_TOKEN` | 构建期注入服务令牌，通常只用于内网自动化或网关场景 |
-
-如果不想在构建时注入服务令牌，也可以在浏览器 LocalStorage 写入：
+开发调试时如果确实需要临时绕过登录，可以手动在浏览器 LocalStorage 写入服务令牌；该方式不建议用于生产环境：
 
 ```js
 localStorage.setItem('virtualwebcam-api-token', 'change-me')

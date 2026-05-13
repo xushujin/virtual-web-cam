@@ -36,8 +36,6 @@ services:
   manager-frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_TOKEN: ${API_TOKEN:-}
     container_name: virtualwebcam-manager-frontend
     restart: unless-stopped
     depends_on:

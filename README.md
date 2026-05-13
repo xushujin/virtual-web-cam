@@ -214,7 +214,7 @@ SESSION_SECRET=change-this-session-secret
 
 首次启动时如果 `users` 表为空，系统会创建默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；普通用户登录后只能看到被授权项目。
 
-`API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。
+`API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。服务令牌不会再注入前端构建产物，网页用户应通过账号密码登录，避免把管理员级令牌暴露到浏览器。
 
 生产环境建议继续放到公司内网认证网关后面，避免直接暴露挂载了 Docker socket 的管理后台。
 
@@ -228,6 +228,8 @@ SESSION_SECRET=change-this-session-secret
 
 页面入口按层级拆分为登录页、项目列表、系统级用户管理和项目内功能页。`用户管理` 用于管理员维护登录人员，并给登录人员分配可访问项目；进入项目后，`摄像头管理` 用于创建、编辑、复制、批量生成、启动、停止、重启、删除和查看日志；`矩阵绑定` 用于维护摄像头和矩阵屏幕的映射关系；`项目设置` 用于调整项目矩阵；`操作审计` 用于查看关键变更记录。
 
+项目内还提供 `大屏地址` 管理，用于维护当前项目常用的大屏网页 URL。创建或编辑 ONVIF 摄像头、RTSP 流源时，用户既可以手动输入网页地址，也可以从项目大屏地址库中搜索选择，减少现场录入错误。
+
 矩阵绑定页支持直接在屏幕矩阵上拖拽框选连续矩形区域，形成类似电子围栏的合并区域；没有框选时，每块屏幕就是一个单屏区域。把左侧未绑定摄像头源拖到围栏或单屏区域内即可完成绑定。绑定后该摄像头会从未绑定列表移除；一个屏幕槽位同一时间只允许被一路摄像头占用。
 
 绑定关系只作为管理元数据保存，不改变视频源输出地址；真实投屏或中控接入仍然使用列表中生成的 RTSP 地址，ONVIF 摄像头还可以使用 ONVIF 地址。
@@ -237,6 +239,7 @@ SESSION_SECRET=change-this-session-secret
 - 项目管理：创建不同矩阵规格的项目，导出项目配置 JSON，也可以把导出的 JSON 导入为新项目。
 - 摄像头录入：单路创建会尝试启动容器；批量生成只写入配置，默认 `stopped`，适合先录入几十路摄像头。
 - 视频源类型：支持 ONVIF 摄像头和 RTSP 流源。ONVIF 摄像头需要独立 IP；RTSP 流源使用共享网关和不同流路径。
+- 大屏地址：按项目维护常用网页 URL，新增、编辑和批量生成视频源时可搜索选择。
 - 摄像头列表：支持搜索名称、IP、流名、网页 URL、RTSP、ONVIF 和投放屏幕，支持按运行状态筛选。
 - 列表字段：默认精简显示名称、IP、网页 URL、状态和操作；用户可手动显示资源、投放屏幕、RTSP、ONVIF 等长字段。
 - 概览统计：显示总数、运行中、已停止、异常、已绑定和未绑定数量，点击统计卡片可联动筛选。
@@ -258,10 +261,14 @@ SESSION_SECRET=change-this-session-secret
 - `GET /api/users/:id/projects` / `PUT /api/users/:id/projects`：管理员维护某个登录人的项目资源授权
 - `GET /api/projects`：项目列表，普通用户只返回授权项目
 - `POST /api/projects`：创建项目
-- `GET /api/projects/:id/export`：导出项目配置 JSON，包含项目、摄像头、绑定、RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址
-- `POST /api/projects/import`：导入项目配置 JSON 为新项目，IP 冲突时自动重映射到同网段可用地址
+- `GET /api/projects/:id/export`：导出项目配置 JSON，包含项目、摄像头、绑定、大屏地址、RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址
+- `POST /api/projects/import`：导入项目配置 JSON 为新项目，大屏地址会随项目导入，ONVIF 摄像头 IP 冲突时自动重映射到同网段可用地址，RTSP 流源路径冲突时自动改名
 - `PUT /api/projects/:id`：更新项目名称和矩阵规格
 - `GET /api/audit-logs?project_id=1`：查询项目操作审计日志
+- `GET /api/screen-urls?project_id=1`：查询项目大屏地址库
+- `POST /api/screen-urls?project_id=1`：新增项目大屏地址
+- `PUT /api/screen-urls/:id`：更新项目大屏地址
+- `DELETE /api/screen-urls/:id`：删除项目大屏地址
 - `GET /api/screen-matrix?project_id=1`：指定项目的屏幕矩阵配置
 - `PUT /api/screen-matrix?project_id=1`：更新指定项目的屏幕矩阵
 - `POST /api/cameras`：创建并启动一路视频源容器
@@ -328,6 +335,17 @@ rtsp://192.168.5.111:554/screen01
 - 播放器验收：推荐复制页面内的 mpv 测试命令，格式为 `mpv --rtsp-transport=tcp <rtsp_url>`
 - ffprobe 验收：RTSP 返回 H.264 视频流
 - ODM 验收：ONVIF 手动添加成功即可，自动发现不作为核心验收项
+
+## 回归测试
+
+后端内置一套不依赖 Docker 的 API 回归测试，使用临时 SQLite，不会污染当前业务数据：
+
+```bash
+cd backend
+npm run test:api
+```
+
+覆盖登录、项目授权、大屏地址库、批量摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
 
 ## 演示数据
 

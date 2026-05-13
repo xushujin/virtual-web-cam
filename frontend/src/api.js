@@ -2,7 +2,7 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-const API_TOKEN = import.meta.env.VITE_API_TOKEN || window.localStorage.getItem('virtualwebcam-api-token') || '';
+const API_TOKEN = window.localStorage.getItem('virtualwebcam-api-token') || '';
 const AUTH_TOKEN_KEY = 'virtualwebcam-auth-token';
 
 function withAuthHeaders(headers = {}) {
