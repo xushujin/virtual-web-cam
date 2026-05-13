@@ -170,7 +170,7 @@
   <div class="shell">
     <aside class="sidebar">
       <p class="brand">VirtualWebCam</p>
-      <nav class="nav"><a href="./index.html">文档中心</a><a aria-current="page" href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a></nav>
+      <nav class="nav"><a href="./index.html">文档中心</a><a href="./quick-deployment.html">简明部署文档</a><a href="./detailed-deployment.html">详细部署文档</a><a aria-current="page" href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a></nav>
       <p class="toc-title">目录</p>
       <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-开发技术文档">VirtualWebCam 开发技术文档</a><a class="toc-level-2" href="#1-项目目标">1. 项目目标</a><a class="toc-level-2" href="#2-总体架构">2. 总体架构</a><a class="toc-level-2" href="#3-源码结构">3. 源码结构</a><a class="toc-level-2" href="#4-容器模板设计">4. 容器模板设计</a><a class="toc-level-3" href="#4-1-镜像内容">4.1 镜像内容</a><a class="toc-level-3" href="#4-2-环境变量">4.2 环境变量</a><a class="toc-level-3" href="#4-3-entrypoint-主流程">4.3 entrypoint 主流程</a><a class="toc-level-3" href="#4-4-健康检查">4.4 健康检查</a><a class="toc-level-2" href="#5-后端设计">5. 后端设计</a><a class="toc-level-3" href="#5-1-服务入口">5.1 服务入口</a><a class="toc-level-3" href="#5-2-docker-编排">5.2 Docker 编排</a><a class="toc-level-3" href="#5-3-双网络策略">5.3 双网络策略</a><a class="toc-level-3" href="#5-4-rtsp-共享网关策略">5.4 RTSP 共享网关策略</a><a class="toc-level-3" href="#5-5-数据库">5.5 数据库</a><a class="toc-level-3" href="#5-6-数据表">5.6 数据表</a><a class="toc-level-3" href="#5-7-业务规则">5.7 业务规则</a><a class="toc-level-2" href="#6-api-说明">6. API 说明</a><a class="toc-level-3" href="#6-0-认证与用户">6.0 认证与用户</a><a class="toc-level-3" href="#6-1-健康检查">6.1 健康检查</a><a class="toc-level-3" href="#6-2-项目">6.2 项目</a><a class="toc-level-3" href="#6-3-摄像头">6.3 摄像头</a><a class="toc-level-3" href="#6-4-矩阵">6.4 矩阵</a><a class="toc-level-3" href="#6-5-大屏地址">6.5 大屏地址</a><a class="toc-level-3" href="#6-6-审计">6.6 审计</a><a class="toc-level-2" href="#7-前端设计">7. 前端设计</a><a class="toc-level-3" href="#7-1-项目入口">7.1 项目入口</a><a class="toc-level-3" href="#7-2-摄像头管理">7.2 摄像头管理</a><a class="toc-level-3" href="#7-3-矩阵绑定">7.3 矩阵绑定</a><a class="toc-level-2" href="#8-本地开发">8. 本地开发</a><a class="toc-level-3" href="#8-1-准备依赖">8.1 准备依赖</a><a class="toc-level-3" href="#8-2-启动后端">8.2 启动后端</a><a class="toc-level-3" href="#8-3-启动前端">8.3 启动前端</a><a class="toc-level-3" href="#8-4-构建镜像">8.4 构建镜像</a><a class="toc-level-3" href="#8-5-代码校验">8.5 代码校验</a><a class="toc-level-2" href="#9-关键配置">9. 关键配置</a><a class="toc-level-2" href="#10-扩展建议">10. 扩展建议</a><a class="toc-level-3" href="#10-1-增加-ws-discovery">10.1 增加 WS-Discovery</a><a class="toc-level-3" href="#10-2-大规模摄像头">10.2 大规模摄像头</a><a class="toc-level-3" href="#10-3-任务队列">10.3 任务队列</a><a class="toc-level-2" href="#11-已知边界">11. 已知边界</a></nav>
     </aside>
@@ -632,10 +632,16 @@ npm run dev -- --port 5177</code></pre>
 <h3 id="8-5-代码校验"><a class="anchor" href="#8-5-代码校验">#</a>8.5 代码校验</h3>
 <pre><code class="language-bash">cd backend
 npm run lint
+npm run test:unit
+npm run test:coverage
 npm run test:api
 
 cd ../frontend
+npm run test:unit
+npm run test:coverage
 npm run build</code></pre>
+<p>后端 <code>npm run test:unit</code> 使用 Node 内置 <code>node:test</code>，当前覆盖认证哈希、会话 Token、Docker 友好错误、容器状态映射、CPU / 内存 / 网络 / 磁盘统计等纯逻辑。</p>
+<p>后端 <code>npm run test:coverage</code> 使用 Node 22 自带覆盖率，当前覆盖 <code>src/auth.js</code> 和 <code>src/docker-metrics.js</code>。前端 <code>npm run test:coverage</code> 使用 Vitest + V8 覆盖率，当前覆盖 <code>src/utils/**/*.js</code>，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。</p>
 <p><code>npm run test:api</code> 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。</p>
 <h2 id="9-关键配置"><a class="anchor" href="#9-关键配置">#</a>9. 关键配置</h2>
 <p>根目录 <code>.env.example</code>：</p>
@@ -655,10 +661,8 @@ IP_RANGE=192.168.5.208/28
 HOST_MACVLAN_IP=192.168.5.210
 ROUTE_CIDR=192.168.5.208/28</code></pre>
 <p>后端可用环境变量：</p>
-<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>CAMERA_RTSP_PORT</code></td><td>ONVIF 摄像头容器对外 RTSP 端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_HOST</code></td><td>RTSP 流源对外展示的宿主机 IP</td></tr><tr><td><code>RTSP_GATEWAY_PORT</code></td><td>共享 RTSP 网关宿主机端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_CONTAINER</code></td><td>共享 RTSP 网关容器名，默认 <code>virtualwebcam-rtsp-gateway</code></td></tr><tr><td><code>RTSP_NETWORK</code></td><td>RTSP 网关和发布器之间的 Docker bridge 网络</td></tr><tr><td><code>ADMIN_USERNAME</code></td><td>首次初始化默认管理员用户名</td></tr><tr><td><code>ADMIN_PASSWORD</code></td><td>首次初始化默认管理员密码，上线必须修改</td></tr><tr><td><code>SESSION_SECRET</code></td><td>登录会话签名密钥，上线必须修改</td></tr><tr><td><code>API_TOKEN</code></td><td>可选服务令牌，命中后按系统管理员权限处理</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单</td></tr></tbody></table>
-<p><code>API_TOKEN</code> 只应供脚本、内网网关或自动化系统调用后端 API。前端构建不会注入服务令牌，网页用户应通过账号密码登录，避免把管理员级服务令牌暴露到浏览器。</p>
-<p>开发调试时如果确实需要临时绕过登录，可以手动在浏览器 LocalStorage 写入服务令牌；该方式不建议用于生产环境：</p>
-<pre><code class="language-js">localStorage.setItem(&#39;virtualwebcam-api-token&#39;, &#39;change-me&#39;)</code></pre>
+<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>CAMERA_RTSP_PORT</code></td><td>ONVIF 摄像头容器对外 RTSP 端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_HOST</code></td><td>RTSP 流源对外展示的宿主机 IP</td></tr><tr><td><code>RTSP_GATEWAY_PORT</code></td><td>共享 RTSP 网关宿主机端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_CONTAINER</code></td><td>共享 RTSP 网关容器名，默认 <code>virtualwebcam-rtsp-gateway</code></td></tr><tr><td><code>RTSP_NETWORK</code></td><td>RTSP 网关和发布器之间的 Docker bridge 网络</td></tr><tr><td><code>ADMIN_USERNAME</code></td><td>首次初始化默认管理员用户名</td></tr><tr><td><code>ADMIN_PASSWORD</code></td><td>首次初始化默认管理员密码，上线必须修改</td></tr><tr><td><code>SESSION_SECRET</code></td><td>登录会话签名密钥，上线必须修改</td></tr><tr><td><code>API_TOKEN</code></td><td>可选服务令牌，命中后按系统管理员权限处理</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单；未配置时后端不额外放开跨域访问</td></tr></tbody></table>
+<p><code>API_TOKEN</code> 只应供脚本、内网网关或自动化系统调用后端 API。前端构建不会注入服务令牌，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌。网页用户应通过账号密码登录，避免把管理员级服务令牌暴露到浏览器。</p>
 <h2 id="10-扩展建议"><a class="anchor" href="#10-扩展建议">#</a>10. 扩展建议</h2>
 <h3 id="10-1-增加-ws-discovery"><a class="anchor" href="#10-1-增加-ws-discovery">#</a>10.1 增加 WS-Discovery</h3>
 <p>go2rtc 已提供 ONVIF 手动添加能力，但自动发现依赖网络广播、交换机和客户端实现。后续如果必须自动发现，需要专项验证 UDP 3702、组播、容器网络和 go2rtc ONVIF 行为。</p>

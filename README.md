@@ -9,12 +9,16 @@ VirtualWebCam 是一个项目模板，分为两层：
 
 完整文档已整理到 `docs/`：
 
+- [简明部署文档](docs/quick-deployment.md)
+- [详细部署文档](docs/detailed-deployment.md)
 - [开发技术文档](docs/development-guide.md)
 - [部署运维文档](docs/deployment-ops-guide.md)
 - [用户使用指南](docs/user-guide.md)
 
 对应 HTML 版本可直接用浏览器打开：
 
+- [简明部署文档 HTML](docs/quick-deployment.html)
+- [详细部署文档 HTML](docs/detailed-deployment.html)
 - [开发技术文档 HTML](docs/development-guide.html)
 - [部署运维文档 HTML](docs/deployment-ops-guide.html)
 - [用户使用指南 HTML](docs/user-guide.html)
@@ -214,7 +218,7 @@ SESSION_SECRET=change-this-session-secret
 
 首次启动时如果 `users` 表为空，系统会创建默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；普通用户登录后只能看到被授权项目。
 
-`API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。服务令牌不会再注入前端构建产物，网页用户应通过账号密码登录，避免把管理员级令牌暴露到浏览器。
+`API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。服务令牌不会再注入前端构建产物，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌；网页用户应通过账号密码登录，避免把管理员级令牌暴露到浏览器。
 
 生产环境建议继续放到公司内网认证网关后面，避免直接暴露挂载了 Docker socket 的管理后台。
 
@@ -336,14 +340,28 @@ rtsp://192.168.5.111:554/screen01
 - ffprobe 验收：RTSP 返回 H.264 视频流
 - ODM 验收：ONVIF 手动添加成功即可，自动发现不作为核心验收项
 
-## 回归测试
+## 测试与覆盖率
 
-后端内置一套不依赖 Docker 的 API 回归测试，使用临时 SQLite，不会污染当前业务数据：
+后端内置单元测试、覆盖率测试和一套不依赖 Docker 的 API 回归测试。API 回归测试使用临时 SQLite，不会污染当前业务数据：
 
 ```bash
 cd backend
+npm run test:unit
+npm run test:coverage
 npm run test:api
+npm test
 ```
+
+前端内置 Vitest 单元测试和覆盖率测试，当前覆盖矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑：
+
+```bash
+cd frontend
+npm run test:unit
+npm run test:coverage
+npm run build
+```
+
+前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。后端覆盖认证和 Docker 资源统计纯逻辑；前端覆盖 `src/utils/**/*.js`。
 
 覆盖登录、项目授权、大屏地址库、批量摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
 

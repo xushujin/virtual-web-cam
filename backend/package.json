@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "lint": "node --check src/server.js && node --check src/db.js && node --check src/docker.js && node --check src/routes.js",
+    "lint": "node --check src/server.js && node --check src/db.js && node --check src/docker.js && node --check src/docker-metrics.js && node --check src/routes.js",
+    "test": "npm run test:unit && npm run test:api",
+    "test:unit": "node --test test/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=src/auth.js --test-coverage-include=src/docker-metrics.js --test-coverage-lines=90 --test-coverage-functions=90 --test-coverage-branches=75 test/*.test.js",
     "test:api": "node ../scripts/run-api-regression-tests.mjs"
   },
   "dependencies": {

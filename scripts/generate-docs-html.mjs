@@ -6,6 +6,8 @@ const docsDir = path.join(rootDir, 'docs');
 
 const documents = [
   { source: 'README.md', output: 'index.html', title: 'VirtualWebCam 文档中心' },
+  { source: 'quick-deployment.md', output: 'quick-deployment.html', title: 'VirtualWebCam 简明部署文档' },
+  { source: 'detailed-deployment.md', output: 'detailed-deployment.html', title: 'VirtualWebCam 详细部署文档' },
   { source: 'development-guide.md', output: 'development-guide.html', title: 'VirtualWebCam 开发技术文档' },
   { source: 'deployment-ops-guide.md', output: 'deployment-ops-guide.html', title: 'VirtualWebCam 部署运维文档' },
   { source: 'user-guide.md', output: 'user-guide.html', title: 'VirtualWebCam 用户使用指南' },
@@ -416,4 +418,3 @@ for (const doc of documents) {
   fs.writeFileSync(outputPath, html);
   console.log(`generated ${path.relative(rootDir, outputPath)}`);
 }
-

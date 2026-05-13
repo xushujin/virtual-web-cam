@@ -2,7 +2,6 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-const API_TOKEN = window.localStorage.getItem('virtualwebcam-api-token') || '';
 const AUTH_TOKEN_KEY = 'virtualwebcam-auth-token';
 
 function withAuthHeaders(headers = {}) {
@@ -15,14 +14,7 @@ function withAuthHeaders(headers = {}) {
     };
   }
 
-  if (!API_TOKEN) {
-    return headers;
-  }
-
-  return {
-    ...headers,
-    'X-API-Token': API_TOKEN,
-  };
+  return headers;
 }
 
 async function request(path, options = {}) {
@@ -50,7 +42,7 @@ export function storeAuthToken(token) {
 }
 
 export function hasStoredAuthToken() {
-  return Boolean(window.localStorage.getItem(AUTH_TOKEN_KEY) || API_TOKEN);
+  return Boolean(window.localStorage.getItem(AUTH_TOKEN_KEY));
 }
 
 export function login(credentials) {

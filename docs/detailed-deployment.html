@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VirtualWebCam 详细部署文档</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --text: #172033;
+      --muted: #5d6b82;
+      --line: #dce3ee;
+      --brand: #155eef;
+      --brand-soft: #eaf1ff;
+      --code-bg: #0f172a;
+      --code-text: #dbeafe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 0 0, #eaf6ff 0, transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .shell {
+      display: grid;
+      grid-template-columns: 18rem minmax(0, 1fr);
+      gap: 1.5rem;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .sidebar {
+      position: sticky;
+      top: 1.5rem;
+      align-self: start;
+      max-height: calc(100vh - 3rem);
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+    .brand {
+      margin: 0 0 0.75rem;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .nav {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav a, .toc a {
+      display: block;
+      border-radius: 8px;
+      padding: 0.42rem 0.55rem;
+      color: var(--muted);
+    }
+    .nav a[aria-current="page"] {
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-weight: 700;
+    }
+    .toc-title {
+      margin: 0 0 0.4rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .toc {
+      display: grid;
+      gap: 0.1rem;
+      font-size: 0.92rem;
+    }
+    .toc-level-2 { padding-left: 1rem !important; }
+    .toc-level-3 { padding-left: 2rem !important; font-size: 0.86rem; }
+    main {
+      min-width: 0;
+      padding: 2rem 2.25rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.3;
+      margin: 1.8em 0 0.65em;
+    }
+    h1 { margin-top: 0; font-size: 2.15rem; }
+    h2 { padding-top: 0.5rem; border-top: 1px solid var(--line); font-size: 1.55rem; }
+    h3 { font-size: 1.22rem; }
+    p, ul, ol, table, pre, blockquote { margin: 0.8rem 0; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { margin-top: 0.25rem; }
+    code {
+      border-radius: 5px;
+      padding: 0.12rem 0.32rem;
+      background: #eef2f7;
+      color: #0f3b74;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow: auto;
+      border-radius: 12px;
+      padding: 1rem;
+      background: var(--code-bg);
+      color: var(--code-text);
+    }
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.58rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f2f6fb;
+      color: #27364f;
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: 0; }
+    blockquote {
+      border-left: 4px solid var(--brand);
+      padding: 0.4rem 0 0.4rem 1rem;
+      color: var(--muted);
+      background: #f8fbff;
+    }
+    .anchor {
+      opacity: 0;
+      margin-right: 0.35rem;
+      font-weight: 600;
+    }
+    h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor {
+      opacity: 1;
+      text-decoration: none;
+    }
+    @media (max-width: 960px) {
+      .shell { display: block; padding: 1rem; }
+      .sidebar { position: static; max-height: none; margin-bottom: 1rem; }
+      main { padding: 1.2rem; }
+      h1 { font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <p class="brand">VirtualWebCam</p>
+      <nav class="nav"><a href="./index.html">文档中心</a><a href="./quick-deployment.html">简明部署文档</a><a aria-current="page" href="./detailed-deployment.html">详细部署文档</a><a href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a></nav>
+      <p class="toc-title">目录</p>
+      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-详细部署文档">VirtualWebCam 详细部署文档</a><a class="toc-level-2" href="#1-系统说明">1. 系统说明</a><a class="toc-level-2" href="#2-现场规划">2. 现场规划</a><a class="toc-level-3" href="#2-1-确认客户主机网络">2.1 确认客户主机网络</a><a class="toc-level-3" href="#2-2-规划-onvif-摄像头-ip-池">2.2 规划 ONVIF 摄像头 IP 池</a><a class="toc-level-3" href="#2-3-规划端口">2.3 规划端口</a><a class="toc-level-2" href="#3-部署前检查">3. 部署前检查</a><a class="toc-level-3" href="#3-1-docker">3.1 Docker</a><a class="toc-level-3" href="#3-2-端口占用">3.2 端口占用</a><a class="toc-level-3" href="#3-3-项目文件">3.3 项目文件</a><a class="toc-level-2" href="#4-配置-env">4. 配置 `.env`</a><a class="toc-level-2" href="#5-创建-docker-macvlan-网络">5. 创建 Docker macvlan 网络</a><a class="toc-level-3" href="#5-1-脚本方式">5.1 脚本方式</a><a class="toc-level-3" href="#5-2-手动方式">5.2 手动方式</a><a class="toc-level-3" href="#5-3-检查">5.3 检查</a><a class="toc-level-2" href="#6-配置宿主机-macvlan-辅助接口">6. 配置宿主机 macvlan 辅助接口</a><a class="toc-level-2" href="#7-配置开机恢复辅助接口">7. 配置开机恢复辅助接口</a><a class="toc-level-2" href="#8-构建镜像">8. 构建镜像</a><a class="toc-level-2" href="#9-启动管理后台">9. 启动管理后台</a><a class="toc-level-2" href="#10-登录和权限">10. 登录和权限</a><a class="toc-level-2" href="#11-创建项目">11. 创建项目</a><a class="toc-level-2" href="#12-维护大屏地址">12. 维护大屏地址</a><a class="toc-level-2" href="#13-创建-onvif-摄像头">13. 创建 ONVIF 摄像头</a><a class="toc-level-2" href="#14-创建-rtsp-流源">14. 创建 RTSP 流源</a><a class="toc-level-2" href="#15-矩阵绑定">15. 矩阵绑定</a><a class="toc-level-2" href="#16-状态和资源监控">16. 状态和资源监控</a><a class="toc-level-2" href="#17-常用命令">17. 常用命令</a><a class="toc-level-3" href="#17-1-管理后台">17.1 管理后台</a><a class="toc-level-3" href="#17-2-视频源容器">17.2 视频源容器</a><a class="toc-level-3" href="#17-3-rtsp-网关">17.3 RTSP 网关</a><a class="toc-level-3" href="#17-4-播放测试">17.4 播放测试</a><a class="toc-level-2" href="#18-备份和恢复">18. 备份和恢复</a><a class="toc-level-3" href="#18-1-sqlite-数据库位置">18.1 SQLite 数据库位置</a><a class="toc-level-3" href="#18-2-备份">18.2 备份</a><a class="toc-level-3" href="#18-3-恢复">18.3 恢复</a><a class="toc-level-3" href="#18-4-项目导入导出">18.4 项目导入导出</a><a class="toc-level-2" href="#19-升级">19. 升级</a><a class="toc-level-3" href="#19-1-升级前备份">19.1 升级前备份</a><a class="toc-level-3" href="#19-2-升级管理后台">19.2 升级管理后台</a><a class="toc-level-3" href="#19-3-升级容器模板">19.3 升级容器模板</a><a class="toc-level-2" href="#20-更换网络环境">20. 更换网络环境</a><a class="toc-level-2" href="#21-安全建议">21. 安全建议</a><a class="toc-level-2" href="#22-故障处理">22. 故障处理</a><a class="toc-level-3" href="#22-1-管理后台提示无法访问-docker-socket">22.1 管理后台提示无法访问 Docker socket</a><a class="toc-level-3" href="#22-2-onvif-摄像头容器反复重启">22.2 ONVIF 摄像头容器反复重启</a><a class="toc-level-3" href="#22-3-宿主机打不开-http-192-168-5-211">22.3 宿主机打不开 `http://192.168.5.211`</a><a class="toc-level-3" href="#22-4-局域网其他设备打不开摄像头-ip">22.4 局域网其他设备打不开摄像头 IP</a><a class="toc-level-3" href="#22-5-rtsp-流源无法播放">22.5 RTSP 流源无法播放</a><a class="toc-level-3" href="#22-6-onvif-device-manager-搜不到设备">22.6 ONVIF Device Manager 搜不到设备</a><a class="toc-level-3" href="#22-7-修改网页地址后播放器还是旧画面">22.7 修改网页地址后播放器还是旧画面</a><a class="toc-level-2" href="#23-交付验收清单">23. 交付验收清单</a></nav>
+    </aside>
+    <main><h1 id="virtualwebcam-详细部署文档"><a class="anchor" href="#virtualwebcam-详细部署文档">#</a>VirtualWebCam 详细部署文档</h1>
+<p>版本：1.0 适用对象：实施工程师、运维工程师、客户现场管理员 部署方式：Docker Compose + Docker macvlan 管理端口：前端 <code>5177</code>，后端 <code>8177</code> 视频端口：RTSP <code>554/tcp</code>，ONVIF HTTP <code>80/tcp</code></p>
+<h2 id="1-系统说明"><a class="anchor" href="#1-系统说明">#</a>1. 系统说明</h2>
+<p>VirtualWebCam 用于把网页渲染成视频源，并通过管理后台统一创建、启停、删除、查看日志、复制地址和绑定矩阵屏幕。</p>
+<p>项目分为两层：</p>
+<ul>
+<li>容器模板：<code>virtualwebcam:latest</code>，内部运行 Xvfb、openbox、Google Chrome、FFmpeg、MediaMTX、go2rtc。</li>
+<li>管理后台：Node.js + Express + SQLite + Vue3，通过 Docker socket 管理视频源容器。</li>
+</ul>
+<p>系统支持两种视频源：</p>
+<table><thead><tr><th>类型</th><th>网络模型</th><th>对外能力</th><th>适用场景</th></tr></thead><tbody><tr><td>ONVIF 摄像头</td><td>每路一个 macvlan 独立 IP</td><td>RTSP + ONVIF + go2rtc Web</td><td>中控按摄像头 IP 或 ONVIF 接入</td></tr><tr><td>RTSP 流源</td><td>多路共享宿主机 IP</td><td>RTSP</td><td>现场 IP 地址不足，或中控支持直接 RTSP</td></tr></tbody></table>
+<p>ONVIF 摄像头地址示例：</p>
+<pre><code class="language-text">RTSP:  rtsp://192.168.5.211:554/screen01
+ONVIF: http://192.168.5.211/onvif/device_service
+Web:   http://192.168.5.211</code></pre>
+<p>RTSP 流源地址示例：</p>
+<pre><code class="language-text">RTSP: rtsp://192.168.5.111:554/screen01</code></pre>
+<h2 id="2-现场规划"><a class="anchor" href="#2-现场规划">#</a>2. 现场规划</h2>
+<h3 id="2-1-确认客户主机网络"><a class="anchor" href="#2-1-确认客户主机网络">#</a>2.1 确认客户主机网络</h3>
+<p>执行：</p>
+<pre><code class="language-bash">ip -4 addr
+ip route | grep default</code></pre>
+<p>记录以下信息：</p>
+<pre><code class="language-text">主网卡或桥接接口：br0
+客户主机 IP：192.168.5.111
+网段：192.168.5.0/24
+网关：192.168.5.1</code></pre>
+<p>如果客户主机使用 <code>ens33</code>、<code>eno1</code>、<code>bond0</code> 等接口，后续命令中的 <code>br0</code> 要替换成真实接口。</p>
+<h3 id="2-2-规划-onvif-摄像头-ip-池"><a class="anchor" href="#2-2-规划-onvif-摄像头-ip-池">#</a>2.2 规划 ONVIF 摄像头 IP 池</h3>
+<p>ONVIF 摄像头需要独立 IP。建议从客户网络里划出一段不被 DHCP 分配的地址池。</p>
+<p>示例：</p>
+<pre><code class="language-text">客户网段：192.168.5.0/24
+宿主机 IP：192.168.5.111
+虚拟摄像头地址池：192.168.5.208/28
+可用地址：192.168.5.209 - 192.168.5.222
+宿主机 macvlan 辅助 IP：192.168.5.210
+摄像头起始 IP：192.168.5.211</code></pre>
+<p>注意：</p>
+<ul>
+<li>地址池不能和路由器 DHCP、真实摄像头、中控、大屏控制器、服务器等冲突。</li>
+<li><code>HOST_MACVLAN_IP</code> 必须占用地址池内一个未使用 IP，建议固定为 <code>.210</code>。</li>
+<li>摄像头从 <code>.211</code> 开始，便于现场识别。</li>
+<li>如果客户现场 IP 不足，优先使用 RTSP 流源。</li>
+</ul>
+<h3 id="2-3-规划端口"><a class="anchor" href="#2-3-规划端口">#</a>2.3 规划端口</h3>
+<table><thead><tr><th>端口</th><th>所属</th><th>说明</th></tr></thead><tbody><tr><td><code>5177/tcp</code></td><td>管理前端</td><td>浏览器访问入口</td></tr><tr><td><code>8177/tcp</code></td><td>管理后端</td><td>API，建议只内网访问</td></tr><tr><td><code>554/tcp</code></td><td>ONVIF 摄像头容器</td><td>每个独立 IP 内部监听，不占宿主机端口</td></tr><tr><td><code>80/tcp</code></td><td>ONVIF 摄像头容器</td><td>go2rtc Web 和 ONVIF 手动添加入口</td></tr><tr><td><code>554/tcp</code></td><td>RTSP 共享网关</td><td>创建 RTSP 流源时映射到宿主机</td></tr><tr><td><code>3702/udp</code></td><td>go2rtc</td><td>ONVIF WS-Discovery，自动发现不作为核心验收项</td></tr></tbody></table>
+<p>生产环境不要把 <code>8177</code> 和 Docker socket 暴露到公网。</p>
+<h2 id="3-部署前检查"><a class="anchor" href="#3-部署前检查">#</a>3. 部署前检查</h2>
+<h3 id="3-1-docker"><a class="anchor" href="#3-1-docker">#</a>3.1 Docker</h3>
+<pre><code class="language-bash">docker version
+docker ps</code></pre>
+<p>如果当前用户不能访问 Docker：</p>
+<pre><code class="language-bash">sudo usermod -aG docker &quot;$USER&quot;</code></pre>
+<p>退出终端重新登录后再次执行：</p>
+<pre><code class="language-bash">docker ps</code></pre>
+<h3 id="3-2-端口占用"><a class="anchor" href="#3-2-端口占用">#</a>3.2 端口占用</h3>
+<pre><code class="language-bash">ss -ltnp | grep -E &#39;:(5177|8177|554)\b&#39; || true</code></pre>
+<p>如果 <code>554</code> 已被其他服务占用：</p>
+<ul>
+<li>不影响 ONVIF 摄像头独立 IP 模式。</li>
+<li>会影响 RTSP 流源共享网关模式，需要释放 <code>554</code> 或修改 <code>RTSP_GATEWAY_PORT</code>。</li>
+</ul>
+<h3 id="3-3-项目文件"><a class="anchor" href="#3-3-项目文件">#</a>3.3 项目文件</h3>
+<p>确认项目根目录存在：</p>
+<pre><code class="language-bash">ls</code></pre>
+<p>应包含：</p>
+<pre><code class="language-text">container/
+backend/
+frontend/
+docs/
+scripts/
+docker-compose.yml
+.env.example</code></pre>
+<h2 id="4-配置-env"><a class="anchor" href="#4-配置-env">#</a>4. 配置 <code>.env</code></h2>
+<p>复制配置：</p>
+<pre><code class="language-bash">cp .env.example .env</code></pre>
+<p>按客户现场修改 <code>.env</code>。以下是当前验证环境示例：</p>
+<pre><code class="language-env">DOCKER_NETWORK=onvif_macvlan
+VIRTUALWEBCAM_IMAGE=virtualwebcam:latest
+CONTAINER_PREFIX=virtualwebcam
+CAMERA_RTSP_PORT=554
+RTSP_GATEWAY_HOST=192.168.5.111
+RTSP_GATEWAY_PORT=554
+RTSP_NETWORK=virtualwebcam_rtsp
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=replace-with-strong-password
+SESSION_SECRET=replace-with-long-random-secret
+BACKEND_PORT=8177
+FRONTEND_PORT=5177
+HOST_IF=br0
+SUBNET=192.168.5.0/24
+GATEWAY=192.168.5.1
+IP_RANGE=192.168.5.208/28
+HOST_MACVLAN_IP=192.168.5.210
+ROUTE_CIDR=192.168.5.208/28</code></pre>
+<p>生成随机 <code>SESSION_SECRET</code>：</p>
+<pre><code class="language-bash">openssl rand -hex 32</code></pre>
+<p>建议上线前修改管理员默认密码。后续也可以登录系统后在右上角修改密码。</p>
+<h2 id="5-创建-docker-macvlan-网络"><a class="anchor" href="#5-创建-docker-macvlan-网络">#</a>5. 创建 Docker macvlan 网络</h2>
+<p>macvlan 网络在宿主机 Docker 上创建，用于给每个 ONVIF 摄像头容器分配局域网独立 IP。</p>
+<h3 id="5-1-脚本方式"><a class="anchor" href="#5-1-脚本方式">#</a>5.1 脚本方式</h3>
+<pre><code class="language-bash">sudo PARENT_IFACE=br0 \
+  SUBNET=192.168.5.0/24 \
+  GATEWAY=192.168.5.1 \
+  IP_RANGE=192.168.5.208/28 \
+  NETWORK_NAME=onvif_macvlan \
+  ./scripts/create-macvlan.sh</code></pre>
+<h3 id="5-2-手动方式"><a class="anchor" href="#5-2-手动方式">#</a>5.2 手动方式</h3>
+<pre><code class="language-bash">sudo docker network create -d macvlan \
+  --subnet=192.168.5.0/24 \
+  --ip-range=192.168.5.208/28 \
+  --gateway=192.168.5.1 \
+  -o parent=br0 \
+  onvif_macvlan</code></pre>
+<h3 id="5-3-检查"><a class="anchor" href="#5-3-检查">#</a>5.3 检查</h3>
+<pre><code class="language-bash">docker network inspect onvif_macvlan</code></pre>
+<p>确认：</p>
+<pre><code class="language-text">Driver: macvlan
+Subnet: 192.168.5.0/24
+IPRange: 192.168.5.208/28
+Gateway: 192.168.5.1
+Parent: br0</code></pre>
+<p>如果网络已经存在但参数不对，需要先停止并删除挂在旧网络上的摄像头容器，再删除旧网络重建。</p>
+<h2 id="6-配置宿主机-macvlan-辅助接口"><a class="anchor" href="#6-配置宿主机-macvlan-辅助接口">#</a>6. 配置宿主机 macvlan 辅助接口</h2>
+<p>macvlan 的常见限制：宿主机默认不能直接访问同一宿主机上的 macvlan 容器 IP。局域网其他机器通常可以访问。</p>
+<p>如果需要在客户主机本机访问：</p>
+<pre><code class="language-text">http://192.168.5.211
+rtsp://192.168.5.211:554/screen01</code></pre>
+<p>执行：</p>
+<pre><code class="language-bash">sudo HOST_IF=br0 \
+  HOST_MACVLAN_IP=192.168.5.210 \
+  ROUTE_CIDR=192.168.5.208/28 \
+  ./scripts/setup-macvlan-host.sh</code></pre>
+<p>手动命令：</p>
+<pre><code class="language-bash">sudo ip link delete macvlan-host 2&gt;/dev/null || true
+sudo ip link add macvlan-host link br0 type macvlan mode bridge
+sudo ip addr add 192.168.5.210/32 dev macvlan-host
+sudo ip link set macvlan-host up
+sudo ip route replace 192.168.5.208/28 dev macvlan-host</code></pre>
+<p>检查：</p>
+<pre><code class="language-bash">ip addr show macvlan-host
+ip route | grep 192.168.5.208</code></pre>
+<h2 id="7-配置开机恢复辅助接口"><a class="anchor" href="#7-配置开机恢复辅助接口">#</a>7. 配置开机恢复辅助接口</h2>
+<p>辅助接口重启后会丢失。生产环境建议创建 systemd 服务。</p>
+<p>创建文件：</p>
+<pre><code class="language-bash">sudo vi /etc/systemd/system/virtualwebcam-macvlan-host.service</code></pre>
+<p>写入：</p>
+<pre><code class="language-ini">[Unit]
+Description=VirtualWebCam macvlan host interface
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/mola/genai/src/virtual-web-cam
+ExecStart=/usr/bin/env HOST_IF=br0 HOST_MACVLAN_IP=192.168.5.210 ROUTE_CIDR=192.168.5.208/28 /mola/genai/src/virtual-web-cam/scripts/setup-macvlan-host.sh
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+<p>把 <code>WorkingDirectory</code> 和 <code>ExecStart</code> 中的项目路径改成客户主机真实路径。</p>
+<p>启用：</p>
+<pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl enable --now virtualwebcam-macvlan-host.service
+sudo systemctl status virtualwebcam-macvlan-host.service</code></pre>
+<h2 id="8-构建镜像"><a class="anchor" href="#8-构建镜像">#</a>8. 构建镜像</h2>
+<p>构建通用容器模板：</p>
+<pre><code class="language-bash">docker compose --profile image build virtualwebcam-image</code></pre>
+<p>或直接构建：</p>
+<pre><code class="language-bash">docker build -t virtualwebcam:latest ./container</code></pre>
+<p>检查镜像：</p>
+<pre><code class="language-bash">docker images | grep virtualwebcam
+docker image inspect virtualwebcam:latest &gt;/dev/null &amp;&amp; echo ok</code></pre>
+<p>说明：</p>
+<ul>
+<li><code>virtualwebcam:latest</code> 是通用镜像。</li>
+<li>换客户网段不需要重新构建镜像。</li>
+<li>修改 FFmpeg 参数、容器端口、entrypoint 脚本后需要重新构建镜像。</li>
+</ul>
+<h2 id="9-启动管理后台"><a class="anchor" href="#9-启动管理后台">#</a>9. 启动管理后台</h2>
+<pre><code class="language-bash">docker compose up -d --build manager-backend manager-frontend</code></pre>
+<p>检查：</p>
+<pre><code class="language-bash">docker compose ps
+curl http://localhost:8177/api/health</code></pre>
+<p>访问：</p>
+<pre><code class="language-text">http://localhost:5177
+http://192.168.5.111:5177</code></pre>
+<p>如果管理后台打不开：</p>
+<pre><code class="language-bash">docker logs --tail=100 virtualwebcam-manager-backend
+docker logs --tail=100 virtualwebcam-manager-frontend
+ss -ltnp | grep -E &#39;:(5177|8177)\b&#39; || true</code></pre>
+<h2 id="10-登录和权限"><a class="anchor" href="#10-登录和权限">#</a>10. 登录和权限</h2>
+<p>默认管理员来自 <code>.env</code>：</p>
+<pre><code class="language-env">ADMIN_USERNAME=admin
+ADMIN_PASSWORD=replace-with-strong-password</code></pre>
+<p>首次启动且数据库没有用户时，系统会自动创建管理员。</p>
+<p>管理员能力：</p>
+<ul>
+<li>创建项目。</li>
+<li>进入项目管理视频源和矩阵绑定。</li>
+<li>维护大屏地址库。</li>
+<li>系统级用户管理。</li>
+<li>给用户授权项目。</li>
+<li>修改密码。</li>
+</ul>
+<p>普通用户只能看到授权给自己的项目。项目授权分为：</p>
+<ul>
+<li>仅查看：查看项目、视频源、地址、日志、矩阵绑定。</li>
+<li>可操作：可以启停容器、编辑视频源、绑定矩阵、维护项目配置。</li>
+</ul>
+<h2 id="11-创建项目"><a class="anchor" href="#11-创建项目">#</a>11. 创建项目</h2>
+<p>登录后在项目入口创建项目：</p>
+<pre><code class="language-text">项目名称：默认项目
+矩阵行数：6
+矩阵列数：8
+屏幕前缀：屏</code></pre>
+<p>进入项目后有主要入口：</p>
+<ul>
+<li>摄像头管理：管理 ONVIF 摄像头和 RTSP 流源。</li>
+<li>矩阵绑定：用围栏方式圈选屏幕区域，并把视频源绑定到区域。</li>
+<li>项目设置：维护项目、大屏地址、导入导出配置等。</li>
+<li>操作审计：查看关键操作记录。</li>
+</ul>
+<h2 id="12-维护大屏地址"><a class="anchor" href="#12-维护大屏地址">#</a>12. 维护大屏地址</h2>
+<p>项目设置里维护大屏地址库。建议提前录入业务网页地址，例如：</p>
+<pre><code class="language-text">名称：大厅信息屏
+URL：https://example.com/screen/lobby
+备注：一楼大厅</code></pre>
+<p>新增视频源时，网页 URL 可以：</p>
+<ul>
+<li>手动输入。</li>
+<li>搜索选择已维护的大屏地址。</li>
+</ul>
+<p>如果大屏地址很多，使用搜索框按名称、URL、备注筛选后选择。</p>
+<h2 id="13-创建-onvif-摄像头"><a class="anchor" href="#13-创建-onvif-摄像头">#</a>13. 创建 ONVIF 摄像头</h2>
+<p>进入项目 -&gt; 摄像头管理 -&gt; 新增源：</p>
+<pre><code class="language-text">源类型：ONVIF 摄像头（独立 IP）
+名称：web-cam-01
+虚拟 IP：192.168.5.211
+网页 URL：https://example.com/screen/lobby
+流名称：screen01
+宽度：1280
+高度：720
+FPS：15</code></pre>
+<p>创建后，后端会通过 Docker 创建容器，容器启动流程为：</p>
+<pre><code class="language-text">Xvfb -&gt; openbox -&gt; Chrome -&gt; FFmpeg -&gt; MediaMTX -&gt; go2rtc</code></pre>
+<p>对外地址：</p>
+<pre><code class="language-text">RTSP：rtsp://192.168.5.211:554/screen01
+ONVIF：http://192.168.5.211/onvif/device_service
+go2rtc：http://192.168.5.211</code></pre>
+<p>推荐验收：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
+<p>ONVIF Device Manager 手动添加：</p>
+<pre><code class="language-text">地址：http://192.168.5.211/onvif/device_service
+用户名：空
+密码：空</code></pre>
+<p>预期：</p>
+<pre><code class="language-text">设备类型：NVT
+Profile：screen01
+Stream URI：rtsp://192.168.5.211:554/screen01
+Live Video：显示网页画面</code></pre>
+<h2 id="14-创建-rtsp-流源"><a class="anchor" href="#14-创建-rtsp-流源">#</a>14. 创建 RTSP 流源</h2>
+<p>当客户现场 IP 不足，或者系统只需要 RTSP 地址时，创建 RTSP 流源。</p>
+<p>进入项目 -&gt; 摄像头管理 -&gt; 新增源：</p>
+<pre><code class="language-text">源类型：RTSP 流源（共享 IP + 流路径）
+名称：rtsp-screen-01
+网页 URL：https://example.com/screen/lobby
+流名称：screen01
+宽度：1280
+高度：720
+FPS：15</code></pre>
+<p>系统会自动创建或复用共享网关容器：</p>
+<pre><code class="language-text">virtualwebcam-rtsp-gateway</code></pre>
+<p>对外地址：</p>
+<pre><code class="language-text">rtsp://192.168.5.111:554/screen01</code></pre>
+<p>验收：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.111:554/screen01</code></pre>
+<p>RTSP 流源不提供 ONVIF，不占用独立摄像头 IP。</p>
+<h2 id="15-矩阵绑定"><a class="anchor" href="#15-矩阵绑定">#</a>15. 矩阵绑定</h2>
+<p>进入项目 -&gt; 矩阵绑定。</p>
+<p>推荐操作：</p>
+<ol>
+<li>从左侧拖拽未绑定视频源到屏幕区域。</li>
+<li>单屏投放时，直接绑定到一个屏幕。</li>
+<li>多屏合并展示时，用鼠标在矩阵上拖拽画矩形围栏。</li>
+<li>把视频源绑定到围栏区域。</li>
+<li>围栏内会显示视频源名称、IP、流名称和覆盖屏幕。</li>
+</ol>
+<p>没有画围栏的屏幕默认是单屏区域。围栏表示一组屏幕合并展示，类似电子围栏。</p>
+<h2 id="16-状态和资源监控"><a class="anchor" href="#16-状态和资源监控">#</a>16. 状态和资源监控</h2>
+<p>摄像头列表会展示：</p>
+<ul>
+<li>状态：运行中、已停止、异常。</li>
+<li>CPU 使用率。</li>
+<li>内存使用量。</li>
+<li>网络上行/下行速率。</li>
+<li>磁盘读写速率。</li>
+<li>RTSP、ONVIF 地址。</li>
+</ul>
+<p>状态以 Docker 容器状态为准：</p>
+<pre><code class="language-text">running -&gt; 运行中
+exited 0 -&gt; 已停止
+exited 非 0 / dead -&gt; 异常
+missing -&gt; 已停止</code></pre>
+<p>CPU 百分比来自 Docker stats 的容器 CPU 统计，不等同于 <code>top</code> 里单进程显示值。多核机器上，Docker 的容器 CPU 百分比可能按核数归一化，适合做容量趋势参考。</p>
+<h2 id="17-常用命令"><a class="anchor" href="#17-常用命令">#</a>17. 常用命令</h2>
+<h3 id="17-1-管理后台"><a class="anchor" href="#17-1-管理后台">#</a>17.1 管理后台</h3>
+<pre><code class="language-bash">docker compose ps
+docker logs --tail=200 virtualwebcam-manager-backend
+docker logs --tail=200 virtualwebcam-manager-frontend
+docker compose restart manager-backend manager-frontend</code></pre>
+<h3 id="17-2-视频源容器"><a class="anchor" href="#17-2-视频源容器">#</a>17.2 视频源容器</h3>
+<pre><code class="language-bash">docker ps --filter label=virtualwebcam.managed=true
+docker logs --tail=300 &lt;容器名&gt;
+docker inspect -f &#39;{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}&#39; &lt;容器名&gt;</code></pre>
+<h3 id="17-3-rtsp-网关"><a class="anchor" href="#17-3-rtsp-网关">#</a>17.3 RTSP 网关</h3>
+<pre><code class="language-bash">docker ps --filter label=virtualwebcam.rtspGateway=true
+docker logs --tail=200 virtualwebcam-rtsp-gateway</code></pre>
+<h3 id="17-4-播放测试"><a class="anchor" href="#17-4-播放测试">#</a>17.4 播放测试</h3>
+<p>ONVIF 摄像头：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
+<p>RTSP 流源：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.111:554/screen01</code></pre>
+<p>也可以使用：</p>
+<pre><code class="language-bash">ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01</code></pre>
+<p>修改网页 URL 或重启容器后，建议关闭播放器重新打开，避免播放器缓存历史帧造成误判。</p>
+<h2 id="18-备份和恢复"><a class="anchor" href="#18-备份和恢复">#</a>18. 备份和恢复</h2>
+<h3 id="18-1-sqlite-数据库位置"><a class="anchor" href="#18-1-sqlite-数据库位置">#</a>18.1 SQLite 数据库位置</h3>
+<p>Docker Compose 部署默认数据库：</p>
+<pre><code class="language-text">backend/data/virtualwebcam.db</code></pre>
+<h3 id="18-2-备份"><a class="anchor" href="#18-2-备份">#</a>18.2 备份</h3>
+<pre><code class="language-bash">mkdir -p backups
+sqlite3 backend/data/virtualwebcam.db &quot;.backup &#39;backups/virtualwebcam-$(date +%F-%H%M%S).db&#39;&quot;</code></pre>
+<p>如果客户主机没有 <code>sqlite3</code>：</p>
+<pre><code class="language-bash">mkdir -p backups
+cp backend/data/virtualwebcam.db &quot;backups/virtualwebcam-$(date +%F-%H%M%S).db&quot;
+cp backend/data/virtualwebcam.db-wal backups/ 2&gt;/dev/null || true
+cp backend/data/virtualwebcam.db-shm backups/ 2&gt;/dev/null || true</code></pre>
+<h3 id="18-3-恢复"><a class="anchor" href="#18-3-恢复">#</a>18.3 恢复</h3>
+<pre><code class="language-bash">docker compose stop manager-backend
+cp backups/virtualwebcam-xxxx.db backend/data/virtualwebcam.db
+docker compose start manager-backend</code></pre>
+<h3 id="18-4-项目导入导出"><a class="anchor" href="#18-4-项目导入导出">#</a>18.4 项目导入导出</h3>
+<p>项目入口支持配置导入导出。导出内容包含：</p>
+<ul>
+<li>项目基本信息。</li>
+<li>矩阵规格。</li>
+<li>视频源配置。</li>
+<li>大屏地址库。</li>
+<li>矩阵绑定关系。</li>
+<li>RTSP / ONVIF 地址。</li>
+</ul>
+<p>导入时如果 ONVIF 摄像头 IP 冲突，系统会在同网段自动寻找可用 IP 并返回重映射信息；RTSP 流名冲突时会自动改名。</p>
+<h2 id="19-升级"><a class="anchor" href="#19-升级">#</a>19. 升级</h2>
+<h3 id="19-1-升级前备份"><a class="anchor" href="#19-1-升级前备份">#</a>19.1 升级前备份</h3>
+<pre><code class="language-bash">docker compose ps
+docker ps --filter label=virtualwebcam.managed=true
+mkdir -p backups
+sqlite3 backend/data/virtualwebcam.db &quot;.backup &#39;backups/pre-upgrade-$(date +%F-%H%M%S).db&#39;&quot;</code></pre>
+<h3 id="19-2-升级管理后台"><a class="anchor" href="#19-2-升级管理后台">#</a>19.2 升级管理后台</h3>
+<pre><code class="language-bash">docker compose build manager-backend manager-frontend
+docker compose up -d manager-backend manager-frontend</code></pre>
+<h3 id="19-3-升级容器模板"><a class="anchor" href="#19-3-升级容器模板">#</a>19.3 升级容器模板</h3>
+<p>如果修改了 <code>container/</code>：</p>
+<pre><code class="language-bash">docker compose --profile image build virtualwebcam-image</code></pre>
+<p>然后在网页端按项目分批重启视频源，或者命令行批量重启：</p>
+<pre><code class="language-bash">docker ps --filter label=virtualwebcam.managed=true --format &#39;{{.Names}}&#39; \
+  | xargs -r -n1 docker restart</code></pre>
+<p>如果希望视频源使用新镜像且容器配置也更新，建议在管理后台编辑保存或重建视频源。</p>
+<h2 id="20-更换网络环境"><a class="anchor" href="#20-更换网络环境">#</a>20. 更换网络环境</h2>
+<p>假设客户从 <code>192.168.5.0/24</code> 迁移到 <code>192.168.9.0/24</code>：</p>
+<pre><code class="language-text">旧宿主机 IP：192.168.5.111
+新宿主机 IP：192.168.9.111
+旧地址池：192.168.5.208/28
+新地址池：192.168.9.208/28</code></pre>
+<p>不需要重建 <code>virtualwebcam:latest</code> 镜像。需要改的是：</p>
+<ul>
+<li><code>.env</code> 中的网络参数。</li>
+<li>Docker macvlan 网络。</li>
+<li>宿主机 macvlan 辅助接口。</li>
+<li>管理后台里 ONVIF 摄像头的虚拟 IP。</li>
+<li>RTSP 流源的 <code>RTSP_GATEWAY_HOST</code>。</li>
+</ul>
+<p>执行步骤：</p>
+<pre><code class="language-bash">docker ps -aq --filter label=virtualwebcam.managed=true | xargs -r docker rm -f
+docker network rm onvif_macvlan 2&gt;/dev/null || true</code></pre>
+<p>重建 macvlan：</p>
+<pre><code class="language-bash">sudo PARENT_IFACE=br0 \
+  SUBNET=192.168.9.0/24 \
+  GATEWAY=192.168.9.1 \
+  IP_RANGE=192.168.9.208/28 \
+  NETWORK_NAME=onvif_macvlan \
+  ./scripts/create-macvlan.sh</code></pre>
+<p>重建辅助接口：</p>
+<pre><code class="language-bash">sudo HOST_IF=br0 \
+  HOST_MACVLAN_IP=192.168.9.210 \
+  ROUTE_CIDR=192.168.9.208/28 \
+  ./scripts/setup-macvlan-host.sh</code></pre>
+<p>更新 <code>.env</code>：</p>
+<pre><code class="language-env">RTSP_GATEWAY_HOST=192.168.9.111
+SUBNET=192.168.9.0/24
+GATEWAY=192.168.9.1
+IP_RANGE=192.168.9.208/28
+HOST_MACVLAN_IP=192.168.9.210
+ROUTE_CIDR=192.168.9.208/28</code></pre>
+<p>重启管理后台：</p>
+<pre><code class="language-bash">docker compose up -d --build manager-backend manager-frontend</code></pre>
+<p>进入后台，把 ONVIF 摄像头 IP 从旧网段改成新网段，例如：</p>
+<pre><code class="language-text">192.168.5.211 -&gt; 192.168.9.211</code></pre>
+<p>然后启动视频源并验证：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.9.211:554/screen01</code></pre>
+<h2 id="21-安全建议"><a class="anchor" href="#21-安全建议">#</a>21. 安全建议</h2>
+<p>管理后台挂载 Docker socket，权限很高。生产环境必须注意：</p>
+<ul>
+<li>只部署在客户内网。</li>
+<li>不开放 <code>8177</code> 到公网。</li>
+<li>修改默认管理员密码。</li>
+<li>修改 <code>SESSION_SECRET</code>。</li>
+<li>给普通用户按项目授权。</li>
+<li>不把 <code>API_TOKEN</code> 写进浏览器或前端代码。</li>
+<li>尽量放在公司统一认证网关或 VPN 后面。</li>
+<li>定期备份 SQLite。</li>
+</ul>
+<p>如果需要自动化脚本调用 API，可配置 <code>API_TOKEN</code>，请求头使用：</p>
+<pre><code class="language-text">X-API-Token: &lt;token&gt;</code></pre>
+<p>或：</p>
+<pre><code class="language-text">Authorization: Bearer &lt;token&gt;</code></pre>
+<p>服务令牌按系统管理员权限处理，必须妥善保管。</p>
+<h2 id="22-故障处理"><a class="anchor" href="#22-故障处理">#</a>22. 故障处理</h2>
+<h3 id="22-1-管理后台提示无法访问-docker-socket"><a class="anchor" href="#22-1-管理后台提示无法访问-docker-socket">#</a>22.1 管理后台提示无法访问 Docker socket</h3>
+<p>检查：</p>
+<pre><code class="language-bash">docker ps
+docker compose logs --tail=100 manager-backend
+ls -l /var/run/docker.sock</code></pre>
+<p>处理：</p>
+<ul>
+<li>确认 Docker 正在运行。</li>
+<li>确认 <code>docker-compose.yml</code> 挂载了 <code>/var/run/docker.sock:/var/run/docker.sock</code>。</li>
+<li>确认当前用户能访问 Docker。</li>
+</ul>
+<h3 id="22-2-onvif-摄像头容器反复重启"><a class="anchor" href="#22-2-onvif-摄像头容器反复重启">#</a>22.2 ONVIF 摄像头容器反复重启</h3>
+<p>查看日志：</p>
+<pre><code class="language-bash">docker logs --tail=300 &lt;容器名&gt;</code></pre>
+<p>重点看：</p>
+<ul>
+<li>Chrome 是否能启动。</li>
+<li>网页是否可访问。</li>
+<li>FFmpeg 是否推流成功。</li>
+<li>MediaMTX/go2rtc 是否监听成功。</li>
+</ul>
+<p>如果网页在客户主机网络里访问很慢或无法访问，容器里 Chrome 也会显示错误页。先确认客户主机本身能打开该 URL。</p>
+<h3 id="22-3-宿主机打不开-http-192-168-5-211"><a class="anchor" href="#22-3-宿主机打不开-http-192-168-5-211">#</a>22.3 宿主机打不开 <code>http://192.168.5.211</code></h3>
+<p>检查辅助接口：</p>
+<pre><code class="language-bash">ip addr show macvlan-host
+ip route | grep 192.168.5.208</code></pre>
+<p>如果没有，重新执行：</p>
+<pre><code class="language-bash">sudo HOST_IF=br0 HOST_MACVLAN_IP=192.168.5.210 ROUTE_CIDR=192.168.5.208/28 ./scripts/setup-macvlan-host.sh</code></pre>
+<h3 id="22-4-局域网其他设备打不开摄像头-ip"><a class="anchor" href="#22-4-局域网其他设备打不开摄像头-ip">#</a>22.4 局域网其他设备打不开摄像头 IP</h3>
+<p>检查：</p>
+<pre><code class="language-bash">docker inspect &lt;容器名&gt; | grep -A8 onvif_macvlan
+docker network inspect onvif_macvlan</code></pre>
+<p>排查：</p>
+<ul>
+<li>摄像头 IP 是否和其他设备冲突。</li>
+<li>macvlan <code>parent</code> 是否是正确网卡。</li>
+<li>交换机或网络策略是否限制 macvlan/MAC。</li>
+<li>客户端是否和虚拟摄像头在同一可达网段。</li>
+</ul>
+<h3 id="22-5-rtsp-流源无法播放"><a class="anchor" href="#22-5-rtsp-流源无法播放">#</a>22.5 RTSP 流源无法播放</h3>
+<p>检查共享网关：</p>
+<pre><code class="language-bash">docker ps --filter label=virtualwebcam.rtspGateway=true
+docker logs --tail=200 virtualwebcam-rtsp-gateway
+ss -ltnp | grep &#39;:554&#39; || true</code></pre>
+<p>检查发布器：</p>
+<pre><code class="language-bash">docker ps --filter label=virtualwebcam.managed=true
+docker logs --tail=200 &lt;RTSP发布器容器名&gt;</code></pre>
+<p>常见原因：</p>
+<ul>
+<li><code>554</code> 端口被占用。</li>
+<li><code>.env</code> 里的 <code>RTSP_GATEWAY_HOST</code> 不是客户主机真实 IP。</li>
+<li>流名称重复或客户端播放的是旧地址。</li>
+</ul>
+<h3 id="22-6-onvif-device-manager-搜不到设备"><a class="anchor" href="#22-6-onvif-device-manager-搜不到设备">#</a>22.6 ONVIF Device Manager 搜不到设备</h3>
+<p>自动发现依赖 UDP 3702、组播、交换机和客户端实现。当前核心验收项是手动添加：</p>
+<pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
+<p>只要手动添加后能看到 Profile 和 Live Video，即认为 ONVIF 接入链路可用。</p>
+<h3 id="22-7-修改网页地址后播放器还是旧画面"><a class="anchor" href="#22-7-修改网页地址后播放器还是旧画面">#</a>22.7 修改网页地址后播放器还是旧画面</h3>
+<p>修改 URL 后容器会重建或重启，但部分播放器会保留旧连接或历史帧。关闭播放器重新打开：</p>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
+<h2 id="23-交付验收清单"><a class="anchor" href="#23-交付验收清单">#</a>23. 交付验收清单</h2>
+<p>部署完成后建议逐项确认：</p>
+<ul>
+<li><code>docker compose ps</code> 中管理后台正常。</li>
+<li><code>curl http://localhost:8177/api/health</code> 正常。</li>
+<li>浏览器能打开 <code>http://客户主机IP:5177</code>。</li>
+<li>管理员可登录。</li>
+<li>可创建项目。</li>
+<li>可创建 ONVIF 摄像头并播放 RTSP。</li>
+<li>ONVIF Device Manager 可手动添加并看到 Live Video。</li>
+<li>可创建 RTSP 流源并播放 RTSP。</li>
+<li>可查看容器日志。</li>
+<li>可复制 RTSP、ONVIF、mpv 命令。</li>
+<li>摄像头列表状态、资源监控正常刷新。</li>
+<li>矩阵绑定可拖拽和画围栏。</li>
+<li>普通用户只能看到授权项目。</li>
+<li>SQLite 已做初始备份。</li>
+<li>如需宿主机本机访问 macvlan 容器，systemd 辅助接口已配置并重启验证。</li>
+</ul></main>
+  </div>
+</body>
+</html>

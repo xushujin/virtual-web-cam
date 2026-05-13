@@ -53,6 +53,34 @@ import {
   updateScreenUrl,
   updateUserProjects,
 } from './api';
+import {
+  mpvCommand as buildMpvCommand,
+  sourceAddress as buildSourceAddress,
+  sourceTypeLabel as buildSourceTypeLabel,
+  statusLabel as buildStatusLabel,
+} from './utils/cameras';
+import {
+  createDisplayRegion as buildDisplayRegion,
+  createRegionFromCells as buildRegionFromCells,
+  displayTargetLabel as buildDisplayTargetLabel,
+  displayTargetMeta as buildDisplayTargetMeta,
+  indexFromRowCol as buildIndexFromRowCol,
+  normalizeCameraRegion as buildNormalizedCameraRegion,
+  regionSummary as buildRegionSummary,
+  regionTargetLabels as buildRegionTargetLabels,
+  rowColFromIndex as buildRowColFromIndex,
+  targetSummary as buildTargetSummary,
+} from './utils/display';
+import {
+  calculateResourceRates,
+  formatByteRate,
+  formatBytes,
+  formatPercent,
+  resourceDiskText as buildResourceDiskText,
+  resourceNetworkText as buildResourceNetworkText,
+  resourceStatusText as buildResourceStatusText,
+} from './utils/resources';
+import { matchScreenUrls as matchScreenUrlsFromList } from './utils/screen-urls';
 
 const projects = ref([]);
 const selectedProjectId = ref(null);
@@ -329,17 +357,7 @@ const filteredScreenUrls = computed(() => {
 });
 
 function matchScreenUrls(keyword) {
-  const normalized = keyword.trim().toLowerCase();
-
-  if (!normalized) {
-    return screenUrls.value;
-  }
-
-  return screenUrls.value.filter((item) => [
-    item.name,
-    item.url,
-    item.remark,
-  ].some((value) => String(value || '').toLowerCase().includes(normalized)));
+  return matchScreenUrlsFromList(screenUrls.value, keyword);
 }
 
 function urlPickerMatches(key) {
@@ -1125,42 +1143,6 @@ async function refreshResourceStats(options = {}) {
   }
 }
 
-function bytesDelta(current = 0, previous = 0) {
-  return Math.max(Number(current || 0) - Number(previous || 0), 0);
-}
-
-function calculateResourceRates(previous, current) {
-  if (!previous?.collected_at || !current?.collected_at) return null;
-
-  const seconds = (new Date(current.collected_at).getTime() - new Date(previous.collected_at).getTime()) / 1000;
-  if (!Number.isFinite(seconds) || seconds <= 0) return null;
-
-  const previousById = new Map((previous.items || []).map((item) => [item.camera_id, item]));
-  const items = new Map();
-
-  for (const item of current.items || []) {
-    const before = previousById.get(item.camera_id);
-    if (!before) continue;
-    items.set(item.camera_id, {
-      network_rx_bps: bytesDelta(item.network_rx_bytes, before.network_rx_bytes) / seconds,
-      network_tx_bps: bytesDelta(item.network_tx_bytes, before.network_tx_bytes) / seconds,
-      block_read_bps: bytesDelta(item.block_read_bytes, before.block_read_bytes) / seconds,
-      block_write_bps: bytesDelta(item.block_write_bytes, before.block_write_bytes) / seconds,
-    });
-  }
-
-  return {
-    seconds,
-    summary: {
-      network_rx_bps: bytesDelta(current.summary?.networkRxBytes, previous.summary?.networkRxBytes) / seconds,
-      network_tx_bps: bytesDelta(current.summary?.networkTxBytes, previous.summary?.networkTxBytes) / seconds,
-      block_read_bps: bytesDelta(current.summary?.blockReadBytes, previous.summary?.blockReadBytes) / seconds,
-      block_write_bps: bytesDelta(current.summary?.blockWriteBytes, previous.summary?.blockWriteBytes) / seconds,
-    },
-    items,
-  };
-}
-
 async function saveProject() {
   if (!selectedProjectId.value || !canManageSelectedProject.value) return;
 
@@ -1340,82 +1322,27 @@ async function saveCameraEdit() {
 }
 
 function displayTargetLabel(index) {
-  return `${projectDraft.prefix}${String(index).padStart(2, '0')}`;
+  return buildDisplayTargetLabel(index, projectDraft.prefix);
 }
 
 function displayTargetMeta(index) {
-  const row = Math.floor((index - 1) / projectDraft.cols) + 1;
-  const col = ((index - 1) % projectDraft.cols) + 1;
-  return `${row}行${col}列`;
+  return buildDisplayTargetMeta(index, projectDraft.cols);
 }
 
 function indexFromRowCol(row, col) {
-  return (row - 1) * projectDraft.cols + col;
+  return buildIndexFromRowCol(row, col, projectDraft.cols);
 }
 
 function rowColFromIndex(index) {
-  return {
-    row: Math.floor((index - 1) / projectDraft.cols) + 1,
-    col: ((index - 1) % projectDraft.cols) + 1,
-  };
+  return buildRowColFromIndex(index, projectDraft.cols);
 }
 
 function createDisplayRegion(row, col, rowSpan, colSpan) {
-  if (
-    row < 1 ||
-    col < 1 ||
-    rowSpan < 1 ||
-    colSpan < 1 ||
-    row + rowSpan - 1 > projectDraft.rows ||
-    col + colSpan - 1 > projectDraft.cols
-  ) {
-    return null;
-  }
-
-  const targets = [];
-
-  for (let r = row; r < row + rowSpan; r += 1) {
-    for (let c = col; c < col + colSpan; c += 1) {
-      targets.push(indexFromRowCol(r, c));
-    }
-  }
-
-  return {
-    row,
-    col,
-    row_span: rowSpan,
-    col_span: colSpan,
-    targets,
-  };
+  return buildDisplayRegion(row, col, rowSpan, colSpan, projectDraft);
 }
 
 function normalizeCameraRegion(camera) {
-  if (camera.display_region) {
-    const region = createDisplayRegion(
-      camera.display_region.row,
-      camera.display_region.col,
-      camera.display_region.row_span || 1,
-      camera.display_region.col_span || 1,
-    );
-
-    if (region) {
-      return region;
-    }
-  }
-
-  const targets = camera.display_targets || [];
-  if (targets.length === 0) {
-    return null;
-  }
-
-  const cells = targets.map(rowColFromIndex);
-  const minRow = Math.min(...cells.map((cell) => cell.row));
-  const maxRow = Math.max(...cells.map((cell) => cell.row));
-  const minCol = Math.min(...cells.map((cell) => cell.col));
-  const maxCol = Math.max(...cells.map((cell) => cell.col));
-
-  return createDisplayRegion(minRow, minCol, maxRow - minRow + 1, maxCol - minCol + 1)
-    || createDisplayRegion(cells[0].row, cells[0].col, 1, 1);
+  return buildNormalizedCameraRegion(camera, projectDraft);
 }
 
 function regionStyle(region) {
@@ -1429,34 +1356,15 @@ function regionStyle(region) {
 }
 
 function createRegionFromCells(start, end) {
-  const minRow = Math.min(start.row, end.row);
-  const maxRow = Math.max(start.row, end.row);
-  const minCol = Math.min(start.col, end.col);
-  const maxCol = Math.max(start.col, end.col);
-
-  return createDisplayRegion(minRow, minCol, maxRow - minRow + 1, maxCol - minCol + 1);
+  return buildRegionFromCells(start, end, projectDraft);
 }
 
 function regionSummary(region) {
-  if (!region) {
-    return '未框选';
-  }
-
-  const start = displayTargetLabel(indexFromRowCol(region.row, region.col));
-  const end = displayTargetLabel(indexFromRowCol(region.row + region.row_span - 1, region.col + region.col_span - 1));
-
-  return region.targets.length === 1
-    ? start
-    : `${start} - ${end} · ${region.col_span}列x${region.row_span}行`;
+  return buildRegionSummary(region, projectDraft);
 }
 
 function regionTargetLabels(region) {
-  if (!region) {
-    return [];
-  }
-
-  const labels = region.targets.map(displayTargetLabel);
-  return labels.length <= 16 ? labels : [...labels.slice(0, 16), `+${labels.length - 16}`];
+  return buildRegionTargetLabels(region, projectDraft);
 }
 
 function regionCardClass(region) {
@@ -1471,16 +1379,7 @@ function regionCardClass(region) {
 }
 
 function targetSummary(camera) {
-  const region = normalizeCameraRegion(camera);
-
-  if (!region) {
-    return '未绑定';
-  }
-
-  const label = displayTargetLabel(indexFromRowCol(region.row, region.col));
-  return region.row_span === 1 && region.col_span === 1
-    ? label
-    : `${label} · ${region.col_span}列x${region.row_span}行`;
+  return buildTargetSummary(camera, projectDraft);
 }
 
 function screenAssignments(index) {
@@ -1782,7 +1681,7 @@ async function copy(value) {
 }
 
 function mpvCommand(camera) {
-  return `mpv --rtsp-transport=tcp ${camera.rtsp_url}`;
+  return buildMpvCommand(camera);
 }
 
 function openUrl(url) {
@@ -1805,43 +1704,15 @@ async function openLogs(camera) {
 }
 
 function statusLabel(status) {
-  const map = {
-    running: '运行中',
-    stopped: '已停止',
-    error: '异常',
-  };
-  return map[status] || status;
+  return buildStatusLabel(status);
 }
 
 function sourceTypeLabel(camera) {
-  return camera.source_type === 'rtsp' ? 'RTSP流' : 'ONVIF';
+  return buildSourceTypeLabel(camera);
 }
 
 function sourceAddress(camera) {
-  return camera.source_type === 'rtsp' ? '共享网关' : (camera.ip || '-');
-}
-
-function formatPercent(value, digits = 1) {
-  const number = Number(value || 0);
-  return `${number.toFixed(digits)}%`;
-}
-
-function formatBytes(value) {
-  const number = Number(value || 0);
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let current = number;
-  let index = 0;
-
-  while (current >= 1024 && index < units.length - 1) {
-    current /= 1024;
-    index += 1;
-  }
-
-  return `${current >= 10 || index === 0 ? current.toFixed(0) : current.toFixed(1)} ${units[index]}`;
-}
-
-function formatByteRate(value) {
-  return `${formatBytes(value)}/s`;
+  return buildSourceAddress(camera);
 }
 
 function resourceForCamera(camera) {
@@ -1854,27 +1725,15 @@ function resourceRateForCamera(camera) {
 
 function resourceStatusText(camera) {
   const stats = resourceForCamera(camera);
-  if (!stats) return '未采集';
-  if (stats.status !== 'running') return statusLabel(stats.status);
-  return `${formatPercent(stats.cpu_percent)} / ${formatBytes(stats.memory_usage_bytes)}`;
+  return buildResourceStatusText(stats, statusLabel);
 }
 
 function resourceNetworkText(stats) {
-  if (!stats || stats.status !== 'running') return '-';
-  const rate = resourceRates.value?.items?.get(stats.camera_id);
-  if (rate) {
-    return `网络 ↓${formatByteRate(rate.network_rx_bps)} ↑${formatByteRate(rate.network_tx_bps)}`;
-  }
-  return `网络累计 ↓${formatBytes(stats.network_rx_bytes)} ↑${formatBytes(stats.network_tx_bytes)}`;
+  return buildResourceNetworkText(stats, resourceRates.value?.items?.get(stats?.camera_id));
 }
 
 function resourceDiskText(stats) {
-  if (!stats || stats.status !== 'running') return '-';
-  const rate = resourceRates.value?.items?.get(stats.camera_id);
-  if (rate) {
-    return `磁盘 读 ${formatByteRate(rate.block_read_bps)} / 写 ${formatByteRate(rate.block_write_bps)}`;
-  }
-  return `磁盘累计 读 ${formatBytes(stats.block_read_bytes)} / 写 ${formatBytes(stats.block_write_bytes)}`;
+  return buildResourceDiskText(stats, resourceRates.value?.items?.get(stats?.camera_id));
 }
 
 function projectSectionLabel(section) {

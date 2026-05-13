@@ -735,11 +735,19 @@ docker compose --profile image build virtualwebcam-image
 ```bash
 cd backend
 npm run lint
+npm run test:unit
+npm run test:coverage
 npm run test:api
 
 cd ../frontend
+npm run test:unit
+npm run test:coverage
 npm run build
 ```
+
+后端 `npm run test:unit` 使用 Node 内置 `node:test`，当前覆盖认证哈希、会话 Token、Docker 友好错误、容器状态映射、CPU / 内存 / 网络 / 磁盘统计等纯逻辑。
+
+后端 `npm run test:coverage` 使用 Node 22 自带覆盖率，当前覆盖 `src/auth.js` 和 `src/docker-metrics.js`。前端 `npm run test:coverage` 使用 Vitest + V8 覆盖率，当前覆盖 `src/utils/**/*.js`，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。
 
 `npm run test:api` 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
 
@@ -785,15 +793,9 @@ ROUTE_CIDR=192.168.5.208/28
 | `ADMIN_PASSWORD` | 首次初始化默认管理员密码，上线必须修改 |
 | `SESSION_SECRET` | 登录会话签名密钥，上线必须修改 |
 | `API_TOKEN` | 可选服务令牌，命中后按系统管理员权限处理 |
-| `CORS_ORIGIN` | 可选 CORS 白名单 |
+| `CORS_ORIGIN` | 可选 CORS 白名单；未配置时后端不额外放开跨域访问 |
 
-`API_TOKEN` 只应供脚本、内网网关或自动化系统调用后端 API。前端构建不会注入服务令牌，网页用户应通过账号密码登录，避免把管理员级服务令牌暴露到浏览器。
-
-开发调试时如果确实需要临时绕过登录，可以手动在浏览器 LocalStorage 写入服务令牌；该方式不建议用于生产环境：
-
-```js
-localStorage.setItem('virtualwebcam-api-token', 'change-me')
-```
+`API_TOKEN` 只应供脚本、内网网关或自动化系统调用后端 API。前端构建不会注入服务令牌，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌。网页用户应通过账号密码登录，避免把管理员级服务令牌暴露到浏览器。
 
 ## 10. 扩展建议
 

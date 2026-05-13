@@ -532,7 +532,7 @@ docker compose up -d --build manager-backend manager-frontend
 API_TOKEN="change-me" docker compose up -d --build manager-backend manager-frontend
 ```
 
-服务令牌不会注入前端构建产物。生产环境不要把 `API_TOKEN` 写入浏览器 LocalStorage 或公开页面，网页用户应使用账号密码登录，并通过“用户管理”授权项目资源。
+服务令牌不会注入前端构建产物，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌。生产环境不要把 `API_TOKEN` 写入浏览器或公开页面，网页用户应使用账号密码登录，并通过“用户管理”授权项目资源。
 
 ## 9. 创建视频源
 
