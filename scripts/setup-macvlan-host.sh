@@ -13,5 +13,5 @@ ip addr add "${HOST_MACVLAN_IP}/32" dev "$HOST_MACVLAN_IF"
 ip link set "$HOST_MACVLAN_IF" up
 ip route replace "$ROUTE_CIDR" dev "$HOST_MACVLAN_IF"
 
-echo "Configured ${HOST_MACVLAN_IF}: ${HOST_MACVLAN_IP}/32 via ${HOST_IF}"
-echo "Route: ${ROUTE_CIDR} dev ${HOST_MACVLAN_IF}"
+echo "已配置宿主机辅助接口 ${HOST_MACVLAN_IF}: ${HOST_MACVLAN_IP}/32，经由 ${HOST_IF}"
+echo "已配置路由：${ROUTE_CIDR} dev ${HOST_MACVLAN_IF}"

@@ -32,49 +32,49 @@ GENERATED_ADMIN_PASSWORD=0
 EXISTING_DB=0
 
 log() {
-  printf '[deploy] %s\n' "$*"
+  printf '[部署] %s\n' "$*"
 }
 
 warn() {
-  printf '[deploy][warn] %s\n' "$*" >&2
+  printf '[部署][警告] %s\n' "$*" >&2
 }
 
 die() {
-  printf '[deploy][error] %s\n' "$*" >&2
+  printf '[部署][错误] %s\n' "$*" >&2
   exit 1
 }
 
 usage() {
   cat <<'EOF'
-Usage:
+用法:
   ./scripts/ubuntu-one-click-deploy.sh [options]
 
-Common:
-  -y, --yes                         Use detected defaults without prompts
-      --force-env                   Rewrite .env from detected/flag values
-      --skip-docker-install         Do not install Docker if missing
+通用选项:
+  -y, --yes                         使用自动检测值，不逐项询问
+      --force-env                   按检测值或命令行参数重写 .env
+      --skip-docker-install         Docker 不存在时也不自动安装
 
-Network:
-      --host-if IFACE               Parent interface, for example br0/ens33
-      --host-ip IP                  Host LAN IP used by RTSP gateway
-      --subnet CIDR                 LAN subnet, for example 192.168.5.0/24
-      --gateway IP                  LAN gateway, for example 192.168.5.1
-      --ip-range CIDR               macvlan camera IP pool
-      --host-macvlan-ip IP          Host-side macvlan helper IP
-      --route-cidr CIDR             Route to camera IP pool
-      --network-name NAME           Docker macvlan network name
-      --skip-macvlan                Skip Docker macvlan network creation
-      --no-host-macvlan             Do not create host-side macvlan interface
-      --no-systemd-host-macvlan     Do not persist host-side macvlan via systemd
+网络选项:
+      --host-if IFACE               宿主机父网卡，例如 br0/ens33
+      --host-ip IP                  宿主机局域网 IP，用作 RTSP 共享网关地址
+      --subnet CIDR                 客户现场网段，例如 192.168.5.0/24
+      --gateway IP                  客户现场网关，例如 192.168.5.1
+      --ip-range CIDR               ONVIF 虚拟摄像头 macvlan 地址池
+      --host-macvlan-ip IP          宿主机 macvlan 辅助接口 IP
+      --route-cidr CIDR             宿主机访问虚拟摄像头地址池的路由
+      --network-name NAME           Docker macvlan 网络名称
+      --skip-macvlan                跳过 Docker macvlan 网络创建
+      --no-host-macvlan             不创建宿主机 macvlan 辅助接口
+      --no-systemd-host-macvlan     不配置 systemd 开机恢复辅助接口
 
-Service:
-      --admin-username NAME         Initial admin username
-      --admin-password PASSWORD     Initial admin password
-      --backend-port PORT           Backend host port, default 8177
-      --frontend-port PORT          Frontend host port, default 5177
-      --rtsp-port PORT              Shared RTSP gateway host port, default 554
+服务选项:
+      --admin-username NAME         初始管理员用户名
+      --admin-password PASSWORD     初始管理员密码
+      --backend-port PORT           后端宿主机端口，默认 8177
+      --frontend-port PORT          前端宿主机端口，默认 5177
+      --rtsp-port PORT              RTSP 共享网关宿主机端口，默认 554
 
-Examples:
+示例:
   ./scripts/ubuntu-one-click-deploy.sh
   ./scripts/ubuntu-one-click-deploy.sh --yes --host-if br0 --host-ip 192.168.5.111
   ./scripts/ubuntu-one-click-deploy.sh --yes --host-if ens33 --subnet 192.168.9.0/24 --gateway 192.168.9.1 --ip-range 192.168.9.208/28 --host-macvlan-ip 192.168.9.210
@@ -84,7 +84,7 @@ EOF
 require_arg() {
   local option="$1"
   local value="${2:-}"
-  [[ -n "$value" ]] || die "Missing value for ${option}."
+  [[ -n "$value" ]] || die "${option} 缺少参数值。"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -184,12 +184,12 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      die "Unknown option: $1"
+      die "未知参数: $1"
       ;;
   esac
 done
 
-trap 'die "Command failed near line ${LINENO}. Check the log above."' ERR
+trap 'die "第 ${LINENO} 行附近命令执行失败，请查看上方日志。"' ERR
 
 run_root() {
   if [[ "${EUID}" -eq 0 ]]; then
@@ -201,7 +201,7 @@ run_root() {
 
 sudo_refresh() {
   if [[ "${EUID}" -ne 0 ]]; then
-    command -v sudo >/dev/null 2>&1 || die "sudo is required for Docker install, macvlan, and systemd setup."
+    command -v sudo >/dev/null 2>&1 || die "安装 Docker、配置 macvlan 和 systemd 需要 sudo。"
     sudo -v
   fi
 }
@@ -379,6 +379,37 @@ prompt_value() {
   fi
 }
 
+prompt_password() {
+  local label="$1"
+  local current="$2"
+  local input=""
+
+  if [[ "$ASSUME_YES" -eq 1 || ! -t 0 || -n "$ADMIN_PASSWORD_INPUT" ]]; then
+    printf '%s\n' "$current"
+    return
+  fi
+
+  printf '%s [直接回车则保留当前值/自动生成值]: ' "$label" >&2
+  IFS= read -r -s input
+  printf '\n' >&2
+
+  if [[ -n "$input" ]]; then
+    printf '%s\n' "$input"
+  else
+    printf '%s\n' "$current"
+  fi
+}
+
+valid_admin_username() {
+  local value="$1"
+  [[ "$value" =~ ^[A-Za-z0-9._-]{3,60}$ ]]
+}
+
+valid_admin_password() {
+  local value="$1"
+  [[ ${#value} -ge 8 && "$value" =~ ^[A-Za-z0-9._@%+=:-]+$ ]]
+}
+
 valid_port() {
   local value="$1"
   [[ "$value" =~ ^[0-9]+$ ]] && [[ "$value" -ge 1 && "$value" -le 65535 ]]
@@ -408,9 +439,9 @@ load_existing_env() {
     set -a
     source "$ENV_FILE"
     set +a
-    log "Loaded existing ${ENV_FILE}."
+    log "已读取现有配置文件：${ENV_FILE}"
   elif [[ -f "$ENV_FILE" && "$FORCE_ENV" -eq 1 ]]; then
-    log "Existing ${ENV_FILE} will be rewritten because --force-env was used."
+    log "已指定 --force-env，现有 ${ENV_FILE} 将被重写。"
   fi
 }
 
@@ -473,25 +504,41 @@ prepare_config() {
     API_TOKEN="$(random_hex 24)"
   fi
 
-  DOCKER_NETWORK="$(prompt_value "Docker macvlan network name" "$DOCKER_NETWORK")"
-  HOST_IF="$(prompt_value "Parent network interface" "$HOST_IF")"
-  RTSP_GATEWAY_HOST="$(prompt_value "Host LAN IP / RTSP gateway host" "$RTSP_GATEWAY_HOST")"
-  SUBNET="$(prompt_value "LAN subnet CIDR" "$SUBNET")"
-  GATEWAY="$(prompt_value "LAN gateway" "$GATEWAY")"
-  IP_RANGE="$(prompt_value "ONVIF camera IP pool" "$IP_RANGE")"
-  HOST_MACVLAN_IP="$(prompt_value "Host macvlan helper IP" "$HOST_MACVLAN_IP")"
-  ROUTE_CIDR="$(prompt_value "Host macvlan route CIDR" "$ROUTE_CIDR")"
-  FRONTEND_PORT="$(prompt_value "Frontend port" "$FRONTEND_PORT")"
-  BACKEND_PORT="$(prompt_value "Backend port" "$BACKEND_PORT")"
-  RTSP_GATEWAY_PORT="$(prompt_value "Shared RTSP gateway port" "$RTSP_GATEWAY_PORT")"
+  if [[ "$ASSUME_YES" -eq 0 && -t 0 ]]; then
+    log "下面请确认或修改现场部署参数，直接回车使用方括号中的默认值。"
+  fi
 
-  [[ -n "$HOST_IF" ]] || die "Cannot detect host network interface. Use --host-if."
-  [[ -n "$RTSP_GATEWAY_HOST" ]] || die "Cannot detect host IP. Use --host-ip."
-  [[ -n "$GATEWAY" ]] || die "Cannot detect gateway. Use --gateway."
+  HOST_IF="$(prompt_value "宿主机父网卡，例如 br0/ens33" "$HOST_IF")"
+  RTSP_GATEWAY_HOST="$(prompt_value "宿主机局域网 IP，也是 RTSP 共享网关地址" "$RTSP_GATEWAY_HOST")"
+  SUBNET="$(prompt_value "客户现场网段 CIDR" "$SUBNET")"
+  GATEWAY="$(prompt_value "客户现场网关 IP" "$GATEWAY")"
+  IP_RANGE="$(prompt_value "ONVIF 虚拟摄像头 IP 地址池" "$IP_RANGE")"
+  HOST_MACVLAN_IP="$(prompt_value "宿主机 macvlan 辅助接口 IP" "$HOST_MACVLAN_IP")"
+  ROUTE_CIDR="$(prompt_value "宿主机访问虚拟摄像头地址池的路由" "$ROUTE_CIDR")"
+  DOCKER_NETWORK="$(prompt_value "Docker macvlan 网络名称" "$DOCKER_NETWORK")"
+  FRONTEND_PORT="$(prompt_value "管理前端端口" "$FRONTEND_PORT")"
+  BACKEND_PORT="$(prompt_value "管理后端 API 端口" "$BACKEND_PORT")"
+  RTSP_GATEWAY_PORT="$(prompt_value "RTSP 共享网关端口" "$RTSP_GATEWAY_PORT")"
+  ADMIN_USERNAME="$(prompt_value "初始管理员用户名（3-60 位，支持字母数字和 ._-）" "$ADMIN_USERNAME")"
+  if [[ -z "$ADMIN_PASSWORD_INPUT" ]]; then
+    local password_before="$ADMIN_PASSWORD"
+    ADMIN_PASSWORD="$(prompt_password "初始管理员密码（输入时不回显，至少 8 位；支持字母数字和 ._@%+=:-）" "$ADMIN_PASSWORD")"
+    if [[ "$ADMIN_PASSWORD" != "$password_before" ]]; then
+      GENERATED_ADMIN_PASSWORD=0
+    fi
+  fi
 
-  valid_port "$FRONTEND_PORT" || die "Invalid frontend port: $FRONTEND_PORT"
-  valid_port "$BACKEND_PORT" || die "Invalid backend port: $BACKEND_PORT"
-  valid_port "$RTSP_GATEWAY_PORT" || die "Invalid RTSP port: $RTSP_GATEWAY_PORT"
+  [[ -n "$HOST_IF" ]] || die "无法自动识别宿主机网卡，请使用 --host-if 指定。"
+  [[ -n "$RTSP_GATEWAY_HOST" ]] || die "无法自动识别宿主机 IP，请使用 --host-ip 指定。"
+  [[ -n "$GATEWAY" ]] || die "无法自动识别网关，请使用 --gateway 指定。"
+
+  valid_port "$FRONTEND_PORT" || die "前端端口无效：$FRONTEND_PORT"
+  valid_port "$BACKEND_PORT" || die "后端端口无效：$BACKEND_PORT"
+  valid_port "$RTSP_GATEWAY_PORT" || die "RTSP 端口无效：$RTSP_GATEWAY_PORT"
+  [[ -n "$ADMIN_USERNAME" ]] || die "初始管理员用户名不能为空。"
+  [[ -n "$ADMIN_PASSWORD" ]] || die "初始管理员密码不能为空。"
+  valid_admin_username "$ADMIN_USERNAME" || die "初始管理员用户名只能使用 3-60 位字母、数字、点、下划线或短横线。"
+  valid_admin_password "$ADMIN_PASSWORD" || die "初始管理员密码至少 8 位，只能使用字母、数字和这些安全符号：._@%+=:-"
 
   validate_ip_or_cidr "$RTSP_GATEWAY_HOST" ip
   validate_ip_or_cidr "$GATEWAY" ip
@@ -500,7 +547,7 @@ prepare_config() {
   validate_ip_or_cidr "$IP_RANGE" cidr
   validate_ip_or_cidr "$ROUTE_CIDR" cidr
 
-  ip link show "$HOST_IF" >/dev/null 2>&1 || die "Network interface does not exist: $HOST_IF"
+  ip link show "$HOST_IF" >/dev/null 2>&1 || die "宿主机网卡不存在：$HOST_IF"
 }
 
 confirm_config() {
@@ -510,27 +557,28 @@ confirm_config() {
 
   cat <<EOF
 
-Deployment config:
-  Project root:          ${PROJECT_ROOT}
-  Frontend URL:          http://${RTSP_GATEWAY_HOST}:${FRONTEND_PORT}
-  Backend API:           http://${RTSP_GATEWAY_HOST}:${BACKEND_PORT}/api
-  Docker network:        ${DOCKER_NETWORK}
-  Parent interface:      ${HOST_IF}
-  LAN subnet/gateway:    ${SUBNET} / ${GATEWAY}
-  Camera IP pool:        ${IP_RANGE}
-  Host macvlan helper:   ${HOST_MACVLAN_IP} route ${ROUTE_CIDR}
-  RTSP shared gateway:   ${RTSP_GATEWAY_HOST}:${RTSP_GATEWAY_PORT}
+部署配置确认:
+  项目目录:              ${PROJECT_ROOT}
+  管理前端访问地址:      http://${RTSP_GATEWAY_HOST}:${FRONTEND_PORT}
+  后端 API 地址:         http://${RTSP_GATEWAY_HOST}:${BACKEND_PORT}/api
+  初始管理员用户名:      ${ADMIN_USERNAME}
+  Docker macvlan 网络:   ${DOCKER_NETWORK}
+  宿主机父网卡:          ${HOST_IF}
+  客户现场网段/网关:     ${SUBNET} / ${GATEWAY}
+  ONVIF 摄像头地址池:    ${IP_RANGE}
+  宿主机辅助接口:        ${HOST_MACVLAN_IP}，路由 ${ROUTE_CIDR}
+  RTSP 共享网关:         ${RTSP_GATEWAY_HOST}:${RTSP_GATEWAY_PORT}
 
-Make sure the camera IP pool is outside DHCP and does not conflict with real devices.
+请确认 ONVIF 摄像头地址池不在 DHCP 自动分配范围内，并且没有和真实设备 IP 冲突。
 EOF
 
   local answer=""
-  read -r -p "Continue deployment? [Y/n]: " answer
+  read -r -p "确认开始部署？[Y/n]: " answer
   case "$answer" in
-    ""|y|Y|yes|YES)
+    ""|y|Y|yes|YES|是|好|确认)
       ;;
     *)
-      die "Deployment cancelled."
+      die "已取消部署。"
       ;;
   esac
 }
@@ -539,7 +587,7 @@ write_env_file() {
   if [[ -f "$ENV_FILE" ]]; then
     local backup="${ENV_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
     cp -a "$ENV_FILE" "$backup"
-    log "Backed up existing .env to ${backup}."
+    log "已备份现有 .env：${backup}"
   fi
 
   local old_umask
@@ -574,7 +622,7 @@ EOF
     chown "$SUDO_USER:$sudo_group" "$ENV_FILE" 2>/dev/null || true
   fi
 
-  log "Wrote ${ENV_FILE}."
+  log "已写入配置文件：${ENV_FILE}"
 }
 
 install_docker() {
@@ -586,7 +634,7 @@ install_docker() {
     return
   fi
 
-  log "Installing Docker Engine and Compose plugin."
+  log "正在安装 Docker Engine 和 Docker Compose 插件。"
   sudo_refresh
 
   run_root apt-get update
@@ -606,8 +654,8 @@ install_docker() {
   os_codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
   arch="$(dpkg --print-architecture)"
 
-  [[ "$os_id" == "ubuntu" ]] || warn "OS ID is ${os_id}; this script is optimized for Ubuntu."
-  [[ -n "$os_codename" ]] || die "Cannot detect Ubuntu codename from /etc/os-release."
+  [[ "$os_id" == "ubuntu" ]] || warn "当前系统标识为 ${os_id}，脚本主要按 Ubuntu 适配。"
+  [[ -n "$os_codename" ]] || die "无法从 /etc/os-release 识别 Ubuntu 版本代号。"
 
   printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu %s stable\n' "$arch" "$os_codename" \
     | run_root tee /etc/apt/sources.list.d/docker.list >/dev/null
@@ -618,7 +666,7 @@ install_docker() {
 }
 
 setup_docker_access() {
-  command -v docker >/dev/null 2>&1 || die "docker command not found. Re-run without --skip-docker-install or install Docker first."
+  command -v docker >/dev/null 2>&1 || die "未找到 docker 命令。请去掉 --skip-docker-install 重新运行，或先手动安装 Docker。"
 
   if docker ps >/dev/null 2>&1; then
     USE_SUDO_DOCKER=0
@@ -630,7 +678,7 @@ setup_docker_access() {
 
     if [[ "${EUID}" -ne 0 && -n "${USER:-}" ]]; then
       run_root usermod -aG docker "$USER" || true
-      warn "Current shell will use sudo for Docker. Re-login later to use Docker without sudo."
+      warn "当前终端将通过 sudo 执行 Docker。稍后重新登录系统后，当前用户可直接使用 Docker。"
     fi
   fi
 
@@ -639,7 +687,7 @@ setup_docker_access() {
   elif command -v docker-compose >/dev/null 2>&1; then
     COMPOSE_IMPL="docker-compose"
   else
-    die "Docker Compose plugin is not available."
+    die "未找到 Docker Compose 插件或 docker-compose 命令。"
   fi
 }
 
@@ -669,7 +717,7 @@ inspect_macvlan_network() {
 
 ensure_macvlan_network() {
   if [[ "$SKIP_MACVLAN" -eq 1 ]]; then
-    warn "Skipping Docker macvlan network creation."
+    warn "已按参数要求跳过 Docker macvlan 网络创建。"
     return
   fi
 
@@ -682,14 +730,14 @@ ensure_macvlan_network() {
     ip_range="$(docker_cmd network inspect --format '{{ (index .IPAM.Config 0).IPRange }}' "$DOCKER_NETWORK")"
 
     if [[ "$driver" != "macvlan" || "$parent" != "$HOST_IF" || "$subnet" != "$SUBNET" || "$gateway" != "$GATEWAY" || "$ip_range" != "$IP_RANGE" ]]; then
-      die "Existing Docker network ${DOCKER_NETWORK} does not match desired macvlan config. Remove/recreate it after stopping dependent camera containers."
+      die "现有 Docker 网络 ${DOCKER_NETWORK} 与当前 macvlan 配置不一致。请先停止依赖该网络的摄像头容器，再删除并重建网络。"
     fi
 
-    log "Docker macvlan network already exists: ${DOCKER_NETWORK}."
+    log "Docker macvlan 网络已存在：${DOCKER_NETWORK}"
     return
   fi
 
-  log "Creating Docker macvlan network: ${DOCKER_NETWORK}."
+  log "正在创建 Docker macvlan 网络：${DOCKER_NETWORK}"
   run_root env \
     PARENT_IFACE="$HOST_IF" \
     SUBNET="$SUBNET" \
@@ -701,11 +749,11 @@ ensure_macvlan_network() {
 
 setup_host_macvlan() {
   if [[ "$ENABLE_HOST_MACVLAN" -eq 0 ]]; then
-    warn "Skipping host-side macvlan interface."
+    warn "已按参数要求跳过宿主机 macvlan 辅助接口。"
     return
   fi
 
-  log "Configuring host-side macvlan interface."
+  log "正在配置宿主机 macvlan 辅助接口。"
   run_root env \
     HOST_IF="$HOST_IF" \
     HOST_MACVLAN_IP="$HOST_MACVLAN_IP" \
@@ -735,7 +783,7 @@ EOF
     rm -f "$tmp_service"
     run_root systemctl daemon-reload
     run_root systemctl enable --now virtualwebcam-macvlan-host.service
-    log "Enabled systemd service: virtualwebcam-macvlan-host.service."
+    log "已启用开机恢复服务：virtualwebcam-macvlan-host.service"
   fi
 }
 
@@ -758,14 +806,14 @@ backup_existing_db() {
     cp -a "${db_path}-shm" "$backup_dir/" 2>/dev/null || true
   fi
 
-  log "Backed up existing SQLite DB to ${backup_path}."
+  log "已备份现有 SQLite 数据库：${backup_path}"
 }
 
 warn_port_if_listening() {
   local port="$1"
   local label="$2"
   if ss -ltn 2>/dev/null | awk '{ print $4 }' | grep -Eq "[:.]${port}$"; then
-    warn "${label} port ${port} is already listening. Re-run may be fine if it is the existing deployment; otherwise Compose can fail."
+    warn "${label} 端口 ${port} 当前已有监听。如果是已有部署重复执行通常没问题；如果被其他服务占用，Compose 启动可能失败。"
   fi
 }
 
@@ -773,14 +821,14 @@ build_and_start() {
   cd "$PROJECT_ROOT"
   mkdir -p backend/data
 
-  warn_port_if_listening "$FRONTEND_PORT" "Frontend"
-  warn_port_if_listening "$BACKEND_PORT" "Backend"
+  warn_port_if_listening "$FRONTEND_PORT" "管理前端"
+  warn_port_if_listening "$BACKEND_PORT" "管理后端"
   warn_port_if_listening "$RTSP_GATEWAY_PORT" "RTSP"
 
-  log "Building virtualwebcam image."
+  log "正在构建 virtualwebcam 镜像。"
   compose_cmd --profile image build virtualwebcam-image
 
-  log "Starting manager backend and frontend."
+  log "正在启动管理后端和管理前端。"
   compose_cmd up -d --build manager-backend manager-frontend
 }
 
@@ -788,20 +836,20 @@ wait_for_health() {
   local url="http://127.0.0.1:${BACKEND_PORT}/api/health"
 
   if ! command -v curl >/dev/null 2>&1; then
-    warn "curl is not installed; skipping API health check."
+    warn "未安装 curl，跳过 API 健康检查。"
     return
   fi
 
-  log "Waiting for backend health: ${url}"
+  log "等待后端健康检查通过：${url}"
   for _ in $(seq 1 30); do
     if curl -fsS -H "X-API-Token: ${API_TOKEN}" "$url" >/dev/null 2>&1; then
-      log "Backend health check passed."
+      log "后端健康检查通过。"
       return
     fi
     sleep 2
   done
 
-  warn "Backend health check did not pass in time. Showing recent backend logs."
+  warn "后端健康检查超时，下面输出最近的后端日志。"
   compose_cmd logs --tail=120 manager-backend || true
   return 1
 }
@@ -809,21 +857,21 @@ wait_for_health() {
 print_summary() {
   cat <<EOF
 
-Deployment finished.
+部署完成。
 
-Open:
+访问地址:
   http://${RTSP_GATEWAY_HOST}:${FRONTEND_PORT}
 
-Admin:
-  username: ${ADMIN_USERNAME}
-  password: ${ADMIN_PASSWORD}
+管理员账号:
+  用户名: ${ADMIN_USERNAME}
+  密码:   ${ADMIN_PASSWORD}
 
-Network:
-  ONVIF camera pool: ${IP_RANGE}
-  First typical camera IP: $(first_camera_ip "$IP_RANGE" "$HOST_MACVLAN_IP")
-  RTSP shared gateway: rtsp://${RTSP_GATEWAY_HOST}:${RTSP_GATEWAY_PORT}/<stream_name>
+网络信息:
+  ONVIF 摄像头地址池: ${IP_RANGE}
+  建议第一路摄像头 IP: $(first_camera_ip "$IP_RANGE" "$HOST_MACVLAN_IP")
+  RTSP 共享网关地址: rtsp://${RTSP_GATEWAY_HOST}:${RTSP_GATEWAY_PORT}/<stream_name>
 
-Checks:
+常用检查命令:
   docker compose --env-file .env ps
   curl -H "X-API-Token: ${API_TOKEN}" http://127.0.0.1:${BACKEND_PORT}/api/health
 EOF
@@ -831,27 +879,27 @@ EOF
   if [[ "$EXISTING_DB" -eq 1 ]]; then
     cat <<'EOF'
 
-Note:
-  Existing backend/data/virtualwebcam.db was found. If it already has users,
-  the ADMIN_PASSWORD in .env does not reset their passwords.
+注意:
+  已检测到现有 backend/data/virtualwebcam.db。如果数据库里已经有用户，
+  .env 里的 ADMIN_PASSWORD 不会重置这些用户的密码。
 EOF
   elif [[ "$GENERATED_ADMIN_PASSWORD" -eq 1 ]]; then
     cat <<'EOF'
 
-Note:
-  A random initial admin password was generated and saved in .env.
+注意:
+  脚本已自动生成随机初始管理员密码，并保存到 .env。
 EOF
   fi
 }
 
 main() {
-  [[ -f "${PROJECT_ROOT}/docker-compose.yml" ]] || die "Run this script from the project checkout; docker-compose.yml was not found."
+  [[ -f "${PROJECT_ROOT}/docker-compose.yml" ]] || die "请在项目代码目录中运行脚本；未找到 docker-compose.yml。"
 
   if [[ -r /etc/os-release ]]; then
     # shellcheck disable=SC1091
     source /etc/os-release
     if [[ "${ID:-}" != "ubuntu" ]]; then
-      warn "Detected OS '${ID:-unknown}'. This script is intended for Ubuntu."
+      warn "检测到当前系统为 '${ID:-unknown}'，该脚本主要按 Ubuntu 适配。"
     fi
   fi
 

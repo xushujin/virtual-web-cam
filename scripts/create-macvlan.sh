@@ -8,7 +8,7 @@ IP_RANGE="${IP_RANGE:-192.168.5.208/28}"
 PARENT_IFACE="${PARENT_IFACE:-br0}"
 
 if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
-  echo "Docker network already exists: ${NETWORK_NAME}"
+  echo "Docker 网络已存在：${NETWORK_NAME}"
   exit 0
 fi
 
@@ -19,4 +19,4 @@ docker network create -d macvlan \
   -o parent="$PARENT_IFACE" \
   "$NETWORK_NAME"
 
-echo "Created Docker macvlan network: ${NETWORK_NAME}"
+echo "已创建 Docker macvlan 网络：${NETWORK_NAME}"
