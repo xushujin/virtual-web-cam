@@ -28,6 +28,15 @@ RTSP 流源地址：rtsp://192.168.5.111:554/screen01
 
 ## 2. 部署前确认
 
+客户主机已经安装 Ubuntu 26.04 时，推荐先使用根目录部署脚本：
+
+```bash
+chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh
+```
+
+脚本会按提示确认现场网卡、主机 IP、网关、ONVIF 摄像头地址池、管理员账号和端口，并自动完成 Docker 检查或安装、`.env` 生成、macvlan 配置、镜像构建和服务启动。
+
 在客户主机上执行：
 
 ```bash

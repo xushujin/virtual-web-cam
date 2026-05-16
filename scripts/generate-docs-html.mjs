@@ -11,6 +11,8 @@ const documents = [
   { source: 'development-guide.md', output: 'development-guide.html', title: 'VirtualWebCam 开发技术文档' },
   { source: 'deployment-ops-guide.md', output: 'deployment-ops-guide.html', title: 'VirtualWebCam 部署运维文档' },
   { source: 'user-guide.md', output: 'user-guide.html', title: 'VirtualWebCam 用户使用指南' },
+  { source: 'optimization-checklist.md', output: 'optimization-checklist.html', title: 'VirtualWebCam 优化清单' },
+  { source: 'optimization-recommendations.md', output: 'optimization-recommendations.html', title: 'VirtualWebCam 详细优化建议' },
 ];
 
 function escapeHtml(value) {

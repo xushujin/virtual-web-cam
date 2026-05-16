@@ -1,0 +1,587 @@
+# VirtualWebCam 详细优化建议
+
+记录日期：2026-05-14
+
+关联摘要：[优化清单](./optimization-checklist.md)
+
+## 总体判断
+
+当前代码基线没有发现需要立即停用或紧急修复的功能性阻断问题。此前已完成过的基础验证包括后端语法检查、后端单元测试与 API 回归、前端单元测试、前端生产构建。
+
+需要区分两类事项：第一类是生产上线前必须确认的安全与运维准入项，例如默认管理员密码、`SESSION_SECRET`、Docker socket 暴露范围；第二类是中长期工程优化，例如后端路由拆分、前端组件拆分、数据库迁移体系和测试覆盖提升。前者建议作为上线 checklist 执行，后者可按迭代节奏逐步消化。
+
+## 优先级定义
+
+| 优先级 | 含义 | 建议处理时间 |
+| --- | --- | --- |
+| P0 | 生产安全、上线准入、可能造成权限扩大或运维事故的问题 | 上线前必须确认 |
+| P1 | 影响维护效率、稳定性、可测试性或后续扩展速度的问题 | 近期 1-2 个迭代内处理 |
+| P2 | 体验、效率、观测、自动化和完善性优化 | 排入后续版本 |
+
+## 推荐执行路线
+
+| 阶段 | 目标 | 推荐条目 | 验收信号 |
+| --- | --- | --- | --- |
+| 第 0 阶段 | 降低生产风险 | SEC-01、SEC-02 | 弱密码和弱密钥无法进入生产；Docker socket 暴露边界明确 |
+| 第 1 阶段 | 稳定核心写路径 | SEC-03、OPS-01、BE-02、BE-03、BE-05、OPS-06 | 登录入口有基础防护；Node 本地和 CI 版本一致；导入失败不会留下半成品；升级路径可追踪；Docker 操作有超时和清晰错误 |
+| 第 2 阶段 | 降低维护成本 | BE-01、FE-01、FE-02、TEST-01 | 路由、业务、UI 状态分层清晰；核心流程有自动化覆盖 |
+| 第 3 阶段 | 提升体验和运维效率 | FE-03、FE-05、OPS-03、OPS-04、TEST-04 | 矩阵绑定更易测；轮询更稳；容器和端到端 smoke test 可重复执行 |
+
+## 一、生产安全与权限
+
+### SEC-01 默认账号与 `SESSION_SECRET` 启动保护
+
+优先级：P0
+
+现状：`docker-compose.yml` 和 `.env.example` 仍提供默认 `ADMIN_PASSWORD=admin123456`、`SESSION_SECRET=change-this-session-secret`；后端在没有任何 `admin` 角色用户时会创建或提升默认管理员。`backend/src/auth.js` 还存在 `SESSION_SECRET` 未配置时回退到 `API_TOKEN` 或开发默认值的逻辑。
+
+风险：如果测试配置被直接带入生产，攻击者可能通过默认口令登录；如果 `SESSION_SECRET` 使用弱值，已有会话 token 的可信边界会下降。
+
+建议方案：在后端启动阶段增加配置校验。`NODE_ENV=production` 或显式 `REQUIRE_SECURE_CONFIG=true` 时，如果发现默认密码、空密码、默认 `SESSION_SECRET`、过短密钥，应直接拒绝启动；开发环境可以只打印醒目告警。把安全配置说明同步到部署文档和 `.env.production.example`。
+
+验收标准：生产模式下使用默认密码或默认密钥时，后端进程退出并输出明确原因；替换为强密码和随机密钥后可以正常启动；文档中给出生成随机 `SESSION_SECRET` 的命令示例。
+
+涉及位置：`backend/src/db.js`、`backend/src/server.js`、`docker-compose.yml`、`.env.example`、部署文档。
+
+### SEC-02 Docker socket 暴露边界
+
+优先级：P0
+
+现状：后端需要访问 Docker socket 来创建、启动、停止、删除虚拟摄像头容器。该能力等价于很高的主机控制权限。
+
+风险：如果管理后台或后端 API 暴露到不可信网络，一旦账号、token 或 Web 漏洞被利用，攻击面会扩大到 Docker 宿主机。
+
+建议方案：生产部署明确要求后端只暴露在可信内网或 VPN 后面；前端入口通过反向代理提供 HTTPS、IP 白名单或统一身份认证。中长期可以引入 Docker socket proxy，只开放本项目需要的容器、镜像、网络、日志接口，并用容器 label 限制可操作范围。
+
+验收标准：部署文档中明确 Docker socket 风险和推荐网络拓扑；生产 compose 或部署模板默认不把后端端口暴露到公网；安全评审能确认管理后台只在可信访问面内。
+
+涉及位置：`docker-compose.yml`、`backend/src/docker.js`、`docs/deployment-ops-guide.md`。
+
+### SEC-03 登录失败限流与审计
+
+优先级：P1；如果管理后台入口无法限制在可信内网、VPN 或统一认证网关之后，则应提升为 P0。
+
+现状：登录接口具备账号密码校验，但没有看到针对连续失败登录的限流或锁定策略。
+
+风险：后台一旦暴露在较大网络范围，弱口令或撞库风险会上升；审计上也难以快速定位异常登录尝试。
+
+建议方案：增加按 IP 和用户名组合维度的失败计数。单实例部署可先使用内存限流，后续多实例再接 Redis 或反向代理限流。失败次数达到阈值后返回 429，并记录审计事件。成功登录后重置对应计数。
+
+验收标准：同一 IP 或同一用户名短时间连续失败超过阈值后，登录接口返回 429；审计日志能看到失败次数、来源 IP、用户名和时间；正常用户在窗口期后可恢复登录。
+
+涉及位置：`backend/src/routes.js`、`backend/src/server.js`、`backend/src/db.js`。
+
+### SEC-04 浏览器 token 存储策略
+
+优先级：P2；如果未来需要承载不可信用户输入、跨团队共享后台或公网访问，应提升为 P1。
+
+现状：前端 API 包装层从 `localStorage` 读取会话 token，并通过 `Authorization` 请求头发送。
+
+风险：如果未来出现 XSS，`localStorage` 中的 token 更容易被脚本读取。当前系统是管理类工具，权限边界较高，建议降低浏览器端 token 暴露面。
+
+建议方案：中长期改为 HttpOnly、SameSite Cookie 保存会话，配套 CSRF 防护。短期可以降低 token 有效期，增加重新登录策略，并为敏感操作保留服务端权限校验。
+
+验收标准：浏览器脚本无法直接读取会话凭据；跨站请求无法直接执行有状态写操作；前端刷新、退出、过期登录流程清晰。
+
+涉及位置：`frontend/src/api.js`、`backend/src/auth.js`、`backend/src/server.js`。
+
+### SEC-05 `API_TOKEN` 服务令牌治理
+
+优先级：P1
+
+现状：`API_TOKEN` 作为自动化调用入口，后端按系统管理员权限处理。
+
+风险：单个长期 token 一旦泄漏，会获得完整管理权限；审计中需要区分人工账号和服务令牌。
+
+建议方案：明确 `API_TOKEN` 只用于内网自动化或网关调用。进一步优化为多服务令牌配置，支持名称、到期时间、权限范围和轮换。审计记录中标识 `actor_type=service_token` 和 token 名称。
+
+验收标准：服务令牌调用会被审计为服务身份；文档包含启用、禁用、轮换流程；泄漏单个 token 后可以快速吊销。
+
+涉及位置：`backend/src/server.js`、`backend/src/routes.js`、部署文档。
+
+### SEC-06 CORS、HTTPS 和安全响应头
+
+优先级：P1
+
+现状：后端只有配置 `CORS_ORIGIN` 时才启用 CORS；生产入口主要由前端 Nginx 反代。
+
+风险：部署人员如果直接暴露后端端口，可能绕过预期入口；浏览器安全响应头缺失时，XSS、点击劫持、MIME 嗅探等风险更难统一控制。
+
+建议方案：生产部署只暴露前端反代入口。Nginx 增加 `X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、合理 CSP 和 HTTPS 配置。后端生产模式要求显式 `CORS_ORIGIN` 或默认拒绝跨域。
+
+验收标准：生产环境只开放预期入口；安全响应头通过浏览器或扫描工具检查；直接访问后端跨域接口不会被浏览器随意调用。
+
+涉及位置：`frontend/nginx/default.conf`、`backend/src/server.js`、部署文档。
+
+## 二、后端架构与数据一致性
+
+### BE-01 拆分 `routes.js` 与 service 层
+
+优先级：P1
+
+现状：`backend/src/routes.js` 约 1900 行，集中承载鉴权辅助、项目权限、导入导出、摄像头 CRUD、矩阵绑定、审计和屏幕 URL 等逻辑。
+
+风险：单文件持续增长后，修改一个业务点容易影响其他流程；路由级测试和业务级测试难以分离；后续多人协作更容易冲突。
+
+建议方案：按资源拆分路由文件，并把业务编排下沉到 service 层。推荐结构为 `routes/auth.js`、`routes/users.js`、`routes/projects.js`、`routes/cameras.js`、`routes/screen-urls.js`、`routes/audit.js`；对应增加 `services/project-service.js`、`services/camera-service.js`、`services/permission-service.js`、`services/audit-service.js`、`services/project-import-service.js`。
+
+验收标准：API 路径和返回结构保持兼容；单个路由文件控制在可维护范围内；权限判断、审计记录、Docker 编排不再散落在路由函数中；现有回归测试全部通过。
+
+涉及位置：`backend/src/routes.js`。
+
+### BE-02 项目导入使用数据库事务
+
+优先级：P1
+
+现状：项目导入失败后通过手写补偿删除已创建的项目、摄像头、屏幕 URL 和成员关系。当前 API 回归脚本已经覆盖了部分失败导入后的清理行为。
+
+风险：补偿清理虽然已有回归保护，但如果清理中途失败，仍可能留下半导入项目；新增关联表后也容易忘记加入补偿清理。
+
+建议方案：把导入流程改为 SQLite 事务。由于 `better-sqlite3` 是同步事务模型，建议把导入中的数据库写入封装为同步事务函数，先在事务外完成必要的 payload 校验和冲突预计算，再在事务内执行项目、屏幕 URL、摄像头、审计写入。
+
+验收标准：导入任意一步抛错时，数据库不留下新项目和关联资源；测试覆盖名称冲突、屏幕绑定重叠、RTSP 流名冲突、IP 重映射失败；不再需要手写补偿删除。
+
+涉及位置：`backend/src/routes.js`、`backend/src/db.js`。
+
+### BE-03 版本化数据库迁移
+
+优先级：P1
+
+现状：数据库初始化中同时包含建表、`PRAGMA table_info` 检测和多段 `ALTER TABLE` 兼容迁移。
+
+风险：随着字段和索引增加，初始化函数会越来越难判断实际 schema 状态；从老版本升级到新版本缺少清晰顺序和可回放记录。
+
+建议方案：增加 `schema_migrations` 表，按文件或版本号执行迁移，例如 `001_initial_schema`、`002_project_members`、`003_source_type`。每个迁移保持幂等，迁移完成后记录版本、执行时间和校验信息。
+
+验收标准：空数据库可以从 0 初始化；历史数据库可以顺序升级；重复启动不会重复执行已完成迁移；测试覆盖至少一个旧 schema fixture。
+
+涉及位置：`backend/src/db.js`、新增 `backend/src/migrations/`。
+
+### BE-04 强化数据库约束与输入校验
+
+优先级：P1
+
+现状：部分唯一性和冲突检查在业务代码中实现，例如 RTSP 流名可用性、屏幕绑定冲突、导入重映射。
+
+风险：并发请求或未来新增入口可能绕过业务检查；数据层约束不足时，异常数据会拖累后续运行。
+
+建议方案：保留 Zod 请求校验，同时补充数据库层约束。可考虑增加 RTSP 流名唯一索引、项目内摄像头名称策略、`cameras(project_id, status)` 查询索引；如果产品上要求屏幕地址名称在项目内唯一，再增加 `screen_urls(project_id, name)` 唯一索引。对 `display_targets`、`display_region` 的矩阵边界校验统一放在 service 层。
+
+验收标准：重复流名、越界矩阵、重复屏幕绑定等关键约束在并发情况下仍被拒绝；错误返回为稳定的 400 或 409；相关测试覆盖数据库约束和 API 错误。
+
+涉及位置：`backend/src/db.js`、`backend/src/routes.js`。
+
+### BE-05 Docker 操作超时、互斥与错误分类
+
+优先级：P1
+
+现状：Docker 编排集中在 `backend/src/docker.js`，已具备友好错误转换，但多数 Dockerode 调用没有统一超时和操作互斥。
+
+风险：Docker daemon 卡顿、网络创建慢、端口占用或容器状态变化时，请求可能等待过久；同一摄像头并发 start、stop、restart 可能出现状态竞争。
+
+建议方案：增加 `withTimeout` 包装 Docker 调用，对 start、stop、restart、remove、logs 设置不同超时时间。增加按摄像头 ID 的轻量操作锁，避免同一资源并发操作。错误分类建议统一为镜像缺失、网络缺失、端口占用、权限不足、Docker 不可用、容器不存在、超时。当前 `friendlyDockerError` 会把 `already allocated` 一类错误统一提示成“虚拟 IP 已被占用”，对 RTSP 网关端口占用场景不够准确，建议按 ONVIF IP 分配冲突和宿主机端口冲突拆开。
+
+验收标准：Docker 不可用或端口被占用时，API 在可预期时间内返回明确错误；同一摄像头并发操作不会产生交叉状态；前端能展示可操作的处理建议。
+
+涉及位置：`backend/src/docker.js`、`backend/src/routes.js`、`frontend/src/App.vue`。
+
+### BE-06 状态同步与异常恢复
+
+优先级：P1
+
+现状：摄像头列表和状态接口会检查 Docker 状态并同步数据库状态。
+
+风险：容器被外部删除、重启、崩溃或 Docker daemon 重启后，数据库状态可能短时间不准确；用户看到的状态和真实容器状态可能不一致。
+
+建议方案：增加后台状态 reconciliation 任务，周期性根据 label 检查受管容器，修正数据库状态并记录审计或系统事件。对找不到容器但数据库为 running 的摄像头标记为 error 或 stopped，并提供一键重建。
+
+验收标准：外部删除容器后，系统能在一个周期内反映异常；前端展示清晰状态；审计或系统日志能看到自动修正记录。
+
+涉及位置：`backend/src/docker.js`、`backend/src/routes.js`、`backend/src/server.js`。
+
+### BE-07 审计日志结构与保留策略
+
+优先级：P2
+
+现状：系统已有 `audit_logs` 表，记录项目、摄像头、操作类型和 detail。
+
+风险：日志长期增长会影响查询和备份体积；现有 detail 为 JSON 字符串，后续排查时需要更清晰的 actor、结果、来源 IP 和 request id。
+
+建议方案：扩展审计字段或规范 detail 内容，至少包含 actor id、actor name、actor type、request id、source ip、result。增加保留策略，例如默认保留 180 天，支持导出和清理。
+
+验收标准：关键写操作均可追踪到操作者和来源；审计列表查询稳定；清理任务不会删除保留期内日志。
+
+涉及位置：`backend/src/db.js`、`backend/src/routes.js`、前端审计页面。
+
+### BE-08 健康检查与可观测性
+
+优先级：P2
+
+现状：已有 `/api/health` 和 Docker runtime 状态查询能力。
+
+风险：部署现场排障时，如果只知道接口是否存活，很难快速判断是 Docker、镜像、macvlan、RTSP 网关、数据库还是容器运行链路出问题。
+
+建议方案：拆分健康检查层级。轻量 readiness 检查数据库和进程；完整 diagnostics 检查 Docker socket、镜像、网络、RTSP 网关端口、受管容器统计。日志增加 request id，前端错误弹窗展示 request id 便于定位。
+
+验收标准：现场人员可以通过一个诊断接口看到主要依赖状态；后端日志和前端错误能用 request id 对齐；健康检查不会因为重型 Docker stats 调用拖慢。
+
+涉及位置：`backend/src/server.js`、`backend/src/docker.js`、`frontend/src/App.vue`。
+
+## 三、前端结构与交互体验
+
+### FE-01 拆分 `App.vue`
+
+优先级：P1
+
+现状：`frontend/src/App.vue` 约 3000 行，集中包含登录、项目列表、摄像头表格、批量创建、矩阵绑定、屏幕 URL、用户管理、审计日志、资源监控和弹窗状态。
+
+风险：单文件维护成本高，状态变量相互耦合；新增功能时容易引入模板和状态回归；组件测试很难精准覆盖。
+
+建议方案：按视图和功能拆分组件。推荐拆分为 `views/LoginView.vue`、`views/ProjectsView.vue`、`views/ProjectWorkspace.vue`，以及 `components/CameraTable.vue`、`components/ScreenMatrix.vue`、`components/CameraFormModal.vue`、`components/BulkCreateModal.vue`、`components/ScreenUrlLibrary.vue`、`components/UserManagement.vue`、`components/AuditLogPanel.vue`、`components/ResourceStatsPanel.vue`、`components/LogDrawer.vue`。
+
+验收标准：`App.vue` 只保留应用级编排和布局入口；核心组件 props 和 emits 明确；拆分后前端单元测试和构建通过；视觉和交互行为保持一致。
+
+涉及位置：`frontend/src/App.vue`。
+
+### FE-02 抽取 composables 管理业务状态
+
+优先级：P1
+
+现状：鉴权、项目、摄像头、矩阵、资源轮询、用户管理等状态和方法集中在 `App.vue`。
+
+风险：状态生命周期难以复用和测试；刷新、退出、切项目等流程需要同时清理多个状态，后续容易遗漏。
+
+建议方案：抽取 `useAuth`、`useProjects`、`useCameras`、`useScreenMatrix`、`useScreenUrls`、`useUsers`、`useResourcePolling`、`useToast`。API 调用、加载状态、错误状态和清理逻辑放到对应 composable 中。
+
+验收标准：每个 composable 有明确输入输出；退出登录和切换项目时状态清理可预测；关键逻辑可以不挂载完整 `App.vue` 单独测试。
+
+涉及位置：`frontend/src/App.vue`、`frontend/src/api.js`、新增 `frontend/src/composables/`。
+
+### FE-03 矩阵绑定组件化与交互测试
+
+优先级：P1
+
+现状：矩阵相关的计算工具已经有 `frontend/src/utils/display.js`，但拖拽、区域选择、占用冲突和保存逻辑仍主要集中在 `App.vue`。
+
+风险：矩阵绑定是系统的高价值交互，回归风险较高；区域选择、拖拽、冲突替换等场景靠人工测试效率低。
+
+建议方案：抽取 `ScreenMatrix.vue`，只通过 props 接收矩阵、摄像头、权限、忙碌状态，通过 emits 输出绑定、清空、冲突替换等意图。配套 Vitest 或组件测试覆盖单屏绑定、区域绑定、冲突提示、只读用户禁止拖拽。
+
+验收标准：矩阵组件可独立渲染测试；拖拽和区域选择核心行为有自动化覆盖；只读权限不会触发写操作。
+
+涉及位置：`frontend/src/App.vue`、`frontend/src/utils/display.js`、`frontend/test/display.test.js`。
+
+### FE-04 错误状态和 API 错误结构
+
+优先级：P1
+
+现状：前端存在全局 `error`、登录错误、toast 等多种错误承载方式；API wrapper 会抛出错误消息，但状态码和 details 信息利用不足。
+
+风险：用户看到的错误可能过泛；批量操作、导入、Docker 前置条件失败时，很难给出下一步操作建议。
+
+建议方案：API wrapper 返回统一错误对象，包含 `status`、`message`、`details`、`requestId`。前端区分表单校验错误、操作错误、系统错误和后台诊断错误。对 Docker 镜像缺失、网络缺失、端口占用、权限不足给出明确操作提示。
+
+验收标准：常见失败场景能展示具体原因和处理建议；表单字段错误能落到字段附近；系统错误保留 request id 便于排查。
+
+涉及位置：`frontend/src/api.js`、`frontend/src/App.vue`、`backend/src/server.js`。
+
+### FE-05 轮询控制、退避和页面可见性
+
+优先级：P2
+
+现状：摄像头状态和资源统计通过 `setInterval` 周期刷新。
+
+风险：网络慢或接口慢时可能出现重叠请求；页面切到后台时仍持续轮询会浪费资源；接口连续失败时用户体验和日志噪声都会变差。
+
+建议方案：用 `AbortController` 或请求序列号避免过期响应覆盖新数据。页面不可见时暂停或降低频率，恢复可见后立即刷新一次。连续失败时指数退避，并在恢复后清除错误提示。
+
+验收标准：慢请求不会覆盖新状态；浏览器后台时请求频率降低；接口恢复后前端自动回到正常刷新。
+
+涉及位置：`frontend/src/App.vue`、后续 `useResourcePolling`。
+
+### FE-06 导入、复制和批量创建的预检查体验
+
+优先级：P2
+
+现状：项目导入会自动重命名项目、重映射 IP 和 RTSP 流名；摄像头复制会在前端尝试生成新名称和地址。
+
+风险：用户在提交前无法完整预览即将发生的重映射；复制或批量创建失败时，需要重复调整输入。
+
+建议方案：增加导入预览接口或前端预览步骤，展示项目名称、摄像头数量、屏幕 URL 数量、IP 重映射、流名重映射、屏幕绑定冲突。复制摄像头和批量创建前增加冲突预检查，支持一键采用系统建议值。
+
+验收标准：导入前用户能看到将创建的资源和冲突处理；复制失败率降低；RTSP 流源也支持批量创建。
+
+涉及位置：`backend/src/routes.js`、`frontend/src/App.vue`、`frontend/src/api.js`。
+
+### FE-07 可访问性与键盘操作
+
+优先级：P2
+
+现状：系统已经具备管理后台主要功能，但矩阵拖拽、弹窗焦点、快捷操作还有进一步完善空间。
+
+风险：仅依赖鼠标拖拽会影响现场键盘操作和辅助技术可用性；弹窗焦点不固定时容易误操作。
+
+建议方案：为弹窗增加焦点陷阱和 Esc 关闭；矩阵格子和摄像头行增加键盘选择和绑定路径；图标按钮补充 `aria-label`；批量操作按钮在禁用时说明原因。
+
+验收标准：主要弹窗可以只用键盘完成操作；屏幕阅读器能识别按钮用途；禁用状态不会让用户困惑。
+
+涉及位置：前端组件拆分后的各组件。
+
+## 四、运维、部署与容器可靠性
+
+### OPS-01 固定 Node 版本与原生依赖 ABI
+
+优先级：P1
+
+现状：后端依赖 `better-sqlite3` 原生模块。后端 Dockerfile 已固定 `node:20-bookworm-slim`，容器化部署路径相对稳定；但仓库根目录没有 `.nvmrc` 或 `.node-version`，本地开发和 CI 如果使用不同 Node 版本，仍可能触发 ABI 不匹配，需要重新安装或重建依赖。
+
+风险：开发机和 CI 的 Node 版本不一致时，可能出现安装成功但运行失败，或需要临时 `npm rebuild`。如果生产不通过 Dockerfile 构建，而是直接在宿主机跑 Node，也会受到同类影响。
+
+建议方案：增加 `.nvmrc` 或 `.node-version`，并在 `package.json` 增加 `engines.node`。CI 和部署文档统一说明 Node LTS 版本。必要时在启动前检查 Node major 版本。
+
+验收标准：新机器按文档安装后不再出现 `better-sqlite3` ABI 不匹配；CI 使用同一 Node 版本运行后端测试和前端构建；Docker 构建继续保持 Node 20 基线。
+
+涉及位置：项目根目录、`backend/package.json`、`frontend/package.json`、部署文档。
+
+### OPS-02 CI 验证流水线
+
+优先级：P1
+
+现状：本地已有后端 lint/test、前端 test/build、文档生成脚本，但没有看到统一 CI 工作流。
+
+风险：多人协作时，文档、前端构建、后端 API 回归和 Docker 镜像构建可能只在人工阶段发现问题。
+
+建议方案：增加 CI 流水线，至少执行 `backend npm run lint`、`backend npm test`、`frontend npm run test:unit`、`frontend npm run build`、文档 HTML 生成一致性检查。可选增加容器镜像构建和 smoke test。
+
+验收标准：每次提交或合并请求自动执行核心验证；生成文档有变更时能及时发现未提交的 HTML；失败信息能定位到具体阶段。
+
+涉及位置：新增 CI 配置、`scripts/generate-docs-html.mjs`。
+
+### OPS-03 容器镜像 smoke test
+
+优先级：P1
+
+现状：`container/` 镜像同时包含 Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc 等运行链路，健康检查脚本已存在。
+
+风险：镜像构建成功不代表浏览器渲染、推流、RTSP 网关和 ONVIF 相关进程都能正常启动。
+
+建议方案：增加镜像 smoke test 脚本。构建后启动一个最小容器，使用可访问的 HTTP/HTTPS 测试页，例如临时静态 HTTP 服务或 `https://example.com`，检查 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc 进程和 RTSP 端口。不能使用 `about:blank`，因为入口脚本要求 `WEB_URL` 必须以 `http://` 或 `https://` 开头。RTSP publisher 模式也应单独覆盖。
+
+验收标准：镜像构建后可以自动验证主进程链路；失败时输出容器日志；CI 或发布脚本可以复用。
+
+涉及位置：`container/healthcheck.sh`、`container/entrypoint.sh`、新增测试脚本。
+
+### OPS-04 macvlan host 辅助接口持久化
+
+优先级：P2
+
+现状：项目已有创建 macvlan 和 host 辅助接口脚本，详细部署文档也提供了 systemd 开机恢复示例。
+
+风险：宿主机重启后，如果辅助接口没有持久化，主机访问虚拟摄像头 IP 可能失败；现场排障成本较高。
+
+建议方案：把现有 systemd 示例进一步脚本化，提供一键安装、更新和卸载能力；或额外提供 NetworkManager 配置生成方式。脚本执行前检查父网卡、网段、网关、IP 冲突。
+
+验收标准：宿主机重启后辅助接口仍存在；主机可以 ping 到虚拟摄像头网段；脚本重复执行保持幂等。
+
+涉及位置：`scripts/setup-macvlan-host.sh`、`scripts/create-macvlan.sh`、部署文档。
+
+### OPS-05 RTSP 网关端口策略
+
+优先级：P1
+
+现状：共享 RTSP 网关默认占用宿主机 `554` 端口。部署文档已经说明端口占用检查和改用 `RTSP_GATEWAY_PORT` 的处理方式，但后端错误提示和前端操作提示还可以更精准。
+
+风险：`554` 是低端口，可能需要额外权限，也可能被系统已有 RTSP 服务占用；现场用户遇到端口冲突时需要明确处理路径。
+
+建议方案：保留文档中 `RTSP_GATEWAY_PORT` 可调整的说明；在后端错误分类、前端错误展示和健康诊断中识别端口占用，建议用户改用 `8554` 或释放端口。必要时默认示例使用更少冲突的端口，并保留生产可改配置。
+
+验收标准：端口占用时 API 返回明确错误；前端提示包含端口号和处理建议；部署文档包含 `554` 与 `8554` 的取舍说明。
+
+涉及位置：`backend/src/docker.js`、`docker-compose.yml`、`frontend/src/App.vue`、部署文档。
+
+### OPS-06 数据库备份、恢复与升级演练
+
+优先级：P1
+
+现状：SQLite 数据保存在 `backend/data/virtualwebcam.db`，启用了 WAL。部署文档已经提供了手工备份、恢复和升级前备份命令。
+
+风险：直接复制 SQLite 主文件可能遗漏 WAL 内容；升级前没有备份和恢复演练会增加现场风险。
+
+建议方案：在现有文档命令基础上提供 `scripts/backup-db.sh` 和 `scripts/restore-db.sh`，使用 SQLite backup API 或停服加 WAL checkpoint。增加恢复到临时路径并启动检查的演练步骤，把“能恢复”纳入上线或升级演练，而不是只保存备份文件。
+
+验收标准：备份文件可以在新目录恢复并通过健康检查；升级失败时可以回滚；文档明确 WAL 文件处理方式。
+
+涉及位置：新增脚本、`backend/src/db.js`、部署运维文档。
+
+### OPS-07 配置模板与生产 profile
+
+优先级：P2
+
+现状：`.env.example` 面向快速启动，含有默认管理员密码和默认密钥示例。
+
+风险：快速启动模板容易被复制到生产环境；运维人员需要区分开发、演示、生产配置。
+
+建议方案：保留 `.env.example` 做本地体验，新增 `.env.production.example`，只放占位符和强约束说明。Compose 增加生产 profile 或部署章节，明确镜像 tag、端口、存储卷、反向代理和备份路径。
+
+验收标准：生产模板不包含可直接使用的弱密码；部署文档以生产模板为准；快速体验和生产部署路径清晰分开。
+
+涉及位置：`.env.example`、新增 `.env.production.example`、`docker-compose.yml`、部署文档。
+
+## 五、性能、容量与稳定性
+
+### PERF-01 Docker stats 查询缓存与并发控制
+
+优先级：P2
+
+现状：资源统计依赖 Docker stats 和容器 inspect。
+
+风险：摄像头数量增多后，同时查询多个容器 stats 会增加 Docker daemon 压力；前端轮询可能放大压力。
+
+建议方案：后端对资源统计做短 TTL 缓存，例如 3-5 秒；并发查询加限制；前端轮询和页面可见性配合降低频率。对失败容器返回部分结果，而不是让整次统计失败。
+
+验收标准：几十路摄像头下资源统计接口响应稳定；Docker daemon 压力可控；单个容器 stats 失败不影响其他摄像头展示。
+
+涉及位置：`backend/src/docker.js`、`backend/src/docker-metrics.js`、`frontend/src/App.vue`。
+
+### PERF-02 列表分页、筛选和索引
+
+优先级：P2
+
+现状：摄像头、审计日志、屏幕 URL 等列表目前偏向中小规模项目使用。
+
+风险：项目摄像头数量和审计日志增长后，全量列表加载会变慢；前端渲染和搜索会受到影响。
+
+建议方案：审计日志增加游标或分页；摄像头列表保留当前体验但支持按状态、类型、绑定状态服务端筛选；数据库增加匹配查询路径的索引。
+
+验收标准：大项目下列表接口响应仍稳定；审计日志可以翻页加载；前端不需要一次渲染过多历史记录。
+
+涉及位置：`backend/src/db.js`、`backend/src/routes.js`、`frontend/src/App.vue`。
+
+### PERF-03 大矩阵渲染优化
+
+优先级：P2
+
+现状：矩阵默认 6x8，当前渲染方式足够使用。
+
+风险：如果后续扩展到更大拼接墙，单页格子、区域卡片和拖拽状态计算可能变重。
+
+建议方案：矩阵组件化后，对 assignments 建立 memoized map；拖拽过程中只更新 hover 和 draft region；超大矩阵考虑虚拟化或分区展示。
+
+验收标准：默认矩阵和较大矩阵拖拽不卡顿；状态变化不会引发不必要的全量重算。
+
+涉及位置：后续 `ScreenMatrix.vue`、`frontend/src/utils/display.js`。
+
+## 六、测试覆盖
+
+### TEST-01 后端路由与权限测试
+
+优先级：P1
+
+现状：已有 auth、docker metrics 等单元测试和 API 回归脚本。API 回归脚本已经覆盖了部分权限、屏幕绑定冲突、项目导入、RTSP 流名重映射和失败导入清理场景。
+
+风险：现有 API 回归脚本偏端到端，能保证主流程，但定位失败原因不如路由级或 service 级测试直接。项目权限、导入、绑定、批量操作、用户管理仍值得补充更细颗粒度测试。
+
+建议方案：基于临时 SQLite 数据库和 mocked Docker service 增加路由测试。重点覆盖系统管理员、项目 operator、viewer、未授权用户、API token 之间的权限差异。
+
+验收标准：权限矩阵有测试覆盖；错误状态码稳定；不依赖真实 Docker daemon 也能跑核心路由测试。
+
+涉及位置：`backend/test/`、后续 service 抽象。
+
+### TEST-02 项目导入与事务测试
+
+优先级：P1
+
+现状：项目导入流程复杂，包含项目重命名、IP 重映射、流名重映射、屏幕绑定冲突检测和失败清理。
+
+风险：任何一步变动都可能产生半导入或错误映射。
+
+建议方案：为导入 service 增加覆盖用例：完整导入、项目名冲突自动重命名、IP 冲突重映射、RTSP 流名冲突重映射、屏幕区域重叠失败、事务回滚。
+
+验收标准：失败用例后数据库无残留；成功用例返回 remapped 信息准确；导入 service 可在无 HTTP 层情况下测试。
+
+涉及位置：`backend/src/routes.js`、后续 `backend/src/services/project-import-service.js`。
+
+### TEST-03 前端组件测试
+
+优先级：P1
+
+现状：前端已有 utils 级测试，组件层覆盖不足。
+
+风险：拆分组件后，如果没有测试，矩阵交互、批量操作和弹窗状态容易回归。
+
+建议方案：增加 Vue 组件测试能力，覆盖 `ScreenMatrix`、`CameraTable`、`CameraFormModal`、`ProjectImportModal`。API 请求通过 mock 注入，避免依赖真实后端。
+
+验收标准：核心组件能独立测试；只读权限、忙碌状态、错误展示和 emits 行为有覆盖；前端测试运行时间可控。
+
+涉及位置：`frontend/test/`、新增组件。
+
+### TEST-04 端到端 smoke test
+
+优先级：P2
+
+现状：有 API 回归脚本，但还没有覆盖浏览器真实操作的端到端测试。
+
+风险：前端构建能通过不代表登录、创建项目、创建视频源、矩阵绑定、导出导入在浏览器里都顺畅。
+
+建议方案：引入 Playwright smoke test，覆盖登录、创建项目、创建 RTSP 流源、绑定屏幕、查看审计、导出配置。Docker 相关动作可使用测试模式或 mock 后端，避免 CI 必须具备真实摄像头网络。
+
+验收标准：端到端 smoke test 可以在 CI 或本地一条命令执行；失败截图和 trace 可用于排查；主要用户路径有最低保障。
+
+涉及位置：新增 `frontend/e2e/` 或 `tests/e2e/`。
+
+### TEST-05 安全回归测试
+
+优先级：P2
+
+现状：认证和权限已有基础逻辑，但安全配置回归测试可继续增强。
+
+风险：后续改造 token、cookie、限流、生产配置校验时，容易出现默认配置绕过或权限回退。
+
+建议方案：增加测试覆盖弱配置拒绝启动、登录限流、禁用用户 token 失效、viewer 写操作被拒绝、服务令牌审计标识、CORS 生产配置。
+
+验收标准：安全策略有自动化保护；生产配置校验不会被重构意外移除。
+
+涉及位置：`backend/test/`。
+
+## 七、文档与交付
+
+### DOC-01 收敛上线前检查表
+
+优先级：P1
+
+现状：文档已经覆盖部署、运维、开发和用户使用，详细部署文档中也已有部署前检查、备份恢复、故障排查和验收检查内容。
+
+风险：现场实施如果跳过安全配置、端口检查、macvlan host 接口、备份演练，后续问题会集中在上线当天暴露。
+
+建议方案：把现有分散在部署前检查、备份恢复、故障排查和验收章节中的关键项，收敛成一页上线前检查表，包含密码和密钥、Docker socket 访问面、端口、macvlan、镜像、数据库备份、默认管理员、普通用户授权、RTSP 验证、ONVIF 验证。
+
+验收标准：实施人员可以按表逐项确认；每个检查项都有命令或页面入口；验收文档能直接引用。
+
+涉及位置：`docs/deployment-ops-guide.md`、`docs/quick-deployment.md`。
+
+### DOC-02 故障排查按症状组织
+
+优先级：P2
+
+现状：部署文档已有常见失败点和较完整的排障章节，但可进一步按照用户看到的症状组织入口。
+
+风险：现场人员往往先看到“画面黑屏”“摄像头不在线”“RTSP 拉不到”“Docker 网络不存在”等症状，如果文档只按组件说明，定位速度会变慢。
+
+建议方案：增加故障排查索引：登录失败、创建摄像头失败、RTSP 网关失败、ONVIF 发现不到、虚拟 IP 不通、Chrome 渲染失败、FFmpeg 推流失败、资源统计为空。每个症状给出检查命令、可能原因和处理方式。
+
+验收标准：常见故障能在文档中通过症状快速定位；每个处理步骤都有明确命令或页面位置。
+
+涉及位置：`docs/deployment-ops-guide.md`、`docs/user-guide.md`。
+
+## 建议近期落地顺序
+
+1. 增加生产启动安全检查，拦截默认管理员密码和默认 `SESSION_SECRET`。
+2. 明确 Docker socket 只在可信内网、VPN 或统一认证网关后访问。
+3. 如果管理后台入口无法限制在可信网络内，先增加登录失败限流和失败审计。
+4. 增加 `.nvmrc` 或 `.node-version`，并固定 CI、本地开发 Node 版本。
+5. 项目导入改为 SQLite 事务，并补充失败回滚测试。
+6. Docker 操作增加超时、错误分类和同摄像头操作互斥，尤其区分 IP 占用和 RTSP 网关端口占用。
+7. 拆分后端 `routes.js`，先从 auth、users、projects、cameras 四类路由开始。
+8. 拆分前端 `App.vue`，优先抽出 CameraTable、ScreenMatrix、Modal 类组件。
+9. 在现有备份文档基础上增加数据库备份和恢复脚本。
+10. 增加容器镜像 smoke test 和端到端 smoke test，覆盖登录、创建、绑定、导出主流程。

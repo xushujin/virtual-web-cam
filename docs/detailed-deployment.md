@@ -95,6 +95,37 @@ ONVIF 摄像头需要独立 IP。建议从客户网络里划出一段不被 DHCP
 
 ## 3. 部署前检查
 
+### 3.0 Ubuntu 26.04 推荐部署脚本
+
+客户电脑已经安装 Ubuntu 26.04 时，优先使用根目录脚本：
+
+```bash
+chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh
+```
+
+该脚本不是旧手工流程的简单封装，而是按当前软件真实运行方式部署：
+
+- 管理后台通过 Docker Compose 启动 `manager-backend` 和 `manager-frontend`。
+- 后端挂载 `/var/run/docker.sock`，后续由后台创建、启动、停止和删除视频源容器。
+- ONVIF 摄像头使用 `onvif_macvlan`，每路一个独立 IP，对外提供 `80/tcp` 和 `554/tcp`。
+- RTSP 流源不占独立 IP，由后台按需创建共享 RTSP 网关容器，并通过 `rtsp://<宿主机IP>:554/<stream_name>` 区分多路。
+- 容器模板统一构建为 `virtualwebcam:latest`，内部 FFmpeg 推流不再使用 `-tune zerolatency`。
+
+无人值守部署示例：
+
+```bash
+./ubuntu26.04-deploy.sh --yes \
+  --host-if br0 \
+  --host-ip 192.168.5.111 \
+  --subnet 192.168.5.0/24 \
+  --gateway 192.168.5.1 \
+  --ip-range 192.168.5.208/28 \
+  --host-macvlan-ip 192.168.5.210
+```
+
+脚本完成后会输出管理后台地址、管理员账号、建议第一路 ONVIF 摄像头 IP、ONVIF/RTSP 验收命令。
+
 ### 3.1 Docker
 
 ```bash

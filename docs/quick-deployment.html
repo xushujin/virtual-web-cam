@@ -170,7 +170,7 @@
   <div class="shell">
     <aside class="sidebar">
       <p class="brand">VirtualWebCam</p>
-      <nav class="nav"><a href="./index.html">文档中心</a><a aria-current="page" href="./quick-deployment.html">简明部署文档</a><a href="./detailed-deployment.html">详细部署文档</a><a href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a></nav>
+      <nav class="nav"><a href="./index.html">文档中心</a><a aria-current="page" href="./quick-deployment.html">简明部署文档</a><a href="./detailed-deployment.html">详细部署文档</a><a href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a><a href="./optimization-checklist.html">优化清单</a><a href="./optimization-recommendations.html">详细优化建议</a></nav>
       <p class="toc-title">目录</p>
       <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-简明部署文档">VirtualWebCam 简明部署文档</a><a class="toc-level-2" href="#1-部署结果">1. 部署结果</a><a class="toc-level-2" href="#2-部署前确认">2. 部署前确认</a><a class="toc-level-2" href="#3-配置现场环境">3. 配置现场环境</a><a class="toc-level-2" href="#4-创建-macvlan-网络">4. 创建 macvlan 网络</a><a class="toc-level-2" href="#5-配置宿主机访问-macvlan-容器">5. 配置宿主机访问 macvlan 容器</a><a class="toc-level-2" href="#6-构建镜像和启动后台">6. 构建镜像和启动后台</a><a class="toc-level-2" href="#7-登录和初始化">7. 登录和初始化</a><a class="toc-level-2" href="#8-创建视频源">8. 创建视频源</a><a class="toc-level-3" href="#8-1-创建-onvif-摄像头">8.1 创建 ONVIF 摄像头</a><a class="toc-level-3" href="#8-2-创建-rtsp-流源">8.2 创建 RTSP 流源</a><a class="toc-level-2" href="#9-常用验收命令">9. 常用验收命令</a><a class="toc-level-2" href="#10-最常见问题">10. 最常见问题</a><a class="toc-level-3" href="#10-1-后台提示-docker-不可访问">10.1 后台提示 Docker 不可访问</a><a class="toc-level-3" href="#10-2-客户主机打不开-onvif-摄像头-ip">10.2 客户主机打不开 ONVIF 摄像头 IP</a><a class="toc-level-3" href="#10-3-rtsp-播放器显示旧画面">10.3 RTSP 播放器显示旧画面</a><a class="toc-level-3" href="#10-4-更换客户现场网段">10.4 更换客户现场网段</a></nav>
     </aside>
@@ -189,6 +189,10 @@
 ONVIF 摄像头入口：http://192.168.5.211/onvif/device_service
 RTSP 流源地址：rtsp://192.168.5.111:554/screen01</code></pre>
 <h2 id="2-部署前确认"><a class="anchor" href="#2-部署前确认">#</a>2. 部署前确认</h2>
+<p>客户主机已经安装 Ubuntu 26.04 时，推荐先使用根目录部署脚本：</p>
+<pre><code class="language-bash">chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh</code></pre>
+<p>脚本会按提示确认现场网卡、主机 IP、网关、ONVIF 摄像头地址池、管理员账号和端口，并自动完成 Docker 检查或安装、<code>.env</code> 生成、macvlan 配置、镜像构建和服务启动。</p>
 <p>在客户主机上执行：</p>
 <pre><code class="language-bash">ip -4 addr
 ip route | grep default

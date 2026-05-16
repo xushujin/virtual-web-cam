@@ -79,6 +79,27 @@ RTSP 流源使用共享网关，对外地址为：
 └── docker-compose.yml
 ```
 
+## Ubuntu 26.04 客户机部署
+
+客户电脑已经安装 Ubuntu 26.04 时，推荐直接运行根目录部署脚本，并按提示填写现场网卡、主机 IP、网关和 ONVIF 摄像头地址池：
+
+```bash
+chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh
+```
+
+脚本会按当前系统真实需求完成 Docker 检查或安装、`.env` 生成、macvlan 网络、宿主机辅助接口、`virtualwebcam:latest` 镜像构建和管理后台启动。无人值守部署可以传入参数：
+
+```bash
+./ubuntu26.04-deploy.sh --yes \
+  --host-if br0 \
+  --host-ip 192.168.5.111 \
+  --subnet 192.168.5.0/24 \
+  --gateway 192.168.5.1 \
+  --ip-range 192.168.5.208/28 \
+  --host-macvlan-ip 192.168.5.210
+```
+
 ## 构建镜像
 
 ```bash
@@ -216,7 +237,7 @@ ADMIN_PASSWORD=admin123456
 SESSION_SECRET=change-this-session-secret
 ```
 
-首次启动时如果 `users` 表为空，系统会创建默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；普通用户登录后只能看到被授权项目。
+首次启动或系统中没有任何 `admin` 角色用户时，后端会创建或提升默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；普通用户登录后只能看到被授权项目。
 
 `API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。服务令牌不会再注入前端构建产物，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌；网页用户应通过账号密码登录，避免把管理员级令牌暴露到浏览器。
 

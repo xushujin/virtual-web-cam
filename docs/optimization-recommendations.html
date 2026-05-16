@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VirtualWebCam 详细优化建议</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --text: #172033;
+      --muted: #5d6b82;
+      --line: #dce3ee;
+      --brand: #155eef;
+      --brand-soft: #eaf1ff;
+      --code-bg: #0f172a;
+      --code-text: #dbeafe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 0 0, #eaf6ff 0, transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .shell {
+      display: grid;
+      grid-template-columns: 18rem minmax(0, 1fr);
+      gap: 1.5rem;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .sidebar {
+      position: sticky;
+      top: 1.5rem;
+      align-self: start;
+      max-height: calc(100vh - 3rem);
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+    .brand {
+      margin: 0 0 0.75rem;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .nav {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav a, .toc a {
+      display: block;
+      border-radius: 8px;
+      padding: 0.42rem 0.55rem;
+      color: var(--muted);
+    }
+    .nav a[aria-current="page"] {
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-weight: 700;
+    }
+    .toc-title {
+      margin: 0 0 0.4rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .toc {
+      display: grid;
+      gap: 0.1rem;
+      font-size: 0.92rem;
+    }
+    .toc-level-2 { padding-left: 1rem !important; }
+    .toc-level-3 { padding-left: 2rem !important; font-size: 0.86rem; }
+    main {
+      min-width: 0;
+      padding: 2rem 2.25rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.3;
+      margin: 1.8em 0 0.65em;
+    }
+    h1 { margin-top: 0; font-size: 2.15rem; }
+    h2 { padding-top: 0.5rem; border-top: 1px solid var(--line); font-size: 1.55rem; }
+    h3 { font-size: 1.22rem; }
+    p, ul, ol, table, pre, blockquote { margin: 0.8rem 0; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { margin-top: 0.25rem; }
+    code {
+      border-radius: 5px;
+      padding: 0.12rem 0.32rem;
+      background: #eef2f7;
+      color: #0f3b74;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow: auto;
+      border-radius: 12px;
+      padding: 1rem;
+      background: var(--code-bg);
+      color: var(--code-text);
+    }
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.58rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f2f6fb;
+      color: #27364f;
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: 0; }
+    blockquote {
+      border-left: 4px solid var(--brand);
+      padding: 0.4rem 0 0.4rem 1rem;
+      color: var(--muted);
+      background: #f8fbff;
+    }
+    .anchor {
+      opacity: 0;
+      margin-right: 0.35rem;
+      font-weight: 600;
+    }
+    h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor {
+      opacity: 1;
+      text-decoration: none;
+    }
+    @media (max-width: 960px) {
+      .shell { display: block; padding: 1rem; }
+      .sidebar { position: static; max-height: none; margin-bottom: 1rem; }
+      main { padding: 1.2rem; }
+      h1 { font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <p class="brand">VirtualWebCam</p>
+      <nav class="nav"><a href="./index.html">文档中心</a><a href="./quick-deployment.html">简明部署文档</a><a href="./detailed-deployment.html">详细部署文档</a><a href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a><a href="./optimization-checklist.html">优化清单</a><a aria-current="page" href="./optimization-recommendations.html">详细优化建议</a></nav>
+      <p class="toc-title">目录</p>
+      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-详细优化建议">VirtualWebCam 详细优化建议</a><a class="toc-level-2" href="#总体判断">总体判断</a><a class="toc-level-2" href="#优先级定义">优先级定义</a><a class="toc-level-2" href="#推荐执行路线">推荐执行路线</a><a class="toc-level-2" href="#一-生产安全与权限">一、生产安全与权限</a><a class="toc-level-3" href="#sec-01-默认账号与-session-secret-启动保护">SEC-01 默认账号与 `SESSION_SECRET` 启动保护</a><a class="toc-level-3" href="#sec-02-docker-socket-暴露边界">SEC-02 Docker socket 暴露边界</a><a class="toc-level-3" href="#sec-03-登录失败限流与审计">SEC-03 登录失败限流与审计</a><a class="toc-level-3" href="#sec-04-浏览器-token-存储策略">SEC-04 浏览器 token 存储策略</a><a class="toc-level-3" href="#sec-05-api-token-服务令牌治理">SEC-05 `API_TOKEN` 服务令牌治理</a><a class="toc-level-3" href="#sec-06-cors-https-和安全响应头">SEC-06 CORS、HTTPS 和安全响应头</a><a class="toc-level-2" href="#二-后端架构与数据一致性">二、后端架构与数据一致性</a><a class="toc-level-3" href="#be-01-拆分-routes-js-与-service-层">BE-01 拆分 `routes.js` 与 service 层</a><a class="toc-level-3" href="#be-02-项目导入使用数据库事务">BE-02 项目导入使用数据库事务</a><a class="toc-level-3" href="#be-03-版本化数据库迁移">BE-03 版本化数据库迁移</a><a class="toc-level-3" href="#be-04-强化数据库约束与输入校验">BE-04 强化数据库约束与输入校验</a><a class="toc-level-3" href="#be-05-docker-操作超时-互斥与错误分类">BE-05 Docker 操作超时、互斥与错误分类</a><a class="toc-level-3" href="#be-06-状态同步与异常恢复">BE-06 状态同步与异常恢复</a><a class="toc-level-3" href="#be-07-审计日志结构与保留策略">BE-07 审计日志结构与保留策略</a><a class="toc-level-3" href="#be-08-健康检查与可观测性">BE-08 健康检查与可观测性</a><a class="toc-level-2" href="#三-前端结构与交互体验">三、前端结构与交互体验</a><a class="toc-level-3" href="#fe-01-拆分-app-vue">FE-01 拆分 `App.vue`</a><a class="toc-level-3" href="#fe-02-抽取-composables-管理业务状态">FE-02 抽取 composables 管理业务状态</a><a class="toc-level-3" href="#fe-03-矩阵绑定组件化与交互测试">FE-03 矩阵绑定组件化与交互测试</a><a class="toc-level-3" href="#fe-04-错误状态和-api-错误结构">FE-04 错误状态和 API 错误结构</a><a class="toc-level-3" href="#fe-05-轮询控制-退避和页面可见性">FE-05 轮询控制、退避和页面可见性</a><a class="toc-level-3" href="#fe-06-导入-复制和批量创建的预检查体验">FE-06 导入、复制和批量创建的预检查体验</a><a class="toc-level-3" href="#fe-07-可访问性与键盘操作">FE-07 可访问性与键盘操作</a><a class="toc-level-2" href="#四-运维-部署与容器可靠性">四、运维、部署与容器可靠性</a><a class="toc-level-3" href="#ops-01-固定-node-版本与原生依赖-abi">OPS-01 固定 Node 版本与原生依赖 ABI</a><a class="toc-level-3" href="#ops-02-ci-验证流水线">OPS-02 CI 验证流水线</a><a class="toc-level-3" href="#ops-03-容器镜像-smoke-test">OPS-03 容器镜像 smoke test</a><a class="toc-level-3" href="#ops-04-macvlan-host-辅助接口持久化">OPS-04 macvlan host 辅助接口持久化</a><a class="toc-level-3" href="#ops-05-rtsp-网关端口策略">OPS-05 RTSP 网关端口策略</a><a class="toc-level-3" href="#ops-06-数据库备份-恢复与升级演练">OPS-06 数据库备份、恢复与升级演练</a><a class="toc-level-3" href="#ops-07-配置模板与生产-profile">OPS-07 配置模板与生产 profile</a><a class="toc-level-2" href="#五-性能-容量与稳定性">五、性能、容量与稳定性</a><a class="toc-level-3" href="#perf-01-docker-stats-查询缓存与并发控制">PERF-01 Docker stats 查询缓存与并发控制</a><a class="toc-level-3" href="#perf-02-列表分页-筛选和索引">PERF-02 列表分页、筛选和索引</a><a class="toc-level-3" href="#perf-03-大矩阵渲染优化">PERF-03 大矩阵渲染优化</a><a class="toc-level-2" href="#六-测试覆盖">六、测试覆盖</a><a class="toc-level-3" href="#test-01-后端路由与权限测试">TEST-01 后端路由与权限测试</a><a class="toc-level-3" href="#test-02-项目导入与事务测试">TEST-02 项目导入与事务测试</a><a class="toc-level-3" href="#test-03-前端组件测试">TEST-03 前端组件测试</a><a class="toc-level-3" href="#test-04-端到端-smoke-test">TEST-04 端到端 smoke test</a><a class="toc-level-3" href="#test-05-安全回归测试">TEST-05 安全回归测试</a><a class="toc-level-2" href="#七-文档与交付">七、文档与交付</a><a class="toc-level-3" href="#doc-01-收敛上线前检查表">DOC-01 收敛上线前检查表</a><a class="toc-level-3" href="#doc-02-故障排查按症状组织">DOC-02 故障排查按症状组织</a><a class="toc-level-2" href="#建议近期落地顺序">建议近期落地顺序</a></nav>
+    </aside>
+    <main><h1 id="virtualwebcam-详细优化建议"><a class="anchor" href="#virtualwebcam-详细优化建议">#</a>VirtualWebCam 详细优化建议</h1>
+<p>记录日期：2026-05-14</p>
+<p>关联摘要：<a href="./optimization-checklist.md">优化清单</a></p>
+<h2 id="总体判断"><a class="anchor" href="#总体判断">#</a>总体判断</h2>
+<p>当前代码基线没有发现需要立即停用或紧急修复的功能性阻断问题。此前已完成过的基础验证包括后端语法检查、后端单元测试与 API 回归、前端单元测试、前端生产构建。</p>
+<p>需要区分两类事项：第一类是生产上线前必须确认的安全与运维准入项，例如默认管理员密码、<code>SESSION_SECRET</code>、Docker socket 暴露范围；第二类是中长期工程优化，例如后端路由拆分、前端组件拆分、数据库迁移体系和测试覆盖提升。前者建议作为上线 checklist 执行，后者可按迭代节奏逐步消化。</p>
+<h2 id="优先级定义"><a class="anchor" href="#优先级定义">#</a>优先级定义</h2>
+<table><thead><tr><th>优先级</th><th>含义</th><th>建议处理时间</th></tr></thead><tbody><tr><td>P0</td><td>生产安全、上线准入、可能造成权限扩大或运维事故的问题</td><td>上线前必须确认</td></tr><tr><td>P1</td><td>影响维护效率、稳定性、可测试性或后续扩展速度的问题</td><td>近期 1-2 个迭代内处理</td></tr><tr><td>P2</td><td>体验、效率、观测、自动化和完善性优化</td><td>排入后续版本</td></tr></tbody></table>
+<h2 id="推荐执行路线"><a class="anchor" href="#推荐执行路线">#</a>推荐执行路线</h2>
+<table><thead><tr><th>阶段</th><th>目标</th><th>推荐条目</th><th>验收信号</th></tr></thead><tbody><tr><td>第 0 阶段</td><td>降低生产风险</td><td>SEC-01、SEC-02</td><td>弱密码和弱密钥无法进入生产；Docker socket 暴露边界明确</td></tr><tr><td>第 1 阶段</td><td>稳定核心写路径</td><td>SEC-03、OPS-01、BE-02、BE-03、BE-05、OPS-06</td><td>登录入口有基础防护；Node 本地和 CI 版本一致；导入失败不会留下半成品；升级路径可追踪；Docker 操作有超时和清晰错误</td></tr><tr><td>第 2 阶段</td><td>降低维护成本</td><td>BE-01、FE-01、FE-02、TEST-01</td><td>路由、业务、UI 状态分层清晰；核心流程有自动化覆盖</td></tr><tr><td>第 3 阶段</td><td>提升体验和运维效率</td><td>FE-03、FE-05、OPS-03、OPS-04、TEST-04</td><td>矩阵绑定更易测；轮询更稳；容器和端到端 smoke test 可重复执行</td></tr></tbody></table>
+<h2 id="一-生产安全与权限"><a class="anchor" href="#一-生产安全与权限">#</a>一、生产安全与权限</h2>
+<h3 id="sec-01-默认账号与-session-secret-启动保护"><a class="anchor" href="#sec-01-默认账号与-session-secret-启动保护">#</a>SEC-01 默认账号与 <code>SESSION_SECRET</code> 启动保护</h3>
+<p>优先级：P0</p>
+<p>现状：<code>docker-compose.yml</code> 和 <code>.env.example</code> 仍提供默认 <code>ADMIN_PASSWORD=admin123456</code>、<code>SESSION_SECRET=change-this-session-secret</code>；后端在没有任何 <code>admin</code> 角色用户时会创建或提升默认管理员。<code>backend/src/auth.js</code> 还存在 <code>SESSION_SECRET</code> 未配置时回退到 <code>API_TOKEN</code> 或开发默认值的逻辑。</p>
+<p>风险：如果测试配置被直接带入生产，攻击者可能通过默认口令登录；如果 <code>SESSION_SECRET</code> 使用弱值，已有会话 token 的可信边界会下降。</p>
+<p>建议方案：在后端启动阶段增加配置校验。<code>NODE_ENV=production</code> 或显式 <code>REQUIRE_SECURE_CONFIG=true</code> 时，如果发现默认密码、空密码、默认 <code>SESSION_SECRET</code>、过短密钥，应直接拒绝启动；开发环境可以只打印醒目告警。把安全配置说明同步到部署文档和 <code>.env.production.example</code>。</p>
+<p>验收标准：生产模式下使用默认密码或默认密钥时，后端进程退出并输出明确原因；替换为强密码和随机密钥后可以正常启动；文档中给出生成随机 <code>SESSION_SECRET</code> 的命令示例。</p>
+<p>涉及位置：<code>backend/src/db.js</code>、<code>backend/src/server.js</code>、<code>docker-compose.yml</code>、<code>.env.example</code>、部署文档。</p>
+<h3 id="sec-02-docker-socket-暴露边界"><a class="anchor" href="#sec-02-docker-socket-暴露边界">#</a>SEC-02 Docker socket 暴露边界</h3>
+<p>优先级：P0</p>
+<p>现状：后端需要访问 Docker socket 来创建、启动、停止、删除虚拟摄像头容器。该能力等价于很高的主机控制权限。</p>
+<p>风险：如果管理后台或后端 API 暴露到不可信网络，一旦账号、token 或 Web 漏洞被利用，攻击面会扩大到 Docker 宿主机。</p>
+<p>建议方案：生产部署明确要求后端只暴露在可信内网或 VPN 后面；前端入口通过反向代理提供 HTTPS、IP 白名单或统一身份认证。中长期可以引入 Docker socket proxy，只开放本项目需要的容器、镜像、网络、日志接口，并用容器 label 限制可操作范围。</p>
+<p>验收标准：部署文档中明确 Docker socket 风险和推荐网络拓扑；生产 compose 或部署模板默认不把后端端口暴露到公网；安全评审能确认管理后台只在可信访问面内。</p>
+<p>涉及位置：<code>docker-compose.yml</code>、<code>backend/src/docker.js</code>、<code>docs/deployment-ops-guide.md</code>。</p>
+<h3 id="sec-03-登录失败限流与审计"><a class="anchor" href="#sec-03-登录失败限流与审计">#</a>SEC-03 登录失败限流与审计</h3>
+<p>优先级：P1；如果管理后台入口无法限制在可信内网、VPN 或统一认证网关之后，则应提升为 P0。</p>
+<p>现状：登录接口具备账号密码校验，但没有看到针对连续失败登录的限流或锁定策略。</p>
+<p>风险：后台一旦暴露在较大网络范围，弱口令或撞库风险会上升；审计上也难以快速定位异常登录尝试。</p>
+<p>建议方案：增加按 IP 和用户名组合维度的失败计数。单实例部署可先使用内存限流，后续多实例再接 Redis 或反向代理限流。失败次数达到阈值后返回 429，并记录审计事件。成功登录后重置对应计数。</p>
+<p>验收标准：同一 IP 或同一用户名短时间连续失败超过阈值后，登录接口返回 429；审计日志能看到失败次数、来源 IP、用户名和时间；正常用户在窗口期后可恢复登录。</p>
+<p>涉及位置：<code>backend/src/routes.js</code>、<code>backend/src/server.js</code>、<code>backend/src/db.js</code>。</p>
+<h3 id="sec-04-浏览器-token-存储策略"><a class="anchor" href="#sec-04-浏览器-token-存储策略">#</a>SEC-04 浏览器 token 存储策略</h3>
+<p>优先级：P2；如果未来需要承载不可信用户输入、跨团队共享后台或公网访问，应提升为 P1。</p>
+<p>现状：前端 API 包装层从 <code>localStorage</code> 读取会话 token，并通过 <code>Authorization</code> 请求头发送。</p>
+<p>风险：如果未来出现 XSS，<code>localStorage</code> 中的 token 更容易被脚本读取。当前系统是管理类工具，权限边界较高，建议降低浏览器端 token 暴露面。</p>
+<p>建议方案：中长期改为 HttpOnly、SameSite Cookie 保存会话，配套 CSRF 防护。短期可以降低 token 有效期，增加重新登录策略，并为敏感操作保留服务端权限校验。</p>
+<p>验收标准：浏览器脚本无法直接读取会话凭据；跨站请求无法直接执行有状态写操作；前端刷新、退出、过期登录流程清晰。</p>
+<p>涉及位置：<code>frontend/src/api.js</code>、<code>backend/src/auth.js</code>、<code>backend/src/server.js</code>。</p>
+<h3 id="sec-05-api-token-服务令牌治理"><a class="anchor" href="#sec-05-api-token-服务令牌治理">#</a>SEC-05 <code>API_TOKEN</code> 服务令牌治理</h3>
+<p>优先级：P1</p>
+<p>现状：<code>API_TOKEN</code> 作为自动化调用入口，后端按系统管理员权限处理。</p>
+<p>风险：单个长期 token 一旦泄漏，会获得完整管理权限；审计中需要区分人工账号和服务令牌。</p>
+<p>建议方案：明确 <code>API_TOKEN</code> 只用于内网自动化或网关调用。进一步优化为多服务令牌配置，支持名称、到期时间、权限范围和轮换。审计记录中标识 <code>actor_type=service_token</code> 和 token 名称。</p>
+<p>验收标准：服务令牌调用会被审计为服务身份；文档包含启用、禁用、轮换流程；泄漏单个 token 后可以快速吊销。</p>
+<p>涉及位置：<code>backend/src/server.js</code>、<code>backend/src/routes.js</code>、部署文档。</p>
+<h3 id="sec-06-cors-https-和安全响应头"><a class="anchor" href="#sec-06-cors-https-和安全响应头">#</a>SEC-06 CORS、HTTPS 和安全响应头</h3>
+<p>优先级：P1</p>
+<p>现状：后端只有配置 <code>CORS_ORIGIN</code> 时才启用 CORS；生产入口主要由前端 Nginx 反代。</p>
+<p>风险：部署人员如果直接暴露后端端口，可能绕过预期入口；浏览器安全响应头缺失时，XSS、点击劫持、MIME 嗅探等风险更难统一控制。</p>
+<p>建议方案：生产部署只暴露前端反代入口。Nginx 增加 <code>X-Frame-Options</code>、<code>X-Content-Type-Options</code>、<code>Referrer-Policy</code>、合理 CSP 和 HTTPS 配置。后端生产模式要求显式 <code>CORS_ORIGIN</code> 或默认拒绝跨域。</p>
+<p>验收标准：生产环境只开放预期入口；安全响应头通过浏览器或扫描工具检查；直接访问后端跨域接口不会被浏览器随意调用。</p>
+<p>涉及位置：<code>frontend/nginx/default.conf</code>、<code>backend/src/server.js</code>、部署文档。</p>
+<h2 id="二-后端架构与数据一致性"><a class="anchor" href="#二-后端架构与数据一致性">#</a>二、后端架构与数据一致性</h2>
+<h3 id="be-01-拆分-routes-js-与-service-层"><a class="anchor" href="#be-01-拆分-routes-js-与-service-层">#</a>BE-01 拆分 <code>routes.js</code> 与 service 层</h3>
+<p>优先级：P1</p>
+<p>现状：<code>backend/src/routes.js</code> 约 1900 行，集中承载鉴权辅助、项目权限、导入导出、摄像头 CRUD、矩阵绑定、审计和屏幕 URL 等逻辑。</p>
+<p>风险：单文件持续增长后，修改一个业务点容易影响其他流程；路由级测试和业务级测试难以分离；后续多人协作更容易冲突。</p>
+<p>建议方案：按资源拆分路由文件，并把业务编排下沉到 service 层。推荐结构为 <code>routes/auth.js</code>、<code>routes/users.js</code>、<code>routes/projects.js</code>、<code>routes/cameras.js</code>、<code>routes/screen-urls.js</code>、<code>routes/audit.js</code>；对应增加 <code>services/project-service.js</code>、<code>services/camera-service.js</code>、<code>services/permission-service.js</code>、<code>services/audit-service.js</code>、<code>services/project-import-service.js</code>。</p>
+<p>验收标准：API 路径和返回结构保持兼容；单个路由文件控制在可维护范围内；权限判断、审计记录、Docker 编排不再散落在路由函数中；现有回归测试全部通过。</p>
+<p>涉及位置：<code>backend/src/routes.js</code>。</p>
+<h3 id="be-02-项目导入使用数据库事务"><a class="anchor" href="#be-02-项目导入使用数据库事务">#</a>BE-02 项目导入使用数据库事务</h3>
+<p>优先级：P1</p>
+<p>现状：项目导入失败后通过手写补偿删除已创建的项目、摄像头、屏幕 URL 和成员关系。当前 API 回归脚本已经覆盖了部分失败导入后的清理行为。</p>
+<p>风险：补偿清理虽然已有回归保护，但如果清理中途失败，仍可能留下半导入项目；新增关联表后也容易忘记加入补偿清理。</p>
+<p>建议方案：把导入流程改为 SQLite 事务。由于 <code>better-sqlite3</code> 是同步事务模型，建议把导入中的数据库写入封装为同步事务函数，先在事务外完成必要的 payload 校验和冲突预计算，再在事务内执行项目、屏幕 URL、摄像头、审计写入。</p>
+<p>验收标准：导入任意一步抛错时，数据库不留下新项目和关联资源；测试覆盖名称冲突、屏幕绑定重叠、RTSP 流名冲突、IP 重映射失败；不再需要手写补偿删除。</p>
+<p>涉及位置：<code>backend/src/routes.js</code>、<code>backend/src/db.js</code>。</p>
+<h3 id="be-03-版本化数据库迁移"><a class="anchor" href="#be-03-版本化数据库迁移">#</a>BE-03 版本化数据库迁移</h3>
+<p>优先级：P1</p>
+<p>现状：数据库初始化中同时包含建表、<code>PRAGMA table_info</code> 检测和多段 <code>ALTER TABLE</code> 兼容迁移。</p>
+<p>风险：随着字段和索引增加，初始化函数会越来越难判断实际 schema 状态；从老版本升级到新版本缺少清晰顺序和可回放记录。</p>
+<p>建议方案：增加 <code>schema_migrations</code> 表，按文件或版本号执行迁移，例如 <code>001_initial_schema</code>、<code>002_project_members</code>、<code>003_source_type</code>。每个迁移保持幂等，迁移完成后记录版本、执行时间和校验信息。</p>
+<p>验收标准：空数据库可以从 0 初始化；历史数据库可以顺序升级；重复启动不会重复执行已完成迁移；测试覆盖至少一个旧 schema fixture。</p>
+<p>涉及位置：<code>backend/src/db.js</code>、新增 <code>backend/src/migrations/</code>。</p>
+<h3 id="be-04-强化数据库约束与输入校验"><a class="anchor" href="#be-04-强化数据库约束与输入校验">#</a>BE-04 强化数据库约束与输入校验</h3>
+<p>优先级：P1</p>
+<p>现状：部分唯一性和冲突检查在业务代码中实现，例如 RTSP 流名可用性、屏幕绑定冲突、导入重映射。</p>
+<p>风险：并发请求或未来新增入口可能绕过业务检查；数据层约束不足时，异常数据会拖累后续运行。</p>
+<p>建议方案：保留 Zod 请求校验，同时补充数据库层约束。可考虑增加 RTSP 流名唯一索引、项目内摄像头名称策略、<code>cameras(project_id, status)</code> 查询索引；如果产品上要求屏幕地址名称在项目内唯一，再增加 <code>screen_urls(project_id, name)</code> 唯一索引。对 <code>display_targets</code>、<code>display_region</code> 的矩阵边界校验统一放在 service 层。</p>
+<p>验收标准：重复流名、越界矩阵、重复屏幕绑定等关键约束在并发情况下仍被拒绝；错误返回为稳定的 400 或 409；相关测试覆盖数据库约束和 API 错误。</p>
+<p>涉及位置：<code>backend/src/db.js</code>、<code>backend/src/routes.js</code>。</p>
+<h3 id="be-05-docker-操作超时-互斥与错误分类"><a class="anchor" href="#be-05-docker-操作超时-互斥与错误分类">#</a>BE-05 Docker 操作超时、互斥与错误分类</h3>
+<p>优先级：P1</p>
+<p>现状：Docker 编排集中在 <code>backend/src/docker.js</code>，已具备友好错误转换，但多数 Dockerode 调用没有统一超时和操作互斥。</p>
+<p>风险：Docker daemon 卡顿、网络创建慢、端口占用或容器状态变化时，请求可能等待过久；同一摄像头并发 start、stop、restart 可能出现状态竞争。</p>
+<p>建议方案：增加 <code>withTimeout</code> 包装 Docker 调用，对 start、stop、restart、remove、logs 设置不同超时时间。增加按摄像头 ID 的轻量操作锁，避免同一资源并发操作。错误分类建议统一为镜像缺失、网络缺失、端口占用、权限不足、Docker 不可用、容器不存在、超时。当前 <code>friendlyDockerError</code> 会把 <code>already allocated</code> 一类错误统一提示成“虚拟 IP 已被占用”，对 RTSP 网关端口占用场景不够准确，建议按 ONVIF IP 分配冲突和宿主机端口冲突拆开。</p>
+<p>验收标准：Docker 不可用或端口被占用时，API 在可预期时间内返回明确错误；同一摄像头并发操作不会产生交叉状态；前端能展示可操作的处理建议。</p>
+<p>涉及位置：<code>backend/src/docker.js</code>、<code>backend/src/routes.js</code>、<code>frontend/src/App.vue</code>。</p>
+<h3 id="be-06-状态同步与异常恢复"><a class="anchor" href="#be-06-状态同步与异常恢复">#</a>BE-06 状态同步与异常恢复</h3>
+<p>优先级：P1</p>
+<p>现状：摄像头列表和状态接口会检查 Docker 状态并同步数据库状态。</p>
+<p>风险：容器被外部删除、重启、崩溃或 Docker daemon 重启后，数据库状态可能短时间不准确；用户看到的状态和真实容器状态可能不一致。</p>
+<p>建议方案：增加后台状态 reconciliation 任务，周期性根据 label 检查受管容器，修正数据库状态并记录审计或系统事件。对找不到容器但数据库为 running 的摄像头标记为 error 或 stopped，并提供一键重建。</p>
+<p>验收标准：外部删除容器后，系统能在一个周期内反映异常；前端展示清晰状态；审计或系统日志能看到自动修正记录。</p>
+<p>涉及位置：<code>backend/src/docker.js</code>、<code>backend/src/routes.js</code>、<code>backend/src/server.js</code>。</p>
+<h3 id="be-07-审计日志结构与保留策略"><a class="anchor" href="#be-07-审计日志结构与保留策略">#</a>BE-07 审计日志结构与保留策略</h3>
+<p>优先级：P2</p>
+<p>现状：系统已有 <code>audit_logs</code> 表，记录项目、摄像头、操作类型和 detail。</p>
+<p>风险：日志长期增长会影响查询和备份体积；现有 detail 为 JSON 字符串，后续排查时需要更清晰的 actor、结果、来源 IP 和 request id。</p>
+<p>建议方案：扩展审计字段或规范 detail 内容，至少包含 actor id、actor name、actor type、request id、source ip、result。增加保留策略，例如默认保留 180 天，支持导出和清理。</p>
+<p>验收标准：关键写操作均可追踪到操作者和来源；审计列表查询稳定；清理任务不会删除保留期内日志。</p>
+<p>涉及位置：<code>backend/src/db.js</code>、<code>backend/src/routes.js</code>、前端审计页面。</p>
+<h3 id="be-08-健康检查与可观测性"><a class="anchor" href="#be-08-健康检查与可观测性">#</a>BE-08 健康检查与可观测性</h3>
+<p>优先级：P2</p>
+<p>现状：已有 <code>/api/health</code> 和 Docker runtime 状态查询能力。</p>
+<p>风险：部署现场排障时，如果只知道接口是否存活，很难快速判断是 Docker、镜像、macvlan、RTSP 网关、数据库还是容器运行链路出问题。</p>
+<p>建议方案：拆分健康检查层级。轻量 readiness 检查数据库和进程；完整 diagnostics 检查 Docker socket、镜像、网络、RTSP 网关端口、受管容器统计。日志增加 request id，前端错误弹窗展示 request id 便于定位。</p>
+<p>验收标准：现场人员可以通过一个诊断接口看到主要依赖状态；后端日志和前端错误能用 request id 对齐；健康检查不会因为重型 Docker stats 调用拖慢。</p>
+<p>涉及位置：<code>backend/src/server.js</code>、<code>backend/src/docker.js</code>、<code>frontend/src/App.vue</code>。</p>
+<h2 id="三-前端结构与交互体验"><a class="anchor" href="#三-前端结构与交互体验">#</a>三、前端结构与交互体验</h2>
+<h3 id="fe-01-拆分-app-vue"><a class="anchor" href="#fe-01-拆分-app-vue">#</a>FE-01 拆分 <code>App.vue</code></h3>
+<p>优先级：P1</p>
+<p>现状：<code>frontend/src/App.vue</code> 约 3000 行，集中包含登录、项目列表、摄像头表格、批量创建、矩阵绑定、屏幕 URL、用户管理、审计日志、资源监控和弹窗状态。</p>
+<p>风险：单文件维护成本高，状态变量相互耦合；新增功能时容易引入模板和状态回归；组件测试很难精准覆盖。</p>
+<p>建议方案：按视图和功能拆分组件。推荐拆分为 <code>views/LoginView.vue</code>、<code>views/ProjectsView.vue</code>、<code>views/ProjectWorkspace.vue</code>，以及 <code>components/CameraTable.vue</code>、<code>components/ScreenMatrix.vue</code>、<code>components/CameraFormModal.vue</code>、<code>components/BulkCreateModal.vue</code>、<code>components/ScreenUrlLibrary.vue</code>、<code>components/UserManagement.vue</code>、<code>components/AuditLogPanel.vue</code>、<code>components/ResourceStatsPanel.vue</code>、<code>components/LogDrawer.vue</code>。</p>
+<p>验收标准：<code>App.vue</code> 只保留应用级编排和布局入口；核心组件 props 和 emits 明确；拆分后前端单元测试和构建通过；视觉和交互行为保持一致。</p>
+<p>涉及位置：<code>frontend/src/App.vue</code>。</p>
+<h3 id="fe-02-抽取-composables-管理业务状态"><a class="anchor" href="#fe-02-抽取-composables-管理业务状态">#</a>FE-02 抽取 composables 管理业务状态</h3>
+<p>优先级：P1</p>
+<p>现状：鉴权、项目、摄像头、矩阵、资源轮询、用户管理等状态和方法集中在 <code>App.vue</code>。</p>
+<p>风险：状态生命周期难以复用和测试；刷新、退出、切项目等流程需要同时清理多个状态，后续容易遗漏。</p>
+<p>建议方案：抽取 <code>useAuth</code>、<code>useProjects</code>、<code>useCameras</code>、<code>useScreenMatrix</code>、<code>useScreenUrls</code>、<code>useUsers</code>、<code>useResourcePolling</code>、<code>useToast</code>。API 调用、加载状态、错误状态和清理逻辑放到对应 composable 中。</p>
+<p>验收标准：每个 composable 有明确输入输出；退出登录和切换项目时状态清理可预测；关键逻辑可以不挂载完整 <code>App.vue</code> 单独测试。</p>
+<p>涉及位置：<code>frontend/src/App.vue</code>、<code>frontend/src/api.js</code>、新增 <code>frontend/src/composables/</code>。</p>
+<h3 id="fe-03-矩阵绑定组件化与交互测试"><a class="anchor" href="#fe-03-矩阵绑定组件化与交互测试">#</a>FE-03 矩阵绑定组件化与交互测试</h3>
+<p>优先级：P1</p>
+<p>现状：矩阵相关的计算工具已经有 <code>frontend/src/utils/display.js</code>，但拖拽、区域选择、占用冲突和保存逻辑仍主要集中在 <code>App.vue</code>。</p>
+<p>风险：矩阵绑定是系统的高价值交互，回归风险较高；区域选择、拖拽、冲突替换等场景靠人工测试效率低。</p>
+<p>建议方案：抽取 <code>ScreenMatrix.vue</code>，只通过 props 接收矩阵、摄像头、权限、忙碌状态，通过 emits 输出绑定、清空、冲突替换等意图。配套 Vitest 或组件测试覆盖单屏绑定、区域绑定、冲突提示、只读用户禁止拖拽。</p>
+<p>验收标准：矩阵组件可独立渲染测试；拖拽和区域选择核心行为有自动化覆盖；只读权限不会触发写操作。</p>
+<p>涉及位置：<code>frontend/src/App.vue</code>、<code>frontend/src/utils/display.js</code>、<code>frontend/test/display.test.js</code>。</p>
+<h3 id="fe-04-错误状态和-api-错误结构"><a class="anchor" href="#fe-04-错误状态和-api-错误结构">#</a>FE-04 错误状态和 API 错误结构</h3>
+<p>优先级：P1</p>
+<p>现状：前端存在全局 <code>error</code>、登录错误、toast 等多种错误承载方式；API wrapper 会抛出错误消息，但状态码和 details 信息利用不足。</p>
+<p>风险：用户看到的错误可能过泛；批量操作、导入、Docker 前置条件失败时，很难给出下一步操作建议。</p>
+<p>建议方案：API wrapper 返回统一错误对象，包含 <code>status</code>、<code>message</code>、<code>details</code>、<code>requestId</code>。前端区分表单校验错误、操作错误、系统错误和后台诊断错误。对 Docker 镜像缺失、网络缺失、端口占用、权限不足给出明确操作提示。</p>
+<p>验收标准：常见失败场景能展示具体原因和处理建议；表单字段错误能落到字段附近；系统错误保留 request id 便于排查。</p>
+<p>涉及位置：<code>frontend/src/api.js</code>、<code>frontend/src/App.vue</code>、<code>backend/src/server.js</code>。</p>
+<h3 id="fe-05-轮询控制-退避和页面可见性"><a class="anchor" href="#fe-05-轮询控制-退避和页面可见性">#</a>FE-05 轮询控制、退避和页面可见性</h3>
+<p>优先级：P2</p>
+<p>现状：摄像头状态和资源统计通过 <code>setInterval</code> 周期刷新。</p>
+<p>风险：网络慢或接口慢时可能出现重叠请求；页面切到后台时仍持续轮询会浪费资源；接口连续失败时用户体验和日志噪声都会变差。</p>
+<p>建议方案：用 <code>AbortController</code> 或请求序列号避免过期响应覆盖新数据。页面不可见时暂停或降低频率，恢复可见后立即刷新一次。连续失败时指数退避，并在恢复后清除错误提示。</p>
+<p>验收标准：慢请求不会覆盖新状态；浏览器后台时请求频率降低；接口恢复后前端自动回到正常刷新。</p>
+<p>涉及位置：<code>frontend/src/App.vue</code>、后续 <code>useResourcePolling</code>。</p>
+<h3 id="fe-06-导入-复制和批量创建的预检查体验"><a class="anchor" href="#fe-06-导入-复制和批量创建的预检查体验">#</a>FE-06 导入、复制和批量创建的预检查体验</h3>
+<p>优先级：P2</p>
+<p>现状：项目导入会自动重命名项目、重映射 IP 和 RTSP 流名；摄像头复制会在前端尝试生成新名称和地址。</p>
+<p>风险：用户在提交前无法完整预览即将发生的重映射；复制或批量创建失败时，需要重复调整输入。</p>
+<p>建议方案：增加导入预览接口或前端预览步骤，展示项目名称、摄像头数量、屏幕 URL 数量、IP 重映射、流名重映射、屏幕绑定冲突。复制摄像头和批量创建前增加冲突预检查，支持一键采用系统建议值。</p>
+<p>验收标准：导入前用户能看到将创建的资源和冲突处理；复制失败率降低；RTSP 流源也支持批量创建。</p>
+<p>涉及位置：<code>backend/src/routes.js</code>、<code>frontend/src/App.vue</code>、<code>frontend/src/api.js</code>。</p>
+<h3 id="fe-07-可访问性与键盘操作"><a class="anchor" href="#fe-07-可访问性与键盘操作">#</a>FE-07 可访问性与键盘操作</h3>
+<p>优先级：P2</p>
+<p>现状：系统已经具备管理后台主要功能，但矩阵拖拽、弹窗焦点、快捷操作还有进一步完善空间。</p>
+<p>风险：仅依赖鼠标拖拽会影响现场键盘操作和辅助技术可用性；弹窗焦点不固定时容易误操作。</p>
+<p>建议方案：为弹窗增加焦点陷阱和 Esc 关闭；矩阵格子和摄像头行增加键盘选择和绑定路径；图标按钮补充 <code>aria-label</code>；批量操作按钮在禁用时说明原因。</p>
+<p>验收标准：主要弹窗可以只用键盘完成操作；屏幕阅读器能识别按钮用途；禁用状态不会让用户困惑。</p>
+<p>涉及位置：前端组件拆分后的各组件。</p>
+<h2 id="四-运维-部署与容器可靠性"><a class="anchor" href="#四-运维-部署与容器可靠性">#</a>四、运维、部署与容器可靠性</h2>
+<h3 id="ops-01-固定-node-版本与原生依赖-abi"><a class="anchor" href="#ops-01-固定-node-版本与原生依赖-abi">#</a>OPS-01 固定 Node 版本与原生依赖 ABI</h3>
+<p>优先级：P1</p>
+<p>现状：后端依赖 <code>better-sqlite3</code> 原生模块。后端 Dockerfile 已固定 <code>node:20-bookworm-slim</code>，容器化部署路径相对稳定；但仓库根目录没有 <code>.nvmrc</code> 或 <code>.node-version</code>，本地开发和 CI 如果使用不同 Node 版本，仍可能触发 ABI 不匹配，需要重新安装或重建依赖。</p>
+<p>风险：开发机和 CI 的 Node 版本不一致时，可能出现安装成功但运行失败，或需要临时 <code>npm rebuild</code>。如果生产不通过 Dockerfile 构建，而是直接在宿主机跑 Node，也会受到同类影响。</p>
+<p>建议方案：增加 <code>.nvmrc</code> 或 <code>.node-version</code>，并在 <code>package.json</code> 增加 <code>engines.node</code>。CI 和部署文档统一说明 Node LTS 版本。必要时在启动前检查 Node major 版本。</p>
+<p>验收标准：新机器按文档安装后不再出现 <code>better-sqlite3</code> ABI 不匹配；CI 使用同一 Node 版本运行后端测试和前端构建；Docker 构建继续保持 Node 20 基线。</p>
+<p>涉及位置：项目根目录、<code>backend/package.json</code>、<code>frontend/package.json</code>、部署文档。</p>
+<h3 id="ops-02-ci-验证流水线"><a class="anchor" href="#ops-02-ci-验证流水线">#</a>OPS-02 CI 验证流水线</h3>
+<p>优先级：P1</p>
+<p>现状：本地已有后端 lint/test、前端 test/build、文档生成脚本，但没有看到统一 CI 工作流。</p>
+<p>风险：多人协作时，文档、前端构建、后端 API 回归和 Docker 镜像构建可能只在人工阶段发现问题。</p>
+<p>建议方案：增加 CI 流水线，至少执行 <code>backend npm run lint</code>、<code>backend npm test</code>、<code>frontend npm run test:unit</code>、<code>frontend npm run build</code>、文档 HTML 生成一致性检查。可选增加容器镜像构建和 smoke test。</p>
+<p>验收标准：每次提交或合并请求自动执行核心验证；生成文档有变更时能及时发现未提交的 HTML；失败信息能定位到具体阶段。</p>
+<p>涉及位置：新增 CI 配置、<code>scripts/generate-docs-html.mjs</code>。</p>
+<h3 id="ops-03-容器镜像-smoke-test"><a class="anchor" href="#ops-03-容器镜像-smoke-test">#</a>OPS-03 容器镜像 smoke test</h3>
+<p>优先级：P1</p>
+<p>现状：<code>container/</code> 镜像同时包含 Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc 等运行链路，健康检查脚本已存在。</p>
+<p>风险：镜像构建成功不代表浏览器渲染、推流、RTSP 网关和 ONVIF 相关进程都能正常启动。</p>
+<p>建议方案：增加镜像 smoke test 脚本。构建后启动一个最小容器，使用可访问的 HTTP/HTTPS 测试页，例如临时静态 HTTP 服务或 <code>https://example.com</code>，检查 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc 进程和 RTSP 端口。不能使用 <code>about:blank</code>，因为入口脚本要求 <code>WEB_URL</code> 必须以 <code>http://</code> 或 <code>https://</code> 开头。RTSP publisher 模式也应单独覆盖。</p>
+<p>验收标准：镜像构建后可以自动验证主进程链路；失败时输出容器日志；CI 或发布脚本可以复用。</p>
+<p>涉及位置：<code>container/healthcheck.sh</code>、<code>container/entrypoint.sh</code>、新增测试脚本。</p>
+<h3 id="ops-04-macvlan-host-辅助接口持久化"><a class="anchor" href="#ops-04-macvlan-host-辅助接口持久化">#</a>OPS-04 macvlan host 辅助接口持久化</h3>
+<p>优先级：P2</p>
+<p>现状：项目已有创建 macvlan 和 host 辅助接口脚本，详细部署文档也提供了 systemd 开机恢复示例。</p>
+<p>风险：宿主机重启后，如果辅助接口没有持久化，主机访问虚拟摄像头 IP 可能失败；现场排障成本较高。</p>
+<p>建议方案：把现有 systemd 示例进一步脚本化，提供一键安装、更新和卸载能力；或额外提供 NetworkManager 配置生成方式。脚本执行前检查父网卡、网段、网关、IP 冲突。</p>
+<p>验收标准：宿主机重启后辅助接口仍存在；主机可以 ping 到虚拟摄像头网段；脚本重复执行保持幂等。</p>
+<p>涉及位置：<code>scripts/setup-macvlan-host.sh</code>、<code>scripts/create-macvlan.sh</code>、部署文档。</p>
+<h3 id="ops-05-rtsp-网关端口策略"><a class="anchor" href="#ops-05-rtsp-网关端口策略">#</a>OPS-05 RTSP 网关端口策略</h3>
+<p>优先级：P1</p>
+<p>现状：共享 RTSP 网关默认占用宿主机 <code>554</code> 端口。部署文档已经说明端口占用检查和改用 <code>RTSP_GATEWAY_PORT</code> 的处理方式，但后端错误提示和前端操作提示还可以更精准。</p>
+<p>风险：<code>554</code> 是低端口，可能需要额外权限，也可能被系统已有 RTSP 服务占用；现场用户遇到端口冲突时需要明确处理路径。</p>
+<p>建议方案：保留文档中 <code>RTSP_GATEWAY_PORT</code> 可调整的说明；在后端错误分类、前端错误展示和健康诊断中识别端口占用，建议用户改用 <code>8554</code> 或释放端口。必要时默认示例使用更少冲突的端口，并保留生产可改配置。</p>
+<p>验收标准：端口占用时 API 返回明确错误；前端提示包含端口号和处理建议；部署文档包含 <code>554</code> 与 <code>8554</code> 的取舍说明。</p>
+<p>涉及位置：<code>backend/src/docker.js</code>、<code>docker-compose.yml</code>、<code>frontend/src/App.vue</code>、部署文档。</p>
+<h3 id="ops-06-数据库备份-恢复与升级演练"><a class="anchor" href="#ops-06-数据库备份-恢复与升级演练">#</a>OPS-06 数据库备份、恢复与升级演练</h3>
+<p>优先级：P1</p>
+<p>现状：SQLite 数据保存在 <code>backend/data/virtualwebcam.db</code>，启用了 WAL。部署文档已经提供了手工备份、恢复和升级前备份命令。</p>
+<p>风险：直接复制 SQLite 主文件可能遗漏 WAL 内容；升级前没有备份和恢复演练会增加现场风险。</p>
+<p>建议方案：在现有文档命令基础上提供 <code>scripts/backup-db.sh</code> 和 <code>scripts/restore-db.sh</code>，使用 SQLite backup API 或停服加 WAL checkpoint。增加恢复到临时路径并启动检查的演练步骤，把“能恢复”纳入上线或升级演练，而不是只保存备份文件。</p>
+<p>验收标准：备份文件可以在新目录恢复并通过健康检查；升级失败时可以回滚；文档明确 WAL 文件处理方式。</p>
+<p>涉及位置：新增脚本、<code>backend/src/db.js</code>、部署运维文档。</p>
+<h3 id="ops-07-配置模板与生产-profile"><a class="anchor" href="#ops-07-配置模板与生产-profile">#</a>OPS-07 配置模板与生产 profile</h3>
+<p>优先级：P2</p>
+<p>现状：<code>.env.example</code> 面向快速启动，含有默认管理员密码和默认密钥示例。</p>
+<p>风险：快速启动模板容易被复制到生产环境；运维人员需要区分开发、演示、生产配置。</p>
+<p>建议方案：保留 <code>.env.example</code> 做本地体验，新增 <code>.env.production.example</code>，只放占位符和强约束说明。Compose 增加生产 profile 或部署章节，明确镜像 tag、端口、存储卷、反向代理和备份路径。</p>
+<p>验收标准：生产模板不包含可直接使用的弱密码；部署文档以生产模板为准；快速体验和生产部署路径清晰分开。</p>
+<p>涉及位置：<code>.env.example</code>、新增 <code>.env.production.example</code>、<code>docker-compose.yml</code>、部署文档。</p>
+<h2 id="五-性能-容量与稳定性"><a class="anchor" href="#五-性能-容量与稳定性">#</a>五、性能、容量与稳定性</h2>
+<h3 id="perf-01-docker-stats-查询缓存与并发控制"><a class="anchor" href="#perf-01-docker-stats-查询缓存与并发控制">#</a>PERF-01 Docker stats 查询缓存与并发控制</h3>
+<p>优先级：P2</p>
+<p>现状：资源统计依赖 Docker stats 和容器 inspect。</p>
+<p>风险：摄像头数量增多后，同时查询多个容器 stats 会增加 Docker daemon 压力；前端轮询可能放大压力。</p>
+<p>建议方案：后端对资源统计做短 TTL 缓存，例如 3-5 秒；并发查询加限制；前端轮询和页面可见性配合降低频率。对失败容器返回部分结果，而不是让整次统计失败。</p>
+<p>验收标准：几十路摄像头下资源统计接口响应稳定；Docker daemon 压力可控；单个容器 stats 失败不影响其他摄像头展示。</p>
+<p>涉及位置：<code>backend/src/docker.js</code>、<code>backend/src/docker-metrics.js</code>、<code>frontend/src/App.vue</code>。</p>
+<h3 id="perf-02-列表分页-筛选和索引"><a class="anchor" href="#perf-02-列表分页-筛选和索引">#</a>PERF-02 列表分页、筛选和索引</h3>
+<p>优先级：P2</p>
+<p>现状：摄像头、审计日志、屏幕 URL 等列表目前偏向中小规模项目使用。</p>
+<p>风险：项目摄像头数量和审计日志增长后，全量列表加载会变慢；前端渲染和搜索会受到影响。</p>
+<p>建议方案：审计日志增加游标或分页；摄像头列表保留当前体验但支持按状态、类型、绑定状态服务端筛选；数据库增加匹配查询路径的索引。</p>
+<p>验收标准：大项目下列表接口响应仍稳定；审计日志可以翻页加载；前端不需要一次渲染过多历史记录。</p>
+<p>涉及位置：<code>backend/src/db.js</code>、<code>backend/src/routes.js</code>、<code>frontend/src/App.vue</code>。</p>
+<h3 id="perf-03-大矩阵渲染优化"><a class="anchor" href="#perf-03-大矩阵渲染优化">#</a>PERF-03 大矩阵渲染优化</h3>
+<p>优先级：P2</p>
+<p>现状：矩阵默认 6x8，当前渲染方式足够使用。</p>
+<p>风险：如果后续扩展到更大拼接墙，单页格子、区域卡片和拖拽状态计算可能变重。</p>
+<p>建议方案：矩阵组件化后，对 assignments 建立 memoized map；拖拽过程中只更新 hover 和 draft region；超大矩阵考虑虚拟化或分区展示。</p>
+<p>验收标准：默认矩阵和较大矩阵拖拽不卡顿；状态变化不会引发不必要的全量重算。</p>
+<p>涉及位置：后续 <code>ScreenMatrix.vue</code>、<code>frontend/src/utils/display.js</code>。</p>
+<h2 id="六-测试覆盖"><a class="anchor" href="#六-测试覆盖">#</a>六、测试覆盖</h2>
+<h3 id="test-01-后端路由与权限测试"><a class="anchor" href="#test-01-后端路由与权限测试">#</a>TEST-01 后端路由与权限测试</h3>
+<p>优先级：P1</p>
+<p>现状：已有 auth、docker metrics 等单元测试和 API 回归脚本。API 回归脚本已经覆盖了部分权限、屏幕绑定冲突、项目导入、RTSP 流名重映射和失败导入清理场景。</p>
+<p>风险：现有 API 回归脚本偏端到端，能保证主流程，但定位失败原因不如路由级或 service 级测试直接。项目权限、导入、绑定、批量操作、用户管理仍值得补充更细颗粒度测试。</p>
+<p>建议方案：基于临时 SQLite 数据库和 mocked Docker service 增加路由测试。重点覆盖系统管理员、项目 operator、viewer、未授权用户、API token 之间的权限差异。</p>
+<p>验收标准：权限矩阵有测试覆盖；错误状态码稳定；不依赖真实 Docker daemon 也能跑核心路由测试。</p>
+<p>涉及位置：<code>backend/test/</code>、后续 service 抽象。</p>
+<h3 id="test-02-项目导入与事务测试"><a class="anchor" href="#test-02-项目导入与事务测试">#</a>TEST-02 项目导入与事务测试</h3>
+<p>优先级：P1</p>
+<p>现状：项目导入流程复杂，包含项目重命名、IP 重映射、流名重映射、屏幕绑定冲突检测和失败清理。</p>
+<p>风险：任何一步变动都可能产生半导入或错误映射。</p>
+<p>建议方案：为导入 service 增加覆盖用例：完整导入、项目名冲突自动重命名、IP 冲突重映射、RTSP 流名冲突重映射、屏幕区域重叠失败、事务回滚。</p>
+<p>验收标准：失败用例后数据库无残留；成功用例返回 remapped 信息准确；导入 service 可在无 HTTP 层情况下测试。</p>
+<p>涉及位置：<code>backend/src/routes.js</code>、后续 <code>backend/src/services/project-import-service.js</code>。</p>
+<h3 id="test-03-前端组件测试"><a class="anchor" href="#test-03-前端组件测试">#</a>TEST-03 前端组件测试</h3>
+<p>优先级：P1</p>
+<p>现状：前端已有 utils 级测试，组件层覆盖不足。</p>
+<p>风险：拆分组件后，如果没有测试，矩阵交互、批量操作和弹窗状态容易回归。</p>
+<p>建议方案：增加 Vue 组件测试能力，覆盖 <code>ScreenMatrix</code>、<code>CameraTable</code>、<code>CameraFormModal</code>、<code>ProjectImportModal</code>。API 请求通过 mock 注入，避免依赖真实后端。</p>
+<p>验收标准：核心组件能独立测试；只读权限、忙碌状态、错误展示和 emits 行为有覆盖；前端测试运行时间可控。</p>
+<p>涉及位置：<code>frontend/test/</code>、新增组件。</p>
+<h3 id="test-04-端到端-smoke-test"><a class="anchor" href="#test-04-端到端-smoke-test">#</a>TEST-04 端到端 smoke test</h3>
+<p>优先级：P2</p>
+<p>现状：有 API 回归脚本，但还没有覆盖浏览器真实操作的端到端测试。</p>
+<p>风险：前端构建能通过不代表登录、创建项目、创建视频源、矩阵绑定、导出导入在浏览器里都顺畅。</p>
+<p>建议方案：引入 Playwright smoke test，覆盖登录、创建项目、创建 RTSP 流源、绑定屏幕、查看审计、导出配置。Docker 相关动作可使用测试模式或 mock 后端，避免 CI 必须具备真实摄像头网络。</p>
+<p>验收标准：端到端 smoke test 可以在 CI 或本地一条命令执行；失败截图和 trace 可用于排查；主要用户路径有最低保障。</p>
+<p>涉及位置：新增 <code>frontend/e2e/</code> 或 <code>tests/e2e/</code>。</p>
+<h3 id="test-05-安全回归测试"><a class="anchor" href="#test-05-安全回归测试">#</a>TEST-05 安全回归测试</h3>
+<p>优先级：P2</p>
+<p>现状：认证和权限已有基础逻辑，但安全配置回归测试可继续增强。</p>
+<p>风险：后续改造 token、cookie、限流、生产配置校验时，容易出现默认配置绕过或权限回退。</p>
+<p>建议方案：增加测试覆盖弱配置拒绝启动、登录限流、禁用用户 token 失效、viewer 写操作被拒绝、服务令牌审计标识、CORS 生产配置。</p>
+<p>验收标准：安全策略有自动化保护；生产配置校验不会被重构意外移除。</p>
+<p>涉及位置：<code>backend/test/</code>。</p>
+<h2 id="七-文档与交付"><a class="anchor" href="#七-文档与交付">#</a>七、文档与交付</h2>
+<h3 id="doc-01-收敛上线前检查表"><a class="anchor" href="#doc-01-收敛上线前检查表">#</a>DOC-01 收敛上线前检查表</h3>
+<p>优先级：P1</p>
+<p>现状：文档已经覆盖部署、运维、开发和用户使用，详细部署文档中也已有部署前检查、备份恢复、故障排查和验收检查内容。</p>
+<p>风险：现场实施如果跳过安全配置、端口检查、macvlan host 接口、备份演练，后续问题会集中在上线当天暴露。</p>
+<p>建议方案：把现有分散在部署前检查、备份恢复、故障排查和验收章节中的关键项，收敛成一页上线前检查表，包含密码和密钥、Docker socket 访问面、端口、macvlan、镜像、数据库备份、默认管理员、普通用户授权、RTSP 验证、ONVIF 验证。</p>
+<p>验收标准：实施人员可以按表逐项确认；每个检查项都有命令或页面入口；验收文档能直接引用。</p>
+<p>涉及位置：<code>docs/deployment-ops-guide.md</code>、<code>docs/quick-deployment.md</code>。</p>
+<h3 id="doc-02-故障排查按症状组织"><a class="anchor" href="#doc-02-故障排查按症状组织">#</a>DOC-02 故障排查按症状组织</h3>
+<p>优先级：P2</p>
+<p>现状：部署文档已有常见失败点和较完整的排障章节，但可进一步按照用户看到的症状组织入口。</p>
+<p>风险：现场人员往往先看到“画面黑屏”“摄像头不在线”“RTSP 拉不到”“Docker 网络不存在”等症状，如果文档只按组件说明，定位速度会变慢。</p>
+<p>建议方案：增加故障排查索引：登录失败、创建摄像头失败、RTSP 网关失败、ONVIF 发现不到、虚拟 IP 不通、Chrome 渲染失败、FFmpeg 推流失败、资源统计为空。每个症状给出检查命令、可能原因和处理方式。</p>
+<p>验收标准：常见故障能在文档中通过症状快速定位；每个处理步骤都有明确命令或页面位置。</p>
+<p>涉及位置：<code>docs/deployment-ops-guide.md</code>、<code>docs/user-guide.md</code>。</p>
+<h2 id="建议近期落地顺序"><a class="anchor" href="#建议近期落地顺序">#</a>建议近期落地顺序</h2>
+<ol>
+<li>增加生产启动安全检查，拦截默认管理员密码和默认 <code>SESSION_SECRET</code>。</li>
+<li>明确 Docker socket 只在可信内网、VPN 或统一认证网关后访问。</li>
+<li>如果管理后台入口无法限制在可信网络内，先增加登录失败限流和失败审计。</li>
+<li>增加 <code>.nvmrc</code> 或 <code>.node-version</code>，并固定 CI、本地开发 Node 版本。</li>
+<li>项目导入改为 SQLite 事务，并补充失败回滚测试。</li>
+<li>Docker 操作增加超时、错误分类和同摄像头操作互斥，尤其区分 IP 占用和 RTSP 网关端口占用。</li>
+<li>拆分后端 <code>routes.js</code>，先从 auth、users、projects、cameras 四类路由开始。</li>
+<li>拆分前端 <code>App.vue</code>，优先抽出 CameraTable、ScreenMatrix、Modal 类组件。</li>
+<li>在现有备份文档基础上增加数据库备份和恢复脚本。</li>
+<li>增加容器镜像 smoke test 和端到端 smoke test，覆盖登录、创建、绑定、导出主流程。</li>
+</ol></main>
+  </div>
+</body>
+</html>
