@@ -107,6 +107,7 @@ const logLoading = ref(false);
 const auditLogs = ref([]);
 const auditLoading = ref(false);
 const auditLimit = ref(80);
+const auditLimitOptions = [50, 80, 150, 300];
 const screenUrls = ref([]);
 const screenUrlsLoading = ref(false);
 const screenUrlSaving = ref(false);
@@ -643,6 +644,21 @@ async function submitPasswordChange() {
 function cycleTheme() {
   const index = themeOptions.findIndex((item) => item.value === uiTheme.value);
   uiTheme.value = themeOptions[(index + 1) % themeOptions.length].value;
+}
+
+function themeLabel(theme = uiTheme.value) {
+  return themeOptions.find((item) => item.value === theme)?.label || '护眼';
+}
+
+function themeSwitchTitle() {
+  const index = themeOptions.findIndex((item) => item.value === uiTheme.value);
+  const next = themeOptions[(index + 1) % themeOptions.length] || themeOptions[0];
+  return `当前：${themeLabel()}，切换为${next.label}主题`;
+}
+
+function updateAuditLimit(value) {
+  auditLimit.value = Number.parseInt(value, 10) || 80;
+  refreshAuditLogs();
 }
 
 watch(uiTheme, (theme) => {
@@ -2016,7 +2032,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="shell" :class="{ 'theme-cyber': uiTheme === 'cyber' }">
+  <main class="shell" :class="themeClass">
     <section v-if="authChecking" class="auth-screen">
       <div class="auth-card">
         <h1>VirtualWebCam</h1>
@@ -2051,8 +2067,9 @@ onBeforeUnmount(() => {
 	        <div>
 	          <div class="title-line">
 	            <h1>VirtualWebCam</h1>
-	            <button class="theme-icon-button" type="button" :title="uiTheme === 'cyber' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme">
+	            <button class="theme-icon-button" type="button" :title="themeSwitchTitle()" @click="cycleTheme">
 	              <Sparkles :size="16" />
+                <span>{{ themeLabel() }}</span>
 	            </button>
 	          </div>
 	          <p v-if="currentView === 'projects'">项目入口 · 网页转 RTSP + ONVIF 摄像头实例管理</p>
@@ -2785,34 +2802,16 @@ onBeforeUnmount(() => {
                 <span>{{ screenUrlImporting ? '导入中' : '导入 CSV' }}</span>
               </button>
               <input ref="screenUrlImportInput" class="visually-hidden" type="file" accept=".csv,text/csv" @change="importScreenUrlsFromCsv" />
+              <button v-if="canManageSelectedProject" class="primary-button" type="button" @click="openScreenUrlCreator">
+                <Plus :size="15" />
+                <span>添加地址</span>
+              </button>
               <button class="text-button" type="button" :disabled="screenUrlsLoading" @click="refreshScreenUrls">
                 <RefreshCw :size="15" />
                 <span>{{ screenUrlsLoading ? '刷新中' : '刷新' }}</span>
               </button>
             </div>
           </div>
-
-          <form v-if="canManageSelectedProject" class="screen-url-form" @submit.prevent="saveScreenUrl">
-            <label>
-              <span>名称</span>
-              <input v-model.trim="screenUrlForm.name" required placeholder="大厅信息屏" />
-            </label>
-            <label class="wide-field">
-              <span>网页地址</span>
-              <input v-model.trim="screenUrlForm.url" required type="url" placeholder="https://example.com/dashboard" />
-            </label>
-            <label>
-              <span>备注</span>
-              <input v-model.trim="screenUrlForm.remark" maxlength="200" placeholder="可选" />
-            </label>
-            <div class="screen-url-form-actions">
-              <button class="text-button" type="button" :disabled="!screenUrlForm.name && !screenUrlForm.url && !screenUrlForm.remark" @click="resetScreenUrlForm">清空</button>
-              <button class="primary-button" type="submit" :disabled="screenUrlSaving || !screenUrlForm.name || !screenUrlForm.url">
-                <Save :size="15" />
-                <span>{{ screenUrlSaving ? '保存中' : '添加地址' }}</span>
-              </button>
-            </div>
-          </form>
 
           <div class="screen-url-toolbar">
             <input v-model.trim="screenUrlQuery" placeholder="搜索名称 / URL / 备注" />
@@ -2891,10 +2890,18 @@ onBeforeUnmount(() => {
               <h2>操作审计</h2>
               <p>记录项目、摄像头和矩阵绑定的关键变更</p>
             </div>
-            <button class="text-button" type="button" :disabled="auditLoading" @click="refreshAuditLogs">
-              <RefreshCw :size="15" />
-              <span>{{ auditLoading ? '刷新中' : '刷新' }}</span>
-            </button>
+            <div class="panel-heading-actions audit-actions">
+              <label>
+                <span>显示</span>
+                <select :value="auditLimit" :disabled="auditLoading" @change="updateAuditLimit($event.target.value)">
+                  <option v-for="option in auditLimitOptions" :key="option" :value="option">最近 {{ option }} 条</option>
+                </select>
+              </label>
+              <button class="text-button" type="button" :disabled="auditLoading" @click="refreshAuditLogs">
+                <RefreshCw :size="15" />
+                <span>{{ auditLoading ? '刷新中' : '刷新' }}</span>
+              </button>
+            </div>
           </div>
 
           <div class="audit-list">
@@ -3120,8 +3127,8 @@ onBeforeUnmount(() => {
 	      <form class="modal-card screen-url-modal-card" @submit.prevent="saveScreenUrl">
 	        <div class="modal-head">
 	          <div>
-	            <h2>编辑大屏地址</h2>
-	            <p>修改后会同步到地址库，已使用该地址的视频源不会自动改写。</p>
+	            <h2>{{ editingScreenUrlId ? '编辑大屏地址' : '添加大屏地址' }}</h2>
+	            <p>{{ editingScreenUrlId ? '修改后会同步到地址库，已使用该地址的视频源不会自动改写。' : '添加后可在新增或编辑视频源时直接搜索选择。' }}</p>
 	          </div>
 	          <button class="icon-button" type="button" title="关闭" @click="resetScreenUrlForm">
 	            <X :size="16" />

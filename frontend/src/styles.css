@@ -175,13 +175,22 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
+  min-width: 30px;
   height: 30px;
+  gap: 5px;
+  padding: 0 8px;
   border: 1px solid #cfd5df;
   border-radius: 6px;
   background: #ffffff;
   color: #475467;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.theme-icon-button span {
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .theme-icon-button:hover {
@@ -2650,6 +2659,23 @@ td small {
   align-items: flex-start;
 }
 
+.audit-actions {
+  align-items: end;
+}
+
+.audit-actions label {
+  display: grid;
+  gap: 4px;
+  min-width: 138px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.audit-actions select {
+  height: 32px;
+}
+
 .audit-panel .panel-heading p {
   margin: 4px 0 0;
   color: #667085;
@@ -4148,6 +4174,90 @@ body.virtualwebcam-cyber-body {
   color-scheme: dark;
 }
 
+body.virtualwebcam-eye-body,
+.theme-eye {
+  --vc-bg-app: #f3f7ef;
+  --vc-bg-header: rgba(243, 247, 239, 0.96);
+  --vc-surface: #fffef8;
+  --vc-surface-raised: #fffffb;
+  --vc-surface-muted: #edf5e8;
+  --vc-surface-subtle: #e4efdd;
+  --vc-border: #bfd0b5;
+  --vc-border-soft: #d4dfcc;
+  --vc-border-strong: #8fa680;
+  --vc-text-primary: #1f2a1c;
+  --vc-text-secondary: #33402f;
+  --vc-text-muted: #607058;
+  --vc-text-soft: #7c8a75;
+  --vc-primary: #2f6f4e;
+  --vc-primary-hover: #24583d;
+  --vc-primary-bg: #2f6f4e;
+  --vc-primary-bg-hover: #24583d;
+  --vc-primary-contrast: #ffffff;
+  --vc-primary-soft: #d9ead5;
+  --vc-primary-subtle: #eef6ea;
+  --vc-success: #2f6f4e;
+  --vc-success-soft: #cfe8d5;
+  --vc-success-subtle: #eef8ef;
+  --vc-warning: #835c12;
+  --vc-warning-soft: #eadba5;
+  --vc-warning-subtle: #fff9e5;
+  --vc-danger: #b42318;
+  --vc-danger-soft: #efc7c0;
+  --vc-danger-subtle: #fff8f6;
+  --vc-selection-border: rgba(47, 111, 78, 0.62);
+  --vc-selection-bg: rgba(217, 234, 213, 0.38);
+  --vc-selection-dot: rgba(47, 111, 78, 0.14);
+  --vc-selection-inset: rgba(255, 254, 248, 0.78);
+  --vc-selection-shadow: rgba(47, 111, 78, 0.12);
+  --vc-glass-panel: rgba(255, 254, 248, 0.74);
+  --vc-shadow-sm: 0 1px 2px rgba(31, 42, 28, 0.05);
+  --vc-shadow-md: 0 10px 26px rgba(31, 42, 28, 0.11);
+  --vc-focus-ring: 0 0 0 3px rgba(47, 111, 78, 0.16);
+}
+
+body.virtualwebcam-ocean-body,
+.theme-ocean {
+  --vc-bg-app: #eef7f8;
+  --vc-bg-header: rgba(238, 247, 248, 0.96);
+  --vc-surface: #ffffff;
+  --vc-surface-raised: #fbfeff;
+  --vc-surface-muted: #e8f3f5;
+  --vc-surface-subtle: #dcecef;
+  --vc-border: #bad2d8;
+  --vc-border-soft: #d1e1e5;
+  --vc-border-strong: #7ea6b0;
+  --vc-text-primary: #14272d;
+  --vc-text-secondary: #2d4148;
+  --vc-text-muted: #5f747c;
+  --vc-text-soft: #7b8c93;
+  --vc-primary: #0f6f7f;
+  --vc-primary-hover: #0b5865;
+  --vc-primary-bg: #0f6f7f;
+  --vc-primary-bg-hover: #0b5865;
+  --vc-primary-contrast: #ffffff;
+  --vc-primary-soft: #cfecef;
+  --vc-primary-subtle: #edf8fa;
+  --vc-success: #047857;
+  --vc-success-soft: #ccebdc;
+  --vc-success-subtle: #effaf5;
+  --vc-warning: #8a5a0a;
+  --vc-warning-soft: #ead49a;
+  --vc-warning-subtle: #fff9e6;
+  --vc-danger: #b42318;
+  --vc-danger-soft: #efc7c0;
+  --vc-danger-subtle: #fff8f6;
+  --vc-selection-border: rgba(15, 111, 127, 0.64);
+  --vc-selection-bg: rgba(207, 236, 239, 0.38);
+  --vc-selection-dot: rgba(15, 111, 127, 0.14);
+  --vc-selection-inset: rgba(255, 255, 255, 0.78);
+  --vc-selection-shadow: rgba(15, 111, 127, 0.12);
+  --vc-glass-panel: rgba(255, 255, 255, 0.74);
+  --vc-shadow-sm: 0 1px 2px rgba(20, 39, 45, 0.05);
+  --vc-shadow-md: 0 10px 26px rgba(20, 39, 45, 0.11);
+  --vc-focus-ring: 0 0 0 3px rgba(15, 111, 127, 0.16);
+}
+
 .theme-cyber {
   --vc-bg-app: #0f172a;
   --vc-bg-header: rgba(15, 23, 42, 0.96);
@@ -4654,18 +4764,33 @@ select:focus,
 .camera-card i.error,
 .mini-status.error,
 .assignment-card.error,
-.camera-stat-grid .danger-stat strong,
 .actions .danger,
 .row-action-sheet .danger,
 .more-menu button.danger,
 .theme-cyber :is(.status.error, .camera-card i.error, .mini-status.error, .assignment-card.error),
-.theme-cyber .camera-stat-grid .danger-stat strong,
 .theme-cyber .actions .danger,
 .theme-cyber .row-action-sheet .danger,
 .theme-cyber .more-menu button.danger {
   border-color: var(--vc-danger-soft);
   background: var(--vc-danger-subtle);
   color: var(--vc-danger);
+}
+
+.camera-stat-grid .danger-stat,
+.theme-cyber .camera-stat-grid .danger-stat {
+  background: var(--vc-surface-raised);
+}
+
+.camera-stat-grid .danger-stat strong,
+.theme-cyber .camera-stat-grid .danger-stat strong {
+  border: 0;
+  background: transparent;
+  color: var(--vc-danger);
+}
+
+.audit-actions label,
+.theme-cyber .audit-actions label {
+  color: var(--vc-text-secondary);
 }
 
 th,
@@ -4812,6 +4937,26 @@ td,
   box-shadow:
     inset 0 0 0 1px var(--vc-selection-inset),
     0 10px 22px var(--vc-selection-shadow);
+}
+
+.matrix-cell.occupied.running,
+.region-card.running,
+.theme-cyber :is(.matrix-cell.occupied.running, .region-card.running) {
+  border-color: var(--vc-success-soft);
+  background:
+    radial-gradient(circle at 8px 8px, rgba(4, 120, 87, 0.12) 1px, transparent 1.5px),
+    linear-gradient(135deg, rgba(4, 120, 87, 0.08), rgba(255, 255, 255, 0.03));
+  background-size: 16px 16px, auto;
+}
+
+.matrix-cell.occupied.error,
+.region-card.error,
+.theme-cyber :is(.matrix-cell.occupied.error, .region-card.error) {
+  border-color: var(--vc-danger-soft);
+  background:
+    radial-gradient(circle at 8px 8px, rgba(180, 35, 24, 0.12) 1px, transparent 1.5px),
+    linear-gradient(135deg, rgba(180, 35, 24, 0.08), rgba(255, 255, 255, 0.03));
+  background-size: 16px 16px, auto;
 }
 
 .selection-fence::before,
