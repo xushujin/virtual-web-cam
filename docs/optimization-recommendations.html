@@ -287,7 +287,7 @@
 <h2 id="三-前端结构与交互体验"><a class="anchor" href="#三-前端结构与交互体验">#</a>三、前端结构与交互体验</h2>
 <h3 id="fe-01-拆分-app-vue"><a class="anchor" href="#fe-01-拆分-app-vue">#</a>FE-01 拆分 <code>App.vue</code></h3>
 <p>优先级：P1</p>
-<p>现状：<code>frontend/src/App.vue</code> 约 3000 行，集中包含登录、项目列表、摄像头表格、批量创建、矩阵绑定、屏幕 URL、用户管理、审计日志、资源监控和弹窗状态。</p>
+<p>现状：<code>frontend/src/App.vue</code> 约 3000 行，集中包含登录、首页项目管理、摄像头表格、批量创建、矩阵绑定、屏幕 URL、用户管理、审计日志、资源监控和弹窗状态。</p>
 <p>风险：单文件维护成本高，状态变量相互耦合；新增功能时容易引入模板和状态回归；组件测试很难精准覆盖。</p>
 <p>建议方案：按视图和功能拆分组件。推荐拆分为 <code>views/LoginView.vue</code>、<code>views/ProjectsView.vue</code>、<code>views/ProjectWorkspace.vue</code>，以及 <code>components/CameraTable.vue</code>、<code>components/ScreenMatrix.vue</code>、<code>components/CameraFormModal.vue</code>、<code>components/BulkCreateModal.vue</code>、<code>components/ScreenUrlLibrary.vue</code>、<code>components/UserManagement.vue</code>、<code>components/AuditLogPanel.vue</code>、<code>components/ResourceStatsPanel.vue</code>、<code>components/LogDrawer.vue</code>。</p>
 <p>验收标准：<code>App.vue</code> 只保留应用级编排和布局入口；核心组件 props 和 emits 明确；拆分后前端单元测试和构建通过；视觉和交互行为保持一致。</p>

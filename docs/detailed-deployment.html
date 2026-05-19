@@ -233,6 +233,7 @@ ip route | grep default</code></pre>
 <li>ONVIF 摄像头使用 <code>onvif_macvlan</code>，每路一个独立 IP，对外提供 <code>80/tcp</code> 和 <code>554/tcp</code>。</li>
 <li>RTSP 流源不占独立 IP，由后台按需创建共享 RTSP 网关容器，并通过 <code>rtsp://&lt;宿主机IP&gt;:554/&lt;stream_name&gt;</code> 区分多路。</li>
 <li>容器模板统一构建为 <code>virtualwebcam:latest</code>，内部 FFmpeg 推流不再使用 <code>-tune zerolatency</code>。</li>
+<li>检测到已有 SQLite 数据库时会先备份；如需清理测试数据重新部署，使用 <code>--clean-data</code>；如需明确保留现有数据，使用 <code>--keep-data</code>。</li>
 </ul>
 <p>无人值守部署示例：</p>
 <pre><code class="language-bash">./ubuntu26.04-deploy.sh --yes \
@@ -415,11 +416,11 @@ ADMIN_PASSWORD=replace-with-strong-password</code></pre>
 <ul>
 <li>摄像头管理：管理 ONVIF 摄像头和 RTSP 流源。</li>
 <li>矩阵绑定：用围栏方式圈选屏幕区域，并把视频源绑定到区域。</li>
-<li>项目设置：维护项目、大屏地址、导入导出配置等。</li>
+<li>项目设置：维护项目矩阵规格，导入导出项目配置。</li>
 <li>操作审计：查看关键操作记录。</li>
 </ul>
 <h2 id="12-维护大屏地址"><a class="anchor" href="#12-维护大屏地址">#</a>12. 维护大屏地址</h2>
-<p>项目设置里维护大屏地址库。建议提前录入业务网页地址，例如：</p>
+<p>项目内“大屏地址”页面维护大屏地址库。建议提前录入业务网页地址，例如：</p>
 <pre><code class="language-text">名称：大厅信息屏
 URL：https://example.com/screen/lobby
 备注：一楼大厅</code></pre>
@@ -429,6 +430,10 @@ URL：https://example.com/screen/lobby
 <li>搜索选择已维护的大屏地址。</li>
 </ul>
 <p>如果大屏地址很多，使用搜索框按名称、URL、备注筛选后选择。</p>
+<p>大屏地址页支持独立 CSV 导入导出，适合现场批量维护地址库。CSV 列为：</p>
+<pre><code class="language-csv">name,url,remark
+大厅信息屏,https://example.com/screen/lobby,一楼大厅</code></pre>
+<p>导入 CSV 会把记录新增到当前项目；项目配置 JSON 导入导出仍在“项目设置”中处理，二者互不混用。</p>
 <h2 id="13-创建-onvif-摄像头"><a class="anchor" href="#13-创建-onvif-摄像头">#</a>13. 创建 ONVIF 摄像头</h2>
 <p>进入项目 -&gt; 摄像头管理 -&gt; 新增源：</p>
 <pre><code class="language-text">源类型：ONVIF 摄像头（独立 IP）
@@ -488,12 +493,16 @@ FPS：15</code></pre>
 <p>摄像头列表会展示：</p>
 <ul>
 <li>状态：运行中、已停止、异常。</li>
+<li>RTSP、ONVIF 地址。</li>
+</ul>
+<p>开启列表“资源”字段后，摄像头列表还会展示：</p>
+<ul>
 <li>CPU 使用率。</li>
 <li>内存使用量。</li>
 <li>网络上行/下行速率。</li>
 <li>磁盘读写速率。</li>
-<li>RTSP、ONVIF 地址。</li>
 </ul>
+<p>资源监控默认折叠为一行摘要，仍会自动刷新；需要查看 CPU、内存、网络和磁盘读写详情时点击“展开”。</p>
 <p>状态以 Docker 容器状态为准：</p>
 <pre><code class="language-text">running -&gt; 运行中
 exited 0 -&gt; 已停止
@@ -698,6 +707,7 @@ docker logs --tail=200 &lt;RTSP发布器容器名&gt;</code></pre>
 <li>可查看容器日志。</li>
 <li>可复制 RTSP、ONVIF、mpv 命令。</li>
 <li>摄像头列表状态、资源监控正常刷新。</li>
+<li>大屏地址 CSV 可导入导出。</li>
 <li>矩阵绑定可拖拽和画围栏。</li>
 <li>普通用户只能看到授权项目。</li>
 <li>SQLite 已做初始备份。</li>

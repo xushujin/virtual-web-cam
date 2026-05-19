@@ -647,6 +647,7 @@ docker compose start manager-backend</code></pre>
 <li>RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址。</li>
 </ul>
 <p>导入时会同时导入大屏地址库。ONVIF 摄像头 IP 冲突时，后端会在同网段内自动寻找可用 IP 并返回重映射结果；RTSP 流源路径冲突时会自动改名，例如 <code>screen01</code> 可能变成 <code>screen01-import</code>。如果导入过程中出现矩阵绑定冲突等校验错误，后端会清理已经临时创建的项目和资源，避免留下半成品数据。</p>
+<p>如果只需要维护当前项目的大屏地址库，不必导入导出整个项目配置；在“大屏地址”页面使用 CSV 导入导出即可，CSV 列为 <code>name,url,remark</code>。</p>
 <h2 id="13-升级流程"><a class="anchor" href="#13-升级流程">#</a>13. 升级流程</h2>
 <h3 id="13-1-升级前"><a class="anchor" href="#13-1-升级前">#</a>13.1 升级前</h3>
 <pre><code class="language-bash">docker compose ps
@@ -668,6 +669,7 @@ docker compose up -d manager-backend manager-frontend</code></pre>
 <pre><code class="language-bash">docker compose down</code></pre>
 <p>删除摄像头容器：</p>
 <pre><code class="language-bash">docker rm -f $(docker ps -aq --filter label=virtualwebcam.managed=true)</code></pre>
+<p>使用根目录 <code>ubuntu26.04-deploy.sh</code> 重新部署时，脚本会先备份现有 SQLite。需要清空测试数据可传入 <code>--clean-data</code>；需要明确保留现有数据可传入 <code>--keep-data</code>。</p>
 <p>删除 macvlan 网络：</p>
 <pre><code class="language-bash">docker network rm onvif_macvlan</code></pre>
 <p>删除宿主机辅助接口：</p>
@@ -768,7 +770,7 @@ GOP = FPS * 2</code></pre>
 <pre><code class="language-bash">docker stats
 top
 mpv --rtsp-transport=tcp rtsp://&lt;ip&gt;:554/&lt;stream&gt;</code></pre>
-<p>管理后台“摄像头管理”页面内置资源监控，会按项目汇总 CPU、内存、网络速率和磁盘读写速率，并在每路摄像头行内显示单路消耗。建议压测时记录以下数据：</p>
+<p>管理后台“摄像头管理”页面内置资源监控，默认折叠为一行摘要，并持续自动刷新；展开后会按项目汇总 CPU、内存、网络速率和磁盘读写速率。开启列表“资源”字段后，每路摄像头行内会显示单路消耗。建议压测时记录以下数据：</p>
 <ul>
 <li>单路真实网页在目标分辨率和 FPS 下的 CPU 平均值与峰值。</li>
 <li>单路内存占用。</li>

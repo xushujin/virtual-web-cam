@@ -192,7 +192,7 @@ RTSP 流源地址：rtsp://192.168.5.111:554/screen01</code></pre>
 <p>客户主机已经安装 Ubuntu 26.04 时，推荐先使用根目录部署脚本：</p>
 <pre><code class="language-bash">chmod +x ubuntu26.04-deploy.sh
 ./ubuntu26.04-deploy.sh</code></pre>
-<p>脚本会按提示确认现场网卡、主机 IP、网关、ONVIF 摄像头地址池、管理员账号和端口，并自动完成 Docker 检查或安装、<code>.env</code> 生成、macvlan 配置、镜像构建和服务启动。</p>
+<p>脚本会按提示确认现场网卡、主机 IP、网关、ONVIF 摄像头地址池、管理员账号和端口，并自动完成 Docker 检查或安装、<code>.env</code> 生成、macvlan 配置、镜像构建和服务启动。检测到已有 SQLite 时会先备份；需要清理测试数据重新部署时使用 <code>--clean-data</code>，需要明确保留现有数据时使用 <code>--keep-data</code>。</p>
 <p>在客户主机上执行：</p>
 <pre><code class="language-bash">ip -4 addr
 ip route | grep default
@@ -267,7 +267,7 @@ http://&lt;客户主机IP&gt;:5177</code></pre>
 <li>创建普通登录人员。</li>
 <li>给登录人员授权可见项目。</li>
 <li>创建管理项目并设置矩阵规格。</li>
-<li>维护项目内的大屏地址库。</li>
+<li>维护项目内的大屏地址库；地址较多时可在“大屏地址”页面通过 CSV 导入导出，列为 <code>name,url,remark</code>。</li>
 </ul>
 <h2 id="8-创建视频源"><a class="anchor" href="#8-创建视频源">#</a>8. 创建视频源</h2>
 <h3 id="8-1-创建-onvif-摄像头"><a class="anchor" href="#8-1-创建-onvif-摄像头">#</a>8.1 创建 ONVIF 摄像头</h3>

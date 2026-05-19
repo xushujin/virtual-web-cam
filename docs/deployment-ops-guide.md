@@ -852,6 +852,8 @@ docker compose start manager-backend
 
 导入时会同时导入大屏地址库。ONVIF 摄像头 IP 冲突时，后端会在同网段内自动寻找可用 IP 并返回重映射结果；RTSP 流源路径冲突时会自动改名，例如 `screen01` 可能变成 `screen01-import`。如果导入过程中出现矩阵绑定冲突等校验错误，后端会清理已经临时创建的项目和资源，避免留下半成品数据。
 
+如果只需要维护当前项目的大屏地址库，不必导入导出整个项目配置；在“大屏地址”页面使用 CSV 导入导出即可，CSV 列为 `name,url,remark`。
+
 ## 13. 升级流程
 
 ### 13.1 升级前
@@ -898,6 +900,8 @@ docker compose down
 ```bash
 docker rm -f $(docker ps -aq --filter label=virtualwebcam.managed=true)
 ```
+
+使用根目录 `ubuntu26.04-deploy.sh` 重新部署时，脚本会先备份现有 SQLite。需要清空测试数据可传入 `--clean-data`；需要明确保留现有数据可传入 `--keep-data`。
 
 删除 macvlan 网络：
 
@@ -1095,7 +1099,7 @@ top
 mpv --rtsp-transport=tcp rtsp://<ip>:554/<stream>
 ```
 
-管理后台“摄像头管理”页面内置资源监控，会按项目汇总 CPU、内存、网络速率和磁盘读写速率，并在每路摄像头行内显示单路消耗。建议压测时记录以下数据：
+管理后台“摄像头管理”页面内置资源监控，默认折叠为一行摘要，并持续自动刷新；展开后会按项目汇总 CPU、内存、网络速率和磁盘读写速率。开启列表“资源”字段后，每路摄像头行内会显示单路消耗。建议压测时记录以下数据：
 
 - 单路真实网页在目标分辨率和 FPS 下的 CPU 平均值与峰值。
 - 单路内存占用。
