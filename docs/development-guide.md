@@ -114,7 +114,7 @@ RTSP 网关容器只启动 MediaMTX，默认监听：
 │       ├── App.vue         # 管理后台主界面
 │       ├── api.js          # API 客户端封装
 │       ├── main.js
-│       └── styles.css      # 标准主题和科技主题
+│       └── styles.css      # 浅色主题和深色主题
 ├── scripts/
 │   ├── create-macvlan.sh
 │   ├── setup-macvlan-host.sh

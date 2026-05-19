@@ -106,11 +106,13 @@ const logText = ref('');
 const logLoading = ref(false);
 const auditLogs = ref([]);
 const auditLoading = ref(false);
+const auditLimit = ref(80);
 const screenUrls = ref([]);
 const screenUrlsLoading = ref(false);
 const screenUrlSaving = ref(false);
 const screenUrlImporting = ref(false);
 const editingScreenUrlId = ref(null);
+const screenUrlEditorOpen = ref(false);
 const screenUrlQuery = ref('');
 const screenUrlImportInput = ref(null);
 const urlPickerLimit = 20;
@@ -154,7 +156,18 @@ const showBulkModal = ref(false);
 const showPasswordModal = ref(false);
 const passwordSaving = ref(false);
 const openActionMenuId = ref(null);
-const uiTheme = ref(window.localStorage.getItem('virtualwebcam-theme') || 'light');
+const themeOptions = [
+  { value: 'eye', label: '护眼' },
+  { value: 'light', label: '浅色' },
+  { value: 'cyber', label: '深色' },
+  { value: 'ocean', label: '海蓝' },
+];
+const themeValues = new Set(themeOptions.map((item) => item.value));
+function normalizeTheme(theme) {
+  return themeValues.has(theme) ? theme : 'eye';
+}
+const uiTheme = ref(normalizeTheme(window.localStorage.getItem('virtualwebcam-theme')));
+const themeClass = computed(() => (uiTheme.value === 'light' ? '' : `theme-${uiTheme.value}`));
 const stickyHeaderRef = ref(null);
 const users = ref([]);
 const selectedUserId = ref(null);
@@ -339,7 +352,7 @@ const cameraTableClass = computed(() => ({
   'hide-onvif': !cameraColumns.onvif,
 }));
 const cameraStats = computed(() => ({
-  total: cameras.value.length,
+  total: filteredCameras.value.length,
   running: cameras.value.filter((camera) => camera.status === 'running').length,
   stopped: cameras.value.filter((camera) => camera.status === 'stopped').length,
   error: cameras.value.filter((camera) => camera.status === 'error').length,
@@ -627,13 +640,21 @@ async function submitPasswordChange() {
   }
 }
 
-function toggleTheme() {
-  uiTheme.value = uiTheme.value === 'cyber' ? 'light' : 'cyber';
-  window.localStorage.setItem('virtualwebcam-theme', uiTheme.value);
+function cycleTheme() {
+  const index = themeOptions.findIndex((item) => item.value === uiTheme.value);
+  uiTheme.value = themeOptions[(index + 1) % themeOptions.length].value;
 }
 
 watch(uiTheme, (theme) => {
-  document.body.classList.toggle('virtualwebcam-cyber-body', theme === 'cyber');
+  const normalized = normalizeTheme(theme);
+  if (normalized !== theme) {
+    uiTheme.value = normalized;
+    return;
+  }
+  window.localStorage.setItem('virtualwebcam-theme', normalized);
+  for (const option of themeOptions) {
+    document.body.classList.toggle(`virtualwebcam-${option.value}-body`, normalized === option.value && normalized !== 'light');
+  }
 }, { immediate: true });
 
 function updateStickyHeaderHeight() {
@@ -894,7 +915,7 @@ async function refreshAuditLogs() {
   error.value = '';
 
   try {
-    auditLogs.value = await listAuditLogs(selectedProjectId.value);
+    auditLogs.value = await listAuditLogs(selectedProjectId.value, auditLimit.value);
   } catch (err) {
     error.value = err.message;
   } finally {
@@ -919,13 +940,20 @@ async function refreshScreenUrls() {
 
 function resetScreenUrlForm() {
   editingScreenUrlId.value = null;
+  screenUrlEditorOpen.value = false;
   screenUrlForm.name = '';
   screenUrlForm.url = '';
   screenUrlForm.remark = '';
 }
 
+function openScreenUrlCreator() {
+  resetScreenUrlForm();
+  screenUrlEditorOpen.value = true;
+}
+
 function editScreenUrl(item) {
   editingScreenUrlId.value = item.id;
+  screenUrlEditorOpen.value = true;
   screenUrlForm.name = item.name;
   screenUrlForm.url = item.url;
   screenUrlForm.remark = item.remark || '';
@@ -2023,7 +2051,7 @@ onBeforeUnmount(() => {
 	        <div>
 	          <div class="title-line">
 	            <h1>VirtualWebCam</h1>
-	            <button class="theme-icon-button" type="button" :title="uiTheme === 'cyber' ? '切换为标准主题' : '切换为科技主题'" @click="toggleTheme">
+	            <button class="theme-icon-button" type="button" :title="uiTheme === 'cyber' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme">
 	              <Sparkles :size="16" />
 	            </button>
 	          </div>
@@ -2283,7 +2311,7 @@ onBeforeUnmount(() => {
               <p v-else>查看运行状态、投放屏幕和 RTSP / ONVIF 地址</p>
             </div>
             <div class="panel-heading-actions camera-primary-actions">
-              <span class="count">{{ cameras.length }}</span>
+              <span class="count">{{ filteredCameras.length }}</span>
               <button class="text-button" type="button" :disabled="statusRefreshing" @click="refreshCameraStatuses">
                 <RefreshCw :size="16" />
                 <span>{{ statusRefreshing ? '刷新中' : '刷新状态' }}</span>
@@ -2747,7 +2775,7 @@ onBeforeUnmount(() => {
               <p>维护项目常用网页地址，新增或编辑视频源时可搜索选择。</p>
             </div>
             <div class="panel-heading-actions">
-              <span class="count">{{ screenUrls.length }}</span>
+              <span class="count">{{ filteredScreenUrls.length }}</span>
               <button class="text-button" type="button" :disabled="screenUrlsLoading" @click="downloadScreenUrlsCsv">
                 <FileText :size="15" />
                 <span>导出 CSV</span>
@@ -2778,10 +2806,10 @@ onBeforeUnmount(() => {
               <input v-model.trim="screenUrlForm.remark" maxlength="200" placeholder="可选" />
             </label>
             <div class="screen-url-form-actions">
-              <button class="text-button" type="button" :disabled="!editingScreenUrlId" @click="resetScreenUrlForm">清空</button>
+              <button class="text-button" type="button" :disabled="!screenUrlForm.name && !screenUrlForm.url && !screenUrlForm.remark" @click="resetScreenUrlForm">清空</button>
               <button class="primary-button" type="submit" :disabled="screenUrlSaving || !screenUrlForm.name || !screenUrlForm.url">
                 <Save :size="15" />
-                <span>{{ screenUrlSaving ? '保存中' : (editingScreenUrlId ? '保存地址' : '添加地址') }}</span>
+                <span>{{ screenUrlSaving ? '保存中' : '添加地址' }}</span>
               </button>
             </div>
           </form>
@@ -3083,6 +3111,41 @@ onBeforeUnmount(() => {
 	          <button class="primary-button" type="submit" :disabled="passwordSaving || passwordForm.new_password.length < 8 || passwordForm.new_password !== passwordForm.confirm_password">
 	            <Save :size="16" />
 	            <span>{{ passwordSaving ? '保存中' : '保存密码' }}</span>
+	          </button>
+	        </div>
+	      </form>
+	    </div>
+
+	    <div v-if="screenUrlEditorOpen" class="modal-backdrop" role="dialog" aria-modal="true" @click.self="resetScreenUrlForm">
+	      <form class="modal-card screen-url-modal-card" @submit.prevent="saveScreenUrl">
+	        <div class="modal-head">
+	          <div>
+	            <h2>编辑大屏地址</h2>
+	            <p>修改后会同步到地址库，已使用该地址的视频源不会自动改写。</p>
+	          </div>
+	          <button class="icon-button" type="button" title="关闭" @click="resetScreenUrlForm">
+	            <X :size="16" />
+	          </button>
+	        </div>
+	        <div class="screen-url-edit-form">
+	          <label>
+	            <span>名称</span>
+	            <input v-model.trim="screenUrlForm.name" required placeholder="大厅信息屏" />
+	          </label>
+	          <label>
+	            <span>网页地址</span>
+	            <input v-model.trim="screenUrlForm.url" required type="url" placeholder="https://example.com/dashboard" />
+	          </label>
+	          <label>
+	            <span>备注</span>
+	            <input v-model.trim="screenUrlForm.remark" maxlength="200" placeholder="可选" />
+	          </label>
+	        </div>
+	        <div class="modal-actions">
+	          <button class="text-button" type="button" @click="resetScreenUrlForm">取消</button>
+	          <button class="primary-button" type="submit" :disabled="screenUrlSaving || !screenUrlForm.name || !screenUrlForm.url">
+	            <Save :size="16" />
+	            <span>{{ screenUrlSaving ? '保存中' : '保存地址' }}</span>
 	          </button>
 	        </div>
 	      </form>

@@ -2967,6 +2967,15 @@ td small {
   gap: 12px;
 }
 
+.screen-url-modal-card {
+  width: min(620px, 100%);
+}
+
+.screen-url-edit-form {
+  display: grid;
+  gap: 12px;
+}
+
 .modal-actions {
   display: flex;
   align-items: center;
@@ -4052,5 +4061,818 @@ td small {
 
   .section-tabs button {
     flex: 1;
+  }
+}
+
+/* Theme refresh: calm light operations theme and low-noise dark operations theme. */
+:root {
+  --vc-bg-app: #eef2f7;
+  --vc-bg-header: rgba(238, 242, 247, 0.96);
+  --vc-surface: #ffffff;
+  --vc-surface-raised: #ffffff;
+  --vc-surface-muted: #f8fafc;
+  --vc-surface-subtle: #f1f5f9;
+  --vc-border: #cbd5e1;
+  --vc-border-soft: #dbe3ee;
+  --vc-border-strong: #94a3b8;
+  --vc-text-primary: #111827;
+  --vc-text-secondary: #374151;
+  --vc-text-muted: #5f6b7a;
+  --vc-text-soft: #7b8794;
+  --vc-primary: #2563eb;
+  --vc-primary-hover: #1d4ed8;
+  --vc-primary-bg: #2563eb;
+  --vc-primary-bg-hover: #1d4ed8;
+  --vc-primary-contrast: #ffffff;
+  --vc-primary-soft: #dbeafe;
+  --vc-primary-subtle: #eff6ff;
+  --vc-success: #047857;
+  --vc-success-soft: #dcfce7;
+  --vc-success-subtle: #f0fdf4;
+  --vc-warning: #92400e;
+  --vc-warning-soft: #fde68a;
+  --vc-warning-subtle: #fffbeb;
+  --vc-danger: #b42318;
+  --vc-danger-soft: #fee2e2;
+  --vc-danger-subtle: #fff1f2;
+  --vc-selection-border: rgba(37, 99, 235, 0.68);
+  --vc-selection-bg: rgba(219, 234, 254, 0.34);
+  --vc-selection-dot: rgba(37, 99, 235, 0.17);
+  --vc-selection-inset: rgba(255, 255, 255, 0.78);
+  --vc-selection-shadow: rgba(37, 99, 235, 0.12);
+  --vc-glass-panel: rgba(255, 255, 255, 0.74);
+  --vc-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --vc-shadow-md: 0 10px 26px rgba(15, 23, 42, 0.12);
+  --vc-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+body.virtualwebcam-cyber-body {
+  --vc-bg-app: #0f172a;
+  --vc-bg-header: rgba(15, 23, 42, 0.96);
+  --vc-surface: #111827;
+  --vc-surface-raised: #162033;
+  --vc-surface-muted: #1e293b;
+  --vc-surface-subtle: #243449;
+  --vc-border: #334155;
+  --vc-border-soft: #2b3a50;
+  --vc-border-strong: #52647a;
+  --vc-text-primary: #f8fafc;
+  --vc-text-secondary: #d7dee9;
+  --vc-text-muted: #a9b5c6;
+  --vc-text-soft: #8fa0b4;
+  --vc-primary: #3b82f6;
+  --vc-primary-hover: #60a5fa;
+  --vc-primary-bg: #2563eb;
+  --vc-primary-bg-hover: #1d4ed8;
+  --vc-primary-contrast: #ffffff;
+  --vc-primary-soft: rgba(59, 130, 246, 0.22);
+  --vc-primary-subtle: rgba(59, 130, 246, 0.13);
+  --vc-success: #34d399;
+  --vc-success-soft: rgba(52, 211, 153, 0.18);
+  --vc-success-subtle: rgba(52, 211, 153, 0.1);
+  --vc-warning: #fbbf24;
+  --vc-warning-soft: rgba(251, 191, 36, 0.22);
+  --vc-warning-subtle: rgba(251, 191, 36, 0.1);
+  --vc-danger: #f87171;
+  --vc-danger-soft: rgba(248, 113, 113, 0.2);
+  --vc-danger-subtle: rgba(248, 113, 113, 0.11);
+  --vc-selection-border: rgba(96, 165, 250, 0.72);
+  --vc-selection-bg: rgba(59, 130, 246, 0.14);
+  --vc-selection-dot: rgba(147, 197, 253, 0.2);
+  --vc-selection-inset: rgba(248, 250, 252, 0.08);
+  --vc-selection-shadow: rgba(0, 0, 0, 0.24);
+  --vc-glass-panel: rgba(22, 32, 51, 0.76);
+  --vc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --vc-shadow-md: 0 16px 34px rgba(0, 0, 0, 0.3);
+  --vc-focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.22);
+  color-scheme: dark;
+}
+
+.theme-cyber {
+  --vc-bg-app: #0f172a;
+  --vc-bg-header: rgba(15, 23, 42, 0.96);
+  --vc-surface: #111827;
+  --vc-surface-raised: #162033;
+  --vc-surface-muted: #1e293b;
+  --vc-surface-subtle: #243449;
+  --vc-border: #334155;
+  --vc-border-soft: #2b3a50;
+  --vc-border-strong: #52647a;
+  --vc-text-primary: #f8fafc;
+  --vc-text-secondary: #d7dee9;
+  --vc-text-muted: #a9b5c6;
+  --vc-text-soft: #8fa0b4;
+  --vc-primary: #3b82f6;
+  --vc-primary-hover: #60a5fa;
+  --vc-primary-bg: #2563eb;
+  --vc-primary-bg-hover: #1d4ed8;
+  --vc-primary-contrast: #ffffff;
+  --vc-primary-soft: rgba(59, 130, 246, 0.22);
+  --vc-primary-subtle: rgba(59, 130, 246, 0.13);
+  --vc-success: #34d399;
+  --vc-success-soft: rgba(52, 211, 153, 0.18);
+  --vc-success-subtle: rgba(52, 211, 153, 0.1);
+  --vc-warning: #fbbf24;
+  --vc-warning-soft: rgba(251, 191, 36, 0.22);
+  --vc-warning-subtle: rgba(251, 191, 36, 0.1);
+  --vc-danger: #f87171;
+  --vc-danger-soft: rgba(248, 113, 113, 0.2);
+  --vc-danger-subtle: rgba(248, 113, 113, 0.11);
+  --vc-selection-border: rgba(96, 165, 250, 0.72);
+  --vc-selection-bg: rgba(59, 130, 246, 0.14);
+  --vc-selection-dot: rgba(147, 197, 253, 0.2);
+  --vc-selection-inset: rgba(248, 250, 252, 0.08);
+  --vc-selection-shadow: rgba(0, 0, 0, 0.24);
+  --vc-glass-panel: rgba(22, 32, 51, 0.76);
+  --vc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --vc-shadow-md: 0 16px 34px rgba(0, 0, 0, 0.3);
+  --vc-focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.22);
+  color: var(--vc-text-primary);
+  background: var(--vc-bg-app);
+}
+
+body,
+.shell {
+  background: var(--vc-bg-app);
+  color: var(--vc-text-primary);
+}
+
+.theme-cyber::before,
+.theme-cyber :is(.project-card, .panel, .auth-card)::after {
+  display: none;
+}
+
+a,
+.theme-cyber a {
+  color: var(--vc-primary);
+}
+
+.sticky-status-header,
+.theme-cyber .sticky-status-header {
+  background: var(--vc-bg-header);
+  border-bottom: 1px solid var(--vc-border-soft);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.theme-cyber .sticky-status-header {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.topbar h1,
+.auth-card h1,
+.project-card-head strong,
+.project-title-row h2,
+.panel-heading h2,
+.bulk-create-box strong,
+.selection-summary > strong,
+.resource-monitor-head h3,
+.column-visibility-bar strong,
+.camera-operation-bar strong,
+td strong,
+.screen-url-row strong,
+.audit-row-head strong,
+.theme-cyber .topbar h1,
+.theme-cyber .auth-card h1,
+.theme-cyber .project-card-head strong,
+.theme-cyber .project-title-row h2,
+.theme-cyber .panel-heading h2,
+.theme-cyber .bulk-create-box strong,
+.theme-cyber .selection-summary > strong,
+.theme-cyber .resource-monitor-head h3,
+.theme-cyber .column-visibility-bar strong,
+.theme-cyber .camera-operation-bar strong,
+.theme-cyber td strong,
+.theme-cyber .screen-url-row strong,
+.theme-cyber .audit-row-head strong {
+  color: var(--vc-text-primary);
+  text-shadow: none;
+}
+
+.topbar p,
+.drawer p,
+.auth-card p,
+.project-title-row p,
+.matrix-panel p,
+.bulk-create-box p,
+.list-panel .panel-heading p,
+.settings-panel .panel-heading p,
+.members-panel .panel-heading p,
+.screen-url-panel .panel-heading p,
+.project-access-panel p,
+.project-permission,
+.audit-panel .panel-heading p,
+td small,
+.assigned-row span,
+.assigned-row small,
+.member-row > span,
+.member-row div span,
+.screen-url-row span,
+.camera-card span,
+.project-card dt,
+.matrix-cell header span,
+.audit-row-head time,
+.audit-content span,
+.empty,
+.resource-monitor-head p,
+.resource-monitor-head span,
+.resource-stat-grid span,
+.resource-stat-grid small,
+.resource-cell small,
+.column-visibility-bar > div:first-child span,
+.camera-operation-bar span,
+.action-group > span,
+.theme-cyber .topbar p,
+.theme-cyber .account-strip,
+.theme-cyber .account-strip small,
+.theme-cyber .project-title-row p,
+.theme-cyber .matrix-panel p,
+.theme-cyber .bulk-create-box p,
+.theme-cyber .list-panel .panel-heading p,
+.theme-cyber .settings-panel .panel-heading p,
+.theme-cyber .members-panel .panel-heading p,
+.theme-cyber .screen-url-panel .panel-heading p,
+.theme-cyber .project-access-panel p,
+.theme-cyber .project-permission,
+.theme-cyber .audit-panel .panel-heading p,
+.theme-cyber td small,
+.theme-cyber .assigned-row span,
+.theme-cyber .assigned-row small,
+.theme-cyber .member-row > span,
+.theme-cyber .member-row div span,
+.theme-cyber .screen-url-row span,
+.theme-cyber .camera-card span,
+.theme-cyber .project-card dt,
+.theme-cyber .matrix-cell header span,
+.theme-cyber .audit-row-head time,
+.theme-cyber .audit-content span,
+.theme-cyber .empty,
+.theme-cyber .resource-monitor-head p,
+.theme-cyber .resource-monitor-head span,
+.theme-cyber .resource-stat-grid span,
+.theme-cyber .resource-stat-grid small,
+.theme-cyber .resource-cell small,
+.theme-cyber .column-visibility-bar > div:first-child span,
+.theme-cyber .camera-operation-bar span,
+.theme-cyber .action-group > span {
+  color: var(--vc-text-muted);
+}
+
+.account-strip,
+.account-strip small {
+  color: var(--vc-text-muted);
+}
+
+.account-strip strong,
+.account-strip span,
+.theme-cyber .account-strip strong,
+.theme-cyber .account-strip span {
+  color: var(--vc-text-secondary);
+}
+
+.panel,
+.project-card,
+.auth-card,
+.modal-card,
+.table-wrap,
+.members-table,
+.screen-url-list,
+.user-list-panel,
+.project-access-list,
+.audit-content,
+.assigned-row,
+.camera-card,
+.edit-drawer,
+.theme-cyber :is(.panel, .project-card, .auth-card, .modal-card, .table-wrap, .members-table, .screen-url-list, .user-list-panel, .project-access-list, .audit-content, .assigned-row, .camera-card, .edit-drawer) {
+  border-color: var(--vc-border);
+  background: var(--vc-surface);
+  color: var(--vc-text-primary);
+  box-shadow: var(--vc-shadow-sm);
+  backdrop-filter: none;
+}
+
+.project-panel,
+.camera-form-grid,
+.bulk-create-box,
+.user-create-row,
+.screen-url-form,
+.camera-filter-bar,
+.quick-actions,
+.column-visibility-bar,
+.camera-operation-bar,
+.camera-operation-bar.muted,
+.resource-monitor,
+.modal-form-grid,
+.url-picker-panel,
+.url-picker-list button,
+.target-grid button,
+.section-tabs,
+.matrix-density-control,
+.theme-cyber :is(.project-panel, .camera-form-grid, .bulk-create-box, .user-create-row, .screen-url-form, .camera-filter-bar, .quick-actions, .column-visibility-bar, .camera-operation-bar, .camera-operation-bar.muted, .resource-monitor, .modal-form-grid, .url-picker-panel, .url-picker-list button, .target-grid button, .section-tabs, .matrix-density-control) {
+  border-color: var(--vc-border-soft);
+  background: var(--vc-surface-muted);
+  color: var(--vc-text-secondary);
+  box-shadow: none;
+}
+
+.resource-monitor,
+.theme-cyber .resource-monitor {
+  background: var(--vc-surface-muted);
+}
+
+.resource-stat-grid article,
+.camera-stat-grid button,
+.theme-cyber .resource-stat-grid article,
+.theme-cyber .camera-stat-grid button {
+  border-color: var(--vc-border-soft);
+  background: var(--vc-surface-raised);
+  color: var(--vc-text-secondary);
+  box-shadow: none;
+}
+
+.resource-stat-grid strong,
+.camera-stat-grid strong,
+.resource-cell strong,
+.theme-cyber .resource-stat-grid strong,
+.theme-cyber .camera-stat-grid strong,
+.theme-cyber .resource-cell strong {
+  color: var(--vc-text-primary);
+}
+
+.camera-stat-grid button:hover,
+.theme-cyber .camera-stat-grid button:hover {
+  border-color: var(--vc-primary);
+  background: var(--vc-primary-subtle);
+}
+
+label,
+.target-picker-head,
+.target-cell,
+.members-table-head,
+.project-card dd,
+.audit-content p,
+.theme-cyber label,
+.theme-cyber .target-picker-head,
+.theme-cyber .target-cell,
+.theme-cyber .members-table-head,
+.theme-cyber .project-card dd,
+.theme-cyber .audit-content p {
+  color: var(--vc-text-secondary);
+}
+
+input,
+select,
+.edit-drawer .drawer-form input,
+.edit-drawer .drawer-form select,
+.theme-cyber input,
+.theme-cyber select,
+.theme-cyber .drawer-form input,
+.theme-cyber .drawer-form select,
+.theme-cyber .modal-card input,
+.theme-cyber .modal-card select,
+.theme-cyber .password-form-grid input {
+  border-color: var(--vc-border);
+  background: var(--vc-surface-raised);
+  color: var(--vc-text-primary);
+  box-shadow: none;
+}
+
+input::placeholder,
+.theme-cyber input::placeholder {
+  color: var(--vc-text-soft);
+}
+
+input:focus,
+select:focus,
+.edit-drawer .drawer-form input:focus,
+.edit-drawer .drawer-form select:focus,
+.theme-cyber input:focus,
+.theme-cyber select:focus {
+  border-color: var(--vc-primary);
+  box-shadow: var(--vc-focus-ring);
+}
+
+.primary-button,
+.project-create .primary-button,
+.camera-primary-actions .primary-button,
+.edit-drawer .drawer-form .primary-button,
+.theme-cyber .primary-button,
+.theme-cyber .project-create .primary-button,
+.theme-cyber .camera-primary-actions .primary-button,
+.theme-cyber .edit-drawer .drawer-form .primary-button {
+  border-color: var(--vc-primary-bg);
+  background: var(--vc-primary-bg);
+  color: var(--vc-primary-contrast);
+  box-shadow: none;
+}
+
+.primary-button:hover,
+.project-create .primary-button:hover,
+.camera-primary-actions .primary-button:hover,
+.edit-drawer .drawer-form .primary-button:hover,
+.theme-cyber .primary-button:hover,
+.theme-cyber .project-create .primary-button:hover,
+.theme-cyber .camera-primary-actions .primary-button:hover,
+.theme-cyber .edit-drawer .drawer-form .primary-button:hover {
+  border-color: var(--vc-primary-bg-hover);
+  background: var(--vc-primary-bg-hover);
+  color: var(--vc-primary-contrast);
+}
+
+.text-button,
+.icon-button,
+.theme-icon-button,
+.project-create button,
+.actions button,
+.actions a,
+.assignment-chip button,
+.drawer button,
+.modal-card button,
+.project-card-tools button,
+.assignment-card-actions button,
+.assigned-row button,
+.screen-url-actions button,
+.url-picker-trigger,
+.url-picker-empty button,
+.url-empty-hint button,
+.target-picker-head button,
+.column-actions button,
+.row-action-sheet button,
+.row-action-sheet a,
+.theme-cyber :is(.text-button, .icon-button, .theme-icon-button, .project-create button, .actions button, .actions a, .assignment-chip button, .drawer button, .modal-card button, .project-card-tools button, .assignment-card-actions button, .assigned-row button, .screen-url-actions button, .url-picker-trigger, .url-picker-empty button, .url-empty-hint button, .target-picker-head button, .column-actions button),
+.theme-cyber .row-action-sheet :is(button, a) {
+  border-color: var(--vc-border);
+  background: var(--vc-surface-raised);
+  color: var(--vc-text-secondary);
+  box-shadow: none;
+}
+
+.text-button:hover,
+.icon-button:hover,
+.theme-icon-button:hover,
+.project-create button:hover,
+.actions button:hover,
+.actions a:hover,
+.assignment-chip button:hover,
+.drawer button:hover,
+.modal-card button:hover,
+.project-card-tools button:hover,
+.assignment-card-actions button:hover,
+.assigned-row button:hover,
+.screen-url-actions button:hover,
+.url-picker-trigger:hover,
+.url-picker-empty button:hover,
+.url-empty-hint button:hover,
+.target-picker-head button:hover,
+.column-actions button:hover,
+.row-action-sheet button:hover,
+.row-action-sheet a:hover,
+.theme-cyber :is(.text-button, .icon-button, .theme-icon-button, .project-create button, .actions button, .actions a, .assignment-chip button, .drawer button, .modal-card button, .project-card-tools button, .assignment-card-actions button, .assigned-row button, .screen-url-actions button, .url-picker-trigger, .url-picker-empty button, .url-empty-hint button, .target-picker-head button, .column-actions button):hover,
+.theme-cyber .row-action-sheet :is(button, a):hover {
+  border-color: var(--vc-border-strong);
+  background: var(--vc-surface-subtle);
+  color: var(--vc-text-primary);
+  box-shadow: none;
+  text-decoration: none;
+}
+
+.modal-card .primary-button,
+.drawer-form .primary-button,
+.edit-drawer .drawer-form .primary-button,
+.theme-cyber .modal-card .primary-button,
+.theme-cyber .drawer-form .primary-button,
+.theme-cyber .edit-drawer .drawer-form .primary-button {
+  border-color: var(--vc-primary-bg);
+  background: var(--vc-primary-bg);
+  color: var(--vc-primary-contrast);
+  box-shadow: none;
+}
+
+.modal-card .primary-button:hover,
+.drawer-form .primary-button:hover,
+.edit-drawer .drawer-form .primary-button:hover,
+.theme-cyber .modal-card .primary-button:hover,
+.theme-cyber .drawer-form .primary-button:hover,
+.theme-cyber .edit-drawer .drawer-form .primary-button:hover {
+  border-color: var(--vc-primary-bg-hover);
+  background: var(--vc-primary-bg-hover);
+  color: var(--vc-primary-contrast);
+}
+
+.project-tabs button,
+.user-row-button,
+.more-menu,
+.more-menu button,
+.more-menu a,
+.theme-cyber .project-tabs button,
+.theme-cyber .user-row-button,
+.theme-cyber .more-menu,
+.theme-cyber .more-menu button,
+.theme-cyber .more-menu a {
+  border-color: var(--vc-border);
+  background: var(--vc-surface-raised);
+  color: var(--vc-text-secondary);
+  box-shadow: none;
+}
+
+.project-tabs button.active,
+.user-row-button.active,
+.action-menu-button[aria-expanded='true'],
+.section-tabs button.active,
+.matrix-density-control button.active,
+.target-grid button.selected,
+.theme-cyber .project-tabs button.active,
+.theme-cyber .user-row-button.active,
+.theme-cyber .action-menu-button[aria-expanded='true'],
+.theme-cyber .section-tabs button.active,
+.theme-cyber .matrix-density-control button.active,
+.theme-cyber .target-grid button.selected {
+  border-color: var(--vc-primary);
+  background: var(--vc-primary-subtle);
+  color: var(--vc-primary);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+}
+
+.section-tabs button,
+.matrix-density-control button,
+.theme-cyber .section-tabs button,
+.theme-cyber .matrix-density-control button {
+  color: var(--vc-text-muted);
+}
+
+.count,
+.project-card-tools span,
+.mini-status,
+.theme-cyber .count,
+.theme-cyber .project-card-tools span,
+.theme-cyber .mini-status {
+  background: var(--vc-primary-soft);
+  color: var(--vc-primary);
+  box-shadow: none;
+}
+
+.system-strip,
+.theme-cyber .system-strip {
+  border-color: var(--vc-warning-soft);
+  background: var(--vc-warning-subtle);
+  color: var(--vc-warning);
+}
+
+.system-strip.ok,
+.theme-cyber .system-strip.ok {
+  border-color: var(--vc-success-soft);
+  background: var(--vc-success-subtle);
+  color: var(--vc-success);
+}
+
+.error,
+.theme-cyber .error {
+  border-color: var(--vc-danger-soft);
+  background: var(--vc-danger-subtle);
+  color: var(--vc-danger);
+}
+
+.status.running,
+.camera-card i.running,
+.mini-status.running,
+.assignment-card.running,
+.theme-cyber :is(.status.running, .camera-card i.running, .mini-status.running, .assignment-card.running) {
+  border-color: var(--vc-success-soft);
+  background: var(--vc-success-subtle);
+  color: var(--vc-success);
+}
+
+.status.stopped,
+.camera-card i.stopped,
+.mini-status.stopped,
+.theme-cyber :is(.status.stopped, .camera-card i.stopped, .mini-status.stopped) {
+  background: var(--vc-surface-subtle);
+  color: var(--vc-text-secondary);
+}
+
+.status.error,
+.camera-card i.error,
+.mini-status.error,
+.assignment-card.error,
+.camera-stat-grid .danger-stat strong,
+.actions .danger,
+.row-action-sheet .danger,
+.more-menu button.danger,
+.theme-cyber :is(.status.error, .camera-card i.error, .mini-status.error, .assignment-card.error),
+.theme-cyber .camera-stat-grid .danger-stat strong,
+.theme-cyber .actions .danger,
+.theme-cyber .row-action-sheet .danger,
+.theme-cyber .more-menu button.danger {
+  border-color: var(--vc-danger-soft);
+  background: var(--vc-danger-subtle);
+  color: var(--vc-danger);
+}
+
+th,
+.members-table-head,
+.theme-cyber th,
+.theme-cyber .members-table-head {
+  background: var(--vc-surface-muted);
+  color: var(--vc-text-secondary);
+}
+
+td,
+.member-row + .member-row,
+.screen-url-row + .screen-url-row,
+.user-row-button,
+.theme-cyber td,
+.theme-cyber .member-row + .member-row,
+.theme-cyber .screen-url-row + .screen-url-row,
+.theme-cyber .user-row-button {
+  border-color: var(--vc-border-soft);
+}
+
+.action-detail-row td,
+.theme-cyber .action-detail-row td {
+  background: var(--vc-surface-muted);
+}
+
+.row-action-sheet,
+.theme-cyber .row-action-sheet {
+  border-color: var(--vc-border);
+  background: var(--vc-surface);
+  color: var(--vc-text-secondary);
+  box-shadow: inset 3px 0 0 var(--vc-primary);
+}
+
+.quick-actions,
+.theme-cyber .quick-actions {
+  background: var(--vc-surface-muted);
+}
+
+.more-menu,
+.theme-cyber .more-menu {
+  background: var(--vc-surface-raised);
+  box-shadow: var(--vc-shadow-md);
+}
+
+.more-menu::after,
+.theme-cyber .more-menu::after {
+  border-color: var(--vc-border);
+}
+
+.drawer,
+.edit-drawer,
+.theme-cyber .drawer,
+.theme-cyber .edit-drawer {
+  z-index: 45;
+  border-left: 1px solid var(--vc-border);
+  background: var(--vc-surface);
+  color: var(--vc-text-primary);
+  box-shadow: -16px 0 34px rgba(15, 23, 42, 0.18);
+}
+
+.drawer-head,
+.edit-drawer .drawer-head,
+.theme-cyber .drawer-head,
+.theme-cyber .edit-drawer .drawer-head {
+  border-bottom-color: var(--vc-border-soft);
+  background: var(--vc-surface);
+}
+
+.drawer-form,
+.edit-drawer .drawer-form,
+.theme-cyber .drawer-form,
+.theme-cyber .edit-drawer .drawer-form {
+  background: var(--vc-surface-muted);
+}
+
+.drawer-form label,
+.edit-drawer .drawer-form label,
+.edit-drawer .drawer-form label span,
+.theme-cyber .drawer-form label,
+.theme-cyber .edit-drawer .drawer-form label,
+.theme-cyber .edit-drawer .drawer-form label span {
+  color: var(--vc-text-secondary);
+}
+
+.modal-backdrop,
+.theme-cyber .modal-backdrop {
+  z-index: 55;
+  background: rgba(15, 23, 42, 0.54);
+}
+
+.modal-head h2,
+.drawer-head h2,
+.theme-cyber .modal-head h2,
+.theme-cyber .drawer-head h2 {
+  color: var(--vc-text-primary);
+}
+
+.modal-head p,
+.drawer-head p,
+.theme-cyber .modal-head p,
+.theme-cyber .drawer-head p {
+  color: var(--vc-text-muted);
+}
+
+.matrix-board,
+.theme-cyber .matrix-board {
+  background: transparent;
+}
+
+.matrix-cell,
+.matrix-cell.occupied,
+.assignment-card,
+.theme-cyber :is(.matrix-cell, .matrix-cell.occupied, .assignment-card) {
+  border-color: var(--vc-border);
+  background: var(--vc-surface);
+  color: var(--vc-text-secondary);
+  box-shadow: none;
+}
+
+.matrix-cell.running,
+.theme-cyber .matrix-cell.running {
+  border-color: var(--vc-success-soft);
+  background: var(--vc-success-subtle);
+}
+
+.matrix-cell.error,
+.theme-cyber .matrix-cell.error {
+  border-color: var(--vc-danger-soft);
+  background: var(--vc-danger-subtle);
+}
+
+.matrix-cell.fenced,
+.matrix-cell.dropping,
+.matrix-cell.drawing,
+.selection-fence,
+.region-card,
+.theme-cyber :is(.matrix-cell.fenced, .matrix-cell.dropping, .matrix-cell.drawing, .selection-fence, .region-card) {
+  border-color: var(--vc-selection-border);
+  background:
+    radial-gradient(circle at 8px 8px, var(--vc-selection-dot) 1px, transparent 1.5px),
+    linear-gradient(135deg, var(--vc-selection-bg), rgba(255, 255, 255, 0.03));
+  background-size: 16px 16px, auto;
+  box-shadow:
+    inset 0 0 0 1px var(--vc-selection-inset),
+    0 10px 22px var(--vc-selection-shadow);
+}
+
+.selection-fence::before,
+.region-card::before,
+.theme-cyber .selection-fence::before,
+.theme-cyber .region-card::before {
+  border-color: var(--vc-border);
+}
+
+.fence-content,
+.region-badge,
+.theme-cyber :is(.fence-content, .region-badge) {
+  border-color: var(--vc-selection-border);
+  background: var(--vc-glass-panel);
+  color: var(--vc-text-primary);
+  box-shadow: var(--vc-shadow-sm);
+  backdrop-filter: blur(2px);
+}
+
+.region-badge strong,
+.fence-title strong,
+.matrix-cell header strong,
+.theme-cyber .region-badge strong,
+.theme-cyber .fence-title strong,
+.theme-cyber .matrix-cell header strong {
+  color: var(--vc-text-primary);
+}
+
+.region-badge span,
+.fence-title span,
+.theme-cyber .region-badge span,
+.theme-cyber .fence-title span {
+  color: var(--vc-text-muted);
+}
+
+.region-screen-tags span,
+.theme-cyber .region-screen-tags span {
+  border-color: var(--vc-border-soft);
+  background: var(--vc-primary-subtle);
+  color: var(--vc-primary);
+}
+
+.screen-empty,
+.empty.small,
+.theme-cyber :is(.screen-empty, .empty.small) {
+  border-color: var(--vc-border);
+  background: transparent;
+  color: var(--vc-text-muted);
+}
+
+.toast,
+.theme-cyber .toast {
+  border: 1px solid var(--vc-border);
+  background: var(--vc-surface-raised);
+  color: var(--vc-text-primary);
+  box-shadow: var(--vc-shadow-md);
+}
+
+@media (max-width: 1180px) {
+  .bulk-create-box,
+  .theme-cyber .bulk-create-box {
+    border-top-color: var(--vc-border-soft);
   }
 }
