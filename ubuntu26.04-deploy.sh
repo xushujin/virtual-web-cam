@@ -10,6 +10,8 @@ SKIP_DOCKER_INSTALL=0
 SKIP_MACVLAN=0
 SKIP_HOST_MACVLAN=0
 SKIP_SYSTEMD_MACVLAN=0
+CLEAN_DATA=0
+KEEP_DATA=0
 
 HOST_IF_INPUT=""
 HOST_IP_INPUT=""
@@ -67,6 +69,8 @@ usage() {
       --skip-macvlan                跳过 ONVIF macvlan 网络创建
       --skip-host-macvlan           跳过宿主机 macvlan-host 辅助接口
       --skip-systemd-macvlan        不配置 macvlan-host 开机恢复
+      --clean-data                  备份后清空现有 SQLite 数据库，适合清理测试数据重新部署
+      --keep-data                   保留现有 SQLite 数据库，跳过交互式清理确认
       --host-if IFACE               宿主机父网卡，例如 br0/ens33/enp3s0
       --host-ip IP                  宿主机局域网 IP，也是 RTSP 共享网关地址
       --subnet CIDR                 客户现场网段，例如 192.168.5.0/24
@@ -115,6 +119,16 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-systemd-macvlan|--no-systemd-host-macvlan)
       SKIP_SYSTEMD_MACVLAN=1
+      shift
+      ;;
+    --clean-data|--reset-data)
+      CLEAN_DATA=1
+      KEEP_DATA=0
+      shift
+      ;;
+    --keep-data)
+      KEEP_DATA=1
+      CLEAN_DATA=0
       shift
       ;;
     --host-if)
@@ -198,7 +212,7 @@ run_root() {
   if [[ "${EUID}" -eq 0 ]]; then
     "$@"
   else
-    sudo "$@"
+    sudo --preserve-env=HTTP_PROXY,HTTPS_PROXY,NO_PROXY,http_proxy,https_proxy,no_proxy,DOCKER_BUILDKIT,COMPOSE_DOCKER_CLI_BUILD "$@"
   fi
 }
 
@@ -740,6 +754,40 @@ backup_database() {
   log "已备份现有数据库：${backup_path}"
 }
 
+cleanup_database_if_requested() {
+  local db_path="${PROJECT_ROOT}/backend/data/virtualwebcam.db"
+  if [[ "$EXISTING_DB" -ne 1 || ! -f "$db_path" ]]; then
+    return
+  fi
+
+  if [[ "$CLEAN_DATA" -eq 0 && "$KEEP_DATA" -eq 0 && "$ASSUME_YES" -eq 0 && -t 0 ]]; then
+    local answer=""
+    cat <<EOF
+
+检测到现有 SQLite 数据库，已先完成备份。
+如需清理测试数据并以空库重新部署，可以选择清空；默认保留现有数据。
+EOF
+    read -r -p "是否清空现有业务数据？[y/N]: " answer
+    case "$answer" in
+      y|Y|yes|YES|是|清空|确认)
+        CLEAN_DATA=1
+        ;;
+      *)
+        KEEP_DATA=1
+        ;;
+    esac
+  fi
+
+  if [[ "$CLEAN_DATA" -ne 1 ]]; then
+    log "保留现有 SQLite 数据库。"
+    return
+  fi
+
+  log "清空现有 SQLite 数据库和 WAL/SHM 文件。"
+  compose_cmd stop manager-backend manager-frontend >/dev/null 2>&1 || true
+  rm -f "$db_path" "${db_path}-wal" "${db_path}-shm"
+}
+
 warn_if_port_listening() {
   local port="$1"
   local label="$2"
@@ -854,7 +902,12 @@ build_and_start() {
   docker_cmd image inspect "$VIRTUALWEBCAM_IMAGE" >/dev/null
 
   log "启动管理后台：manager-backend / manager-frontend"
-  compose_cmd up -d --build manager-backend manager-frontend
+  log "等价命令：docker compose --env-file ${ENV_FILE} up -d --build manager-backend manager-frontend"
+  if ! compose_cmd up -d --build manager-backend manager-frontend; then
+    warn "管理后台构建或启动失败。若错误停在 load metadata for docker.io/library/node:20-bookworm-slim，通常是 Docker 守护进程访问 Docker Hub、DNS、代理或镜像源异常；脚本已保留 HTTP(S)_PROXY/NO_PROXY 环境给 sudo。"
+    warn "可先执行：docker pull node:20-bookworm-slim，再重跑本脚本；或配置 Docker daemon 镜像源/代理。"
+    return 1
+  fi
 }
 
 wait_for_services() {
@@ -984,6 +1037,7 @@ main() {
   ensure_macvlan_network
   setup_host_macvlan
   backup_database
+  cleanup_database_if_requested
   build_and_start
   wait_for_services
   print_summary

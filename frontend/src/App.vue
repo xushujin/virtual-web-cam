@@ -1,11 +1,11 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
-  ArrowLeft,
   Copy,
   ExternalLink,
   FileText,
   GripVertical,
+  House,
   LogOut,
   Play,
   Plus,
@@ -97,6 +97,7 @@ const bulkCreating = ref(false);
 const statusRefreshing = ref(false);
 let statusPollTimer = null;
 let resourcePollTimer = null;
+let stickyHeaderObserver = null;
 const error = ref('');
 const toast = ref('');
 const activeLogs = ref(null);
@@ -108,8 +109,10 @@ const auditLoading = ref(false);
 const screenUrls = ref([]);
 const screenUrlsLoading = ref(false);
 const screenUrlSaving = ref(false);
+const screenUrlImporting = ref(false);
 const editingScreenUrlId = ref(null);
 const screenUrlQuery = ref('');
+const screenUrlImportInput = ref(null);
 const urlPickerLimit = 20;
 const urlPickerState = reactive({
   create: {
@@ -131,6 +134,7 @@ const resourceStats = ref(null);
 const previousResourceStats = ref(null);
 const resourceRates = ref(null);
 const resourceRefreshing = ref(false);
+const resourceMonitorExpanded = ref(false);
 const busyCameraIds = ref(new Set());
 const selectedCameraIds = ref(new Set());
 const cameraQuery = ref('');
@@ -151,6 +155,7 @@ const showPasswordModal = ref(false);
 const passwordSaving = ref(false);
 const openActionMenuId = ref(null);
 const uiTheme = ref(window.localStorage.getItem('virtualwebcam-theme') || 'light');
+const stickyHeaderRef = ref(null);
 const users = ref([]);
 const selectedUserId = ref(null);
 const userProjectRoles = ref({});
@@ -413,6 +418,12 @@ const resourceUpdatedAt = computed(() => {
   if (!resourceStats.value?.collected_at) return '未采集';
   return new Date(resourceStats.value.collected_at).toLocaleTimeString();
 });
+const resourceCompactSummary = computed(() => [
+  `CPU ${formatPercent(resourceSummary.value.cpuPercent)}`,
+  `内存 ${formatPercent(resourceSummary.value.memoryPercent)}`,
+  `网络 ↓${formatByteRate(resourceRates.value?.summary?.network_rx_bps || 0)}`,
+  `磁盘写 ${formatByteRate(resourceRates.value?.summary?.block_write_bps || 0)}`,
+].join(' · '));
 
 const screenCells = computed(() => {
   const total = projectDraft.rows * projectDraft.cols;
@@ -625,6 +636,16 @@ watch(uiTheme, (theme) => {
   document.body.classList.toggle('virtualwebcam-cyber-body', theme === 'cyber');
 }, { immediate: true });
 
+function updateStickyHeaderHeight() {
+  const height = stickyHeaderRef.value?.offsetHeight || 0;
+  document.documentElement.style.setProperty('--sticky-status-header-height', `${height}px`);
+}
+
+watch([isAuthenticated, currentView, systemLoading, systemProblems], async () => {
+  await nextTick();
+  updateStickyHeaderHeight();
+});
+
 watch(cameraColumns, (columns) => {
   window.localStorage.setItem('virtualwebcam-camera-columns', JSON.stringify(columns));
 }, { deep: true });
@@ -756,10 +777,6 @@ function sourcePayload(payload) {
 
 function toggleActionMenu(id) {
   openActionMenuId.value = openActionMenuId.value === id ? null : id;
-}
-
-function closeActionMenu() {
-  openActionMenuId.value = null;
 }
 
 async function refreshSystemStatus() {
@@ -951,6 +968,90 @@ async function removeScreenUrl(item) {
     showToast('大屏地址已删除');
   } catch (err) {
     error.value = err.message;
+  }
+}
+
+function downloadScreenUrlsCsv() {
+  if (!selectedProject.value) return;
+
+  const csv = screenUrlCsvPayload(screenUrls.value);
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `screen-urls-${safeFilename(selectedProject.value.name)}-${date}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  showToast('大屏地址 CSV 已导出');
+}
+
+function pickScreenUrlImportFile() {
+  if (!canManageSelectedProject.value || screenUrlImporting.value) return;
+  screenUrlImportInput.value?.click();
+}
+
+function screenUrlsFromCsv(text) {
+  const rows = parseCsvRows(text.replace(/^\uFEFF/, ''));
+  if (rows.length === 0) return [];
+
+  const first = rows[0].map((cell) => cell.trim().toLowerCase());
+  const hasHeader = first.includes('name') && first.includes('url');
+  const header = hasHeader ? first : ['name', 'url', 'remark'];
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const nameIndex = header.indexOf('name');
+  const urlIndex = header.indexOf('url');
+  const remarkIndex = header.indexOf('remark');
+
+  if (nameIndex < 0 || urlIndex < 0) {
+    throw new Error('CSV 必须包含 name 和 url 列');
+  }
+
+  return dataRows.map((row) => ({
+    name: String(row[nameIndex] || '').trim(),
+    url: String(row[urlIndex] || '').trim(),
+    remark: remarkIndex >= 0 ? String(row[remarkIndex] || '').trim() : '',
+  })).filter((item) => item.name || item.url);
+}
+
+async function importScreenUrlsFromCsv(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+
+  if (!file || screenUrlImporting.value || !selectedProjectId.value || !canManageSelectedProject.value) return;
+
+  screenUrlImporting.value = true;
+  error.value = '';
+
+  try {
+    const items = screenUrlsFromCsv(await file.text());
+    if (items.length === 0) {
+      throw new Error('CSV 中没有可导入的大屏地址');
+    }
+
+    let success = 0;
+    let failed = 0;
+    for (const item of items) {
+      if (!item.name || !item.url) {
+        failed += 1;
+        continue;
+      }
+      try {
+        await createScreenUrl(item, selectedProjectId.value);
+        success += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    await refreshScreenUrls();
+    showToast(failed ? `已导入 ${success} 个，${failed} 个失败` : `已导入 ${success} 个大屏地址`);
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    screenUrlImporting.value = false;
   }
 }
 
@@ -1167,6 +1268,67 @@ function safeFilename(value) {
     .replace(/[^\w.-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80) || 'project';
+}
+
+function csvEscape(value) {
+  const text = String(value ?? '');
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      quoted = true;
+    } else if (char === ',') {
+      row.push(cell);
+      cell = '';
+    } else if (char === '\n') {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else if (char !== '\r') {
+      cell += char;
+    }
+  }
+
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  return rows.filter((cells) => cells.some((value) => String(value).trim()));
+}
+
+function screenUrlCsvPayload(items = screenUrls.value) {
+  const rows = [
+    ['name', 'url', 'remark'],
+    ...items.map((item) => [item.name, item.url, item.remark || '']),
+  ];
+  return rows.map((row) => row.map(csvEscape).join(',')).join('\n');
 }
 
 async function downloadProjectConfig(project = selectedProject.value) {
@@ -1609,15 +1771,22 @@ async function runAction(action, camera, doneMessage) {
   if (isCameraBusy(camera.id) || !canManageSelectedProject.value) return;
 
   error.value = '';
+  const keepActionMenuOpen = openActionMenuId.value === camera.id;
   setCameraBusy(camera.id, true);
 
   try {
     await action(camera.id);
     await refresh();
+    if (keepActionMenuOpen) {
+      openActionMenuId.value = camera.id;
+    }
     showToast(doneMessage);
   } catch (err) {
     error.value = err.message;
     await refresh().catch(() => {});
+    if (keepActionMenuOpen) {
+      openActionMenuId.value = camera.id;
+    }
   } finally {
     setCameraBusy(camera.id, false);
   }
@@ -1800,15 +1969,26 @@ function auditDetailSummary(log) {
 
 onMounted(async () => {
   await loadCurrentSession();
+  await nextTick();
+  updateStickyHeaderHeight();
+
+  if (window.ResizeObserver) {
+    stickyHeaderObserver = new ResizeObserver(updateStickyHeaderHeight);
+    if (stickyHeaderRef.value) {
+      stickyHeaderObserver.observe(stickyHeaderRef.value);
+    }
+  }
 });
 
 onBeforeUnmount(() => {
   stopBackgroundPolling();
+  stickyHeaderObserver?.disconnect();
+  document.documentElement.style.removeProperty('--sticky-status-header-height');
 });
 </script>
 
 <template>
-  <main class="shell" :class="{ 'theme-cyber': uiTheme === 'cyber' }" @click="closeActionMenu">
+  <main class="shell" :class="{ 'theme-cyber': uiTheme === 'cyber' }">
     <section v-if="authChecking" class="auth-screen">
       <div class="auth-card">
         <h1>VirtualWebCam</h1>
@@ -1838,63 +2018,65 @@ onBeforeUnmount(() => {
     </section>
 
     <template v-else>
-	    <header class="topbar">
-	      <div>
-	        <div class="title-line">
-	          <h1>VirtualWebCam</h1>
-	          <button class="theme-icon-button" type="button" :title="uiTheme === 'cyber' ? '切换为标准主题' : '切换为科技主题'" @click="toggleTheme">
-	            <Sparkles :size="16" />
-	          </button>
+      <div ref="stickyHeaderRef" class="sticky-status-header">
+	      <header class="topbar">
+	        <div>
+	          <div class="title-line">
+	            <h1>VirtualWebCam</h1>
+	            <button class="theme-icon-button" type="button" :title="uiTheme === 'cyber' ? '切换为标准主题' : '切换为科技主题'" @click="toggleTheme">
+	              <Sparkles :size="16" />
+	            </button>
+	          </div>
+	          <p v-if="currentView === 'projects'">项目入口 · 网页转 RTSP + ONVIF 摄像头实例管理</p>
+	          <p v-else-if="currentView === 'users'">系统管理 · 登录人员与项目授权</p>
+	          <p v-else>{{ selectedProject?.name }} · {{ projectSectionLabel(projectSection) }}</p>
 	        </div>
-	        <p v-if="currentView === 'projects'">项目入口 · 网页转 RTSP + ONVIF 摄像头实例管理</p>
-	        <p v-else-if="currentView === 'users'">系统管理 · 登录人员与项目授权</p>
-	        <p v-else>{{ selectedProject?.name }} · {{ projectSectionLabel(projectSection) }}</p>
-	      </div>
-	      <div class="topbar-actions">
-	        <div class="account-strip">
-	          <span>{{ userRoleLabel(currentUser.role) }}</span>
-	          <strong>{{ currentUser.display_name }}</strong>
-	          <small>{{ currentUser.username }}</small>
-	        </div>
-        <div class="topbar-button-row">
-          <button class="text-button" type="button" title="修改当前账号密码" @click="openPasswordModal">
-            <Settings :size="16" />
-            <span>修改密码</span>
+	        <div class="topbar-actions">
+	          <div class="account-strip">
+	            <span>{{ userRoleLabel(currentUser.role) }}</span>
+	            <strong>{{ currentUser.display_name }}</strong>
+	            <small>{{ currentUser.username }}</small>
+	          </div>
+          <div class="topbar-button-row">
+            <button class="text-button" type="button" title="修改当前账号密码" @click="openPasswordModal">
+              <Settings :size="16" />
+              <span>修改密码</span>
+            </button>
+	          <button v-if="currentView === 'project'" class="text-button" type="button" @click="backToProjects">
+	            <House :size="16" />
+            <span>首页</span>
           </button>
-	        <button v-if="currentView === 'project'" class="text-button" type="button" @click="backToProjects">
-	          <ArrowLeft :size="16" />
-          <span>项目列表</span>
-        </button>
-        <button v-if="isSystemAdmin && currentView !== 'users'" class="text-button" type="button" @click="openUserManagement">
-          <UserPlus :size="16" />
-          <span>用户管理</span>
-        </button>
-        <button v-if="currentView === 'users'" class="text-button" type="button" @click="backToProjects">
-          <ArrowLeft :size="16" />
-          <span>项目列表</span>
-        </button>
-        <button class="text-button" type="button" title="退出登录" @click="logout">
-          <LogOut :size="16" />
-          <span>退出</span>
-        </button>
-        <button class="icon-button" type="button" title="刷新" @click="refresh">
-          <RefreshCw :size="18" />
-        </button>
+          <button v-if="isSystemAdmin && currentView === 'projects'" class="text-button" type="button" @click="openUserManagement">
+            <UserPlus :size="16" />
+            <span>用户管理</span>
+          </button>
+          <button v-if="currentView === 'users'" class="text-button" type="button" @click="backToProjects">
+            <House :size="16" />
+            <span>首页</span>
+          </button>
+          <button class="text-button" type="button" title="退出登录" @click="logout">
+            <LogOut :size="16" />
+            <span>退出</span>
+          </button>
+          <button class="icon-button" type="button" title="刷新" @click="refresh">
+            <RefreshCw :size="18" />
+          </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <section class="system-strip" :class="{ ok: systemProblems.length === 0 && !systemLoading }">
-      <div>
-        <strong>运行环境</strong>
-        <span v-if="systemLoading">检测中</span>
-        <span v-else-if="systemProblems.length === 0">Docker、macvlan 网络、VirtualWebCam 镜像均可用</span>
-        <span v-else>{{ systemProblems[0] }}</span>
-      </div>
-      <button class="icon-button" type="button" title="重新检测" @click="refreshSystemStatus">
-        <RefreshCw :size="16" />
-      </button>
-    </section>
+      <section class="system-strip" :class="{ ok: systemProblems.length === 0 && !systemLoading }">
+        <div>
+          <strong>运行环境</strong>
+          <span v-if="systemLoading">检测中</span>
+          <span v-else-if="systemProblems.length === 0">Docker、macvlan 网络、VirtualWebCam 镜像均可用</span>
+          <span v-else>{{ systemProblems[0] }}</span>
+        </div>
+        <button class="icon-button" type="button" title="重新检测" @click="refreshSystemStatus">
+          <RefreshCw :size="16" />
+        </button>
+      </section>
+    </div>
 
     <p v-if="error" class="error global-error">{{ error }}</p>
 
@@ -2152,11 +2334,16 @@ onBeforeUnmount(() => {
               <div class="resource-monitor-head">
                 <div>
                   <h3>资源监控</h3>
-                  <p>实时采集 Docker 容器 CPU、内存、网络与磁盘读写，用于估算单路和整机负载。</p>
+                  <p>{{ resourceCompactSummary }}</p>
                 </div>
-                <span>更新 {{ resourceUpdatedAt }}</span>
+                <div class="resource-monitor-actions">
+                  <span>更新 {{ resourceUpdatedAt }}</span>
+                  <button class="text-button compact-button" type="button" @click="resourceMonitorExpanded = !resourceMonitorExpanded">
+                    {{ resourceMonitorExpanded ? '收起' : '展开' }}
+                  </button>
+                </div>
               </div>
-              <div class="resource-stat-grid">
+              <div v-if="resourceMonitorExpanded" class="resource-stat-grid">
                 <article>
                   <span>CPU 合计</span>
                   <strong>{{ formatPercent(resourceSummary.cpuPercent) }}</strong>
@@ -2197,7 +2384,7 @@ onBeforeUnmount(() => {
             <div class="column-visibility-bar">
               <div>
                 <strong>列表字段</strong>
-                <span>根据当前排查目标隐藏长字段，配置会保存在本机浏览器。</span>
+                <span>根据排查目标隐藏长字段</span>
               </div>
               <div class="column-toggles">
                 <label v-for="column in cameraColumnOptions" :key="column.key">
@@ -2332,41 +2519,53 @@ onBeforeUnmount(() => {
                       <div class="row-action-sheet-buttons">
                         <div class="action-group">
                           <span>维护</span>
-                          <button type="button" @click="openLogs(camera); closeActionMenu()">
+                          <button type="button" :disabled="!canStartCamera(camera)" @click="runAction(startCamera, camera, '已启动')">
+                            <Play :size="15" />
+                            <span>启动</span>
+                          </button>
+                          <button type="button" :disabled="!canStopCamera(camera)" @click="runAction(stopCamera, camera, '已停止')">
+                            <Square :size="15" />
+                            <span>停止</span>
+                          </button>
+                          <button type="button" :disabled="!canRestartCamera(camera)" @click="runAction(restartCamera, camera, '已重启')">
+                            <RotateCcw :size="15" />
+                            <span>重启</span>
+                          </button>
+                          <button type="button" @click="openLogs(camera)">
                             <FileText :size="15" />
                             <span>查看日志</span>
                           </button>
-                          <button type="button" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="openEditCamera(camera); closeActionMenu()">
+                          <button type="button" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="openEditCamera(camera)">
                             <Settings :size="15" />
                             <span>编辑配置</span>
                           </button>
                         </div>
                         <div class="action-group">
                           <span>复制</span>
-                          <button type="button" :disabled="!canManageSelectedProject" @click="cloneCamera(camera); closeActionMenu()">
+                          <button type="button" :disabled="!canManageSelectedProject" @click="cloneCamera(camera)">
                             <Plus :size="15" />
                             <span>复制为新摄像头</span>
                           </button>
-                          <button type="button" @click="copy(camera.rtsp_url); closeActionMenu()">
+                          <button type="button" @click="copy(camera.rtsp_url)">
                             <Copy :size="15" />
                             <span>复制 RTSP</span>
                           </button>
-                          <button type="button" @click="copy(mpvCommand(camera)); closeActionMenu()">
+                          <button type="button" @click="copy(mpvCommand(camera))">
                             <Copy :size="15" />
                             <span>复制 mpv 命令</span>
                           </button>
-                          <button v-if="camera.onvif_url" type="button" @click="copy(camera.onvif_url); closeActionMenu()">
+                          <button v-if="camera.onvif_url" type="button" @click="copy(camera.onvif_url)">
                             <Copy :size="15" />
                             <span>复制 ONVIF</span>
                           </button>
                         </div>
                         <div class="action-group">
                           <span>访问</span>
-                          <a v-if="camera.go2rtc_url" :href="camera.go2rtc_url" target="_blank" rel="noreferrer" @click="closeActionMenu">
+                          <a v-if="camera.go2rtc_url" :href="camera.go2rtc_url" target="_blank" rel="noreferrer">
                             <ExternalLink :size="15" />
                             <span>打开 go2rtc</span>
                           </a>
-                          <button type="button" class="danger" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="remove(camera); closeActionMenu()">
+                          <button type="button" class="danger" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="remove(camera)">
                             <Trash2 :size="15" />
                             <span>删除摄像头</span>
                           </button>
@@ -2549,6 +2748,15 @@ onBeforeUnmount(() => {
             </div>
             <div class="panel-heading-actions">
               <span class="count">{{ screenUrls.length }}</span>
+              <button class="text-button" type="button" :disabled="screenUrlsLoading" @click="downloadScreenUrlsCsv">
+                <FileText :size="15" />
+                <span>导出 CSV</span>
+              </button>
+              <button v-if="canManageSelectedProject" class="text-button" type="button" :disabled="screenUrlImporting" @click="pickScreenUrlImportFile">
+                <Upload :size="15" />
+                <span>{{ screenUrlImporting ? '导入中' : '导入 CSV' }}</span>
+              </button>
+              <input ref="screenUrlImportInput" class="visually-hidden" type="file" accept=".csv,text/csv" @change="importScreenUrlsFromCsv" />
               <button class="text-button" type="button" :disabled="screenUrlsLoading" @click="refreshScreenUrls">
                 <RefreshCw :size="15" />
                 <span>{{ screenUrlsLoading ? '刷新中' : '刷新' }}</span>
