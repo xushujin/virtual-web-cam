@@ -274,7 +274,7 @@ FFmpeg 推送到 rtsp://virtualwebcam-rtsp-gateway:554/&lt;stream_name&gt;
 └── docs/</code></pre>
 <h2 id="4-容器模板设计"><a class="anchor" href="#4-容器模板设计">#</a>4. 容器模板设计</h2>
 <h3 id="4-1-镜像内容"><a class="anchor" href="#4-1-镜像内容">#</a>4.1 镜像内容</h3>
-<p><code>container/Dockerfile</code> 基于 <code>nginx:1.29.4</code>，安装以下运行组件：</p>
+<p><code>container/Dockerfile</code> 基于 <code>debian:bookworm-slim</code>，安装以下运行组件。该容器不依赖 Nginx，<code>80</code> 端口由 go2rtc 提供 HTTP / ONVIF 服务：</p>
 <ul>
 <li>Xvfb：提供虚拟 X11 屏幕。</li>
 <li>openbox：窗口管理器，保证 Chrome 窗口进入虚拟屏幕。</li>

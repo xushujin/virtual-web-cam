@@ -1,4 +1,4 @@
-FROM nginx:1.29.4
+FROM debian:bookworm-slim
 
 ARG MEDIAMTX_VERSION=1.18.1
 ARG GO2RTC_VERSION=1.9.14

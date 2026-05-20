@@ -129,7 +129,7 @@ RTSP 网关容器只启动 MediaMTX，默认监听：
 
 ### 4.1 镜像内容
 
-`container/Dockerfile` 基于 `nginx:1.29.4`，安装以下运行组件：
+`container/Dockerfile` 基于 `debian:bookworm-slim`，安装以下运行组件。该容器不依赖 Nginx，`80` 端口由 go2rtc 提供 HTTP / ONVIF 服务：
 
 - Xvfb：提供虚拟 X11 屏幕。
 - openbox：窗口管理器，保证 Chrome 窗口进入虚拟屏幕。
