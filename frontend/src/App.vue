@@ -100,11 +100,13 @@ const statusRefreshing = ref(false);
 let statusPollTimer = null;
 let resourcePollTimer = null;
 let stickyHeaderObserver = null;
+let projectHeaderObserver = null;
 const error = ref('');
 const toast = ref('');
 const toastKind = ref('info');
 const activeLogs = ref(null);
 const editingCamera = ref(null);
+const cameraEditorMode = ref('full');
 const logText = ref('');
 const logLoading = ref(false);
 const auditLogs = ref([]);
@@ -173,6 +175,7 @@ function normalizeTheme(theme) {
 const uiTheme = ref(normalizeTheme(window.localStorage.getItem('virtualwebcam-theme')));
 const themeClass = computed(() => (uiTheme.value === 'light' ? '' : `theme-${uiTheme.value}`));
 const stickyHeaderRef = ref(null);
+const projectHeaderRef = ref(null);
 const users = ref([]);
 const selectedUserId = ref(null);
 const userProjectRoles = ref({});
@@ -697,9 +700,26 @@ function updateStickyHeaderHeight() {
   document.documentElement.style.setProperty('--sticky-status-header-height', `${height}px`);
 }
 
-watch([isAuthenticated, currentView, systemLoading, systemProblems], async () => {
-  await nextTick();
+function updateProjectHeaderHeight() {
+  const height = projectHeaderRef.value?.offsetHeight || 0;
+  document.documentElement.style.setProperty('--project-header-panel-height', `${height}px`);
+}
+
+function updateFixedHeaderHeights() {
   updateStickyHeaderHeight();
+  updateProjectHeaderHeight();
+}
+
+function observeProjectHeader() {
+  if (projectHeaderObserver && projectHeaderRef.value) {
+    projectHeaderObserver.observe(projectHeaderRef.value);
+  }
+}
+
+watch([isAuthenticated, currentView, systemLoading, systemProblems, selectedProjectId, projectSection], async () => {
+  await nextTick();
+  observeProjectHeader();
+  updateFixedHeaderHeights();
 });
 
 watch(cameraColumns, (columns) => {
@@ -1541,8 +1561,9 @@ async function submitBulk() {
   }
 }
 
-async function openEditCamera(camera) {
+async function openEditCamera(camera, mode = 'full') {
   editingCamera.value = camera;
+  cameraEditorMode.value = mode;
   editForm.source_type = camera.source_type || 'camera';
   editForm.name = camera.name;
   editForm.ip = camera.ip || '';
@@ -1553,6 +1574,11 @@ async function openEditCamera(camera) {
   editForm.fps = camera.fps;
   await refreshScreenUrls();
   resetUrlPicker('edit');
+}
+
+async function openMatrixCameraEdit(camera) {
+  if (!canManageSelectedProject.value || isCameraBusy(camera.id)) return;
+  await openEditCamera(camera, 'matrix');
 }
 
 async function saveCameraEdit() {
@@ -2069,20 +2095,24 @@ function auditDetailSummary(log) {
 onMounted(async () => {
   await loadCurrentSession();
   await nextTick();
-  updateStickyHeaderHeight();
+  updateFixedHeaderHeights();
 
   if (window.ResizeObserver) {
-    stickyHeaderObserver = new ResizeObserver(updateStickyHeaderHeight);
+    stickyHeaderObserver = new ResizeObserver(updateFixedHeaderHeights);
     if (stickyHeaderRef.value) {
       stickyHeaderObserver.observe(stickyHeaderRef.value);
     }
+    projectHeaderObserver = new ResizeObserver(updateFixedHeaderHeights);
+    observeProjectHeader();
   }
 });
 
 onBeforeUnmount(() => {
   stopBackgroundPolling();
   stickyHeaderObserver?.disconnect();
+  projectHeaderObserver?.disconnect();
   document.documentElement.style.removeProperty('--sticky-status-header-height');
+  document.documentElement.style.removeProperty('--project-header-panel-height');
 });
 </script>
 
@@ -2348,7 +2378,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else-if="selectedProject" class="project-detail">
-      <section class="panel project-header-panel">
+      <section ref="projectHeaderRef" class="panel project-header-panel">
         <div class="project-title-row">
           <div>
             <h2>{{ selectedProject.name }}</h2>
@@ -2612,10 +2642,6 @@ onBeforeUnmount(() => {
                 <tr v-if="openActionMenuId === camera.id" class="action-detail-row">
                   <td :colspan="cameraTableColspan">
                     <div class="row-action-sheet" @click.stop>
-                      <div>
-                        <strong>{{ camera.name }}</strong>
-                        <small>{{ camera.ip }} · {{ camera.stream_name }}</small>
-                      </div>
                       <div class="row-action-sheet-buttons">
                         <div class="action-group">
                           <span>维护</span>
@@ -2654,23 +2680,16 @@ onBeforeUnmount(() => {
                             <Copy :size="15" />
                             <span>复制 mpv 命令</span>
                           </button>
-                          <button v-if="camera.onvif_url" type="button" @click="copy(camera.onvif_url)">
+                          <button v-if="sourceAddress(camera)" type="button" @click="copy(sourceAddress(camera))">
                             <Copy :size="15" />
-                            <span>复制 ONVIF</span>
-                          </button>
-                        </div>
-                        <div class="action-group">
-                          <span>访问</span>
-                          <a v-if="camera.go2rtc_url" :href="camera.go2rtc_url" target="_blank" rel="noreferrer">
-                            <ExternalLink :size="15" />
-                            <span>打开 go2rtc</span>
-                          </a>
-                          <button type="button" class="danger" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="remove(camera)">
-                            <Trash2 :size="15" />
-                            <span>删除摄像头</span>
+                            <span>复制 IP</span>
                           </button>
                         </div>
                       </div>
+                      <button type="button" class="danger row-delete-action" :disabled="isCameraBusy(camera.id) || !canManageSelectedProject" @click="remove(camera)">
+                        <Trash2 :size="15" />
+                        <span>删除摄像头</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2804,9 +2823,14 @@ onBeforeUnmount(() => {
               v-for="item in assignedCameraRegions"
               :key="item.camera.id"
               class="assignment-card region-card"
-              :class="[item.camera.status, regionCardClass(item.region)]"
+              :class="[item.camera.status, regionCardClass(item.region), { editable: canManageSelectedProject && !isCameraBusy(item.camera.id) }]"
               :style="regionStyle(item.region)"
+              :role="canManageSelectedProject ? 'button' : undefined"
+              :tabindex="canManageSelectedProject && !isCameraBusy(item.camera.id) ? 0 : undefined"
               @pointerdown.stop
+              @click="openMatrixCameraEdit(item.camera)"
+              @keydown.enter.prevent="openMatrixCameraEdit(item.camera)"
+              @keydown.space.prevent="openMatrixCameraEdit(item.camera)"
               @dragenter.prevent="hoverScreen = indexFromRowCol(item.region.row, item.region.col)"
               @dragover.prevent
               @dragleave="hoverScreen = null"
@@ -2820,16 +2844,16 @@ onBeforeUnmount(() => {
               <div class="region-corner-actions">
                 <span class="mini-status" :class="item.camera.status">{{ statusLabel(item.camera.status) }}</span>
                 <div class="assignment-card-actions">
-                  <button type="button" title="复制 RTSP" @click="copy(item.camera.rtsp_url)">
+                  <button type="button" title="复制 RTSP" @click.stop="copy(item.camera.rtsp_url)">
                     <Copy :size="13" />
                   </button>
-                  <button type="button" title="复制 mpv 测试命令" @click="copy(mpvCommand(item.camera))">
+                  <button type="button" title="复制 mpv 测试命令" @click.stop="copy(mpvCommand(item.camera))">
                     <Play :size="13" />
                   </button>
-                  <button v-if="item.camera.go2rtc_url" type="button" title="打开 go2rtc" @click="openUrl(item.camera.go2rtc_url)">
+                  <button v-if="item.camera.web_url" type="button" title="打开网页 URL" @click.stop="openUrl(item.camera.web_url)">
                     <ExternalLink :size="13" />
                   </button>
-                  <button type="button" title="移除绑定" @click="clearCameraAssignment(item.camera)">
+                  <button type="button" title="移除绑定" @click.stop="clearCameraAssignment(item.camera)">
                     <X :size="13" />
                   </button>
                 </div>
@@ -3241,7 +3265,7 @@ onBeforeUnmount(() => {
       </div>
 
       <form class="drawer-form" @submit.prevent="saveCameraEdit">
-        <label>
+        <label v-if="cameraEditorMode !== 'matrix'">
           <span>源类型</span>
           <select v-model="editForm.source_type">
             <option value="camera">ONVIF 摄像头（独立 IP）</option>
@@ -3252,7 +3276,7 @@ onBeforeUnmount(() => {
           <span>名称</span>
           <input v-model.trim="editForm.name" required />
         </label>
-        <label v-if="editForm.source_type === 'camera'">
+        <label v-if="cameraEditorMode !== 'matrix' && editForm.source_type === 'camera'">
           <span>虚拟 IP</span>
           <input v-model.trim="editForm.ip" required inputmode="numeric" />
         </label>
@@ -3286,11 +3310,11 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </label>
-        <label>
+        <label v-if="cameraEditorMode !== 'matrix'">
           <span>流名称</span>
           <input v-model.trim="editForm.stream_name" required />
         </label>
-        <div class="drawer-form-grid">
+        <div v-if="cameraEditorMode !== 'matrix'" class="drawer-form-grid">
           <label>
             <span>宽度</span>
             <input v-model.number="editForm.width" required type="number" min="320" max="7680" />
