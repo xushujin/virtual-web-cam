@@ -21,6 +21,7 @@ const CAMERA_RTSP_PORT = process.env.CAMERA_RTSP_PORT || '554';
 const RTSP_GATEWAY_PORT = process.env.RTSP_GATEWAY_PORT || '554';
 const RTSP_GATEWAY_CONTAINER = process.env.RTSP_GATEWAY_CONTAINER || `${CONTAINER_PREFIX}-rtsp-gateway`;
 const RTSP_NETWORK = process.env.RTSP_NETWORK || `${CONTAINER_PREFIX}_rtsp`;
+const CAMERA_RESTART_POLICY = { Name: 'no' };
 
 function defaultGatewayHost() {
   for (const addresses of Object.values(os.networkInterfaces())) {
@@ -306,6 +307,7 @@ async function inspectCamera(camera) {
     return { dockerStatus: 'missing', appStatus: 'stopped' };
   }
 
+  await ensureCameraRestartPolicy(container).catch(() => {});
   const info = await container.inspect();
   const state = info.State || {};
 
@@ -330,6 +332,10 @@ async function inspectManagedCameras() {
     if (!Number.isFinite(cameraId)) {
       continue;
     }
+
+    await docker.getContainer(item.Id).update({
+      RestartPolicy: CAMERA_RESTART_POLICY,
+    }).catch(() => {});
 
     result.set(cameraId, {
       dockerStatus: item.State || item.Status || 'unknown',
@@ -430,9 +436,7 @@ async function createContainer(camera) {
       Env: dockerEnv(camera),
       Labels: labels(camera),
       HostConfig: {
-        RestartPolicy: {
-          Name: 'unless-stopped',
-        },
+        RestartPolicy: CAMERA_RESTART_POLICY,
       },
       NetworkingConfig: {
         EndpointsConfig: {
@@ -462,13 +466,17 @@ async function createContainer(camera) {
     Env: dockerEnv(camera),
     Labels: labels(camera),
     HostConfig: {
-      RestartPolicy: {
-        Name: 'unless-stopped',
-      },
+      RestartPolicy: CAMERA_RESTART_POLICY,
     },
     NetworkingConfig: {
       EndpointsConfig: endpointsConfig,
     },
+  });
+}
+
+async function ensureCameraRestartPolicy(container) {
+  await container.update({
+    RestartPolicy: CAMERA_RESTART_POLICY,
   });
 }
 
@@ -478,6 +486,8 @@ async function ensureStarted(camera) {
   if (!container) {
     container = await createContainer(camera);
   }
+
+  await ensureCameraRestartPolicy(container);
 
   const info = await container.inspect();
   if (!info.State.Running) {
@@ -506,6 +516,8 @@ async function restartCamera(camera) {
   if (!container) {
     return ensureStarted(camera);
   }
+
+  await ensureCameraRestartPolicy(container);
 
   const info = await container.inspect();
   if (info.State.Running) {

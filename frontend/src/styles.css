@@ -3019,13 +3019,22 @@ td small {
   right: 20px;
   bottom: 20px;
   z-index: 30;
+  width: max-content;
   min-width: 96px;
+  max-width: min(560px, calc(100vw - 40px));
   border-radius: 6px;
   background: #20242c;
   color: #ffffff;
   padding: 10px 14px;
   font-size: 14px;
+  line-height: 1.45;
   box-shadow: 0 10px 22px rgba(16, 24, 40, 0.18);
+}
+
+.toast.error {
+  border: 1px solid #fecdca;
+  background: #b42318;
+  color: #ffffff;
 }
 
 .theme-cyber {
@@ -5017,6 +5026,13 @@ td,
   background: var(--vc-surface-raised);
   color: var(--vc-text-primary);
   box-shadow: var(--vc-shadow-md);
+}
+
+.toast.error,
+.theme-cyber .toast.error {
+  border-color: var(--vc-danger-soft);
+  background: var(--vc-danger);
+  color: #ffffff;
 }
 
 @media (max-width: 1180px) {

@@ -309,7 +309,7 @@ SESSION_SECRET=change-this-session-secret
 ## 管理后台能力
 
 - 项目管理：创建不同矩阵规格的项目，导出项目配置 JSON，也可以把导出的 JSON 导入为新项目。
-- 摄像头录入：单路创建会尝试启动容器；批量生成只写入配置，默认 `stopped`，适合先录入几十路摄像头。
+- 视频源录入：单路创建会尝试启动容器；批量生成支持 ONVIF 摄像头和 RTSP 流源，只写入配置，默认 `stopped`，适合先录入多路视频源。
 - 视频源类型：支持 ONVIF 摄像头和 RTSP 流源。ONVIF 摄像头需要独立 IP；RTSP 流源使用共享网关和不同流路径。
 - 大屏地址：按项目维护常用网页 URL，支持 CSV 导入导出，新增、编辑和批量生成视频源时可搜索选择。
 - 摄像头列表：支持搜索名称、IP、流名、网页 URL、RTSP、ONVIF 和投放屏幕，支持按运行状态筛选。
@@ -343,8 +343,8 @@ SESSION_SECRET=change-this-session-secret
 - `DELETE /api/screen-urls/:id`：删除项目大屏地址
 - `GET /api/screen-matrix?project_id=1`：指定项目的屏幕矩阵配置
 - `PUT /api/screen-matrix?project_id=1`：更新指定项目的屏幕矩阵
-- `POST /api/cameras`：创建并启动一路视频源容器
-- `POST /api/cameras/bulk?project_id=1`：批量生成摄像头配置，不启动容器
+- `POST /api/cameras`：创建并启动一路视频源容器；摄像头容器不会设置开机自启动
+- `POST /api/cameras/bulk?project_id=1`：批量生成 ONVIF 摄像头或 RTSP 流源配置，不启动容器
 - `PUT /api/cameras/:id`：编辑摄像头名称、IP、网页 URL、流名称、分辨率和 FPS；运行中的摄像头会尝试重建容器使配置生效
 - `PATCH /api/cameras/:id/display-targets`：更新摄像头投放到哪些屏幕，可携带 `display_region` 表示连续合并区域
 - `POST /api/cameras/:id/start`：启动

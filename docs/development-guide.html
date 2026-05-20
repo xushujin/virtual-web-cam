@@ -302,7 +302,7 @@ FFmpeg 推送到 rtsp://virtualwebcam-rtsp-gateway:554/&lt;stream_name&gt;
 <li>写入 MediaMTX 配置并启动 MediaMTX。</li>
 <li>写入 go2rtc 配置并启动 go2rtc。</li>
 <li>启动 FFmpeg，把 Xvfb 画面推入 <code>rtsp://127.0.0.1:8556/&lt;stream_name&gt;</code>。</li>
-<li>监控子进程。任一关键进程退出时，容器退出，由 Docker <code>unless-stopped</code> 策略重启。</li>
+<li>监控子进程。任一关键进程退出时，容器退出，管理后台会把该路视频源状态同步为异常，等待用户手动重启。</li>
 </ol>
 <p><code>rtsp-publisher</code> 模式不会启动 MediaMTX 和 go2rtc，FFmpeg 直接推送到 <code>RTSP_PUSH_URL</code>。 <code>rtsp-gateway</code> 模式不会启动 Xvfb、Chrome、FFmpeg 和 go2rtc，只启动 MediaMTX。</p>
 <p>关键设计点：</p>
@@ -431,8 +431,9 @@ virtualwebcam.sourceType=camera|rtsp</code></pre>
 <li>合并区域绑定：必须提供 <code>display_region</code>，后端根据矩形区域计算 <code>display_targets</code>。</li>
 <li>一个屏幕槽位同一时间只能被一个摄像头占用。</li>
 <li>大屏地址属于项目资源，普通用户只能读取授权项目的大屏地址；<code>operator</code> 或系统管理员才能新增、编辑、删除。</li>
-<li>批量生成只写入数据库，状态为 <code>stopped</code>，不立即启动 Docker 容器。</li>
+<li>批量生成支持 ONVIF 摄像头和 RTSP 流源，只写入数据库，状态为 <code>stopped</code>，不立即启动 Docker 容器。</li>
 <li>单路创建会写入数据库，并尝试启动 Docker 容器。</li>
+<li>每路视频源容器使用 Docker <code>no</code> 重启策略，不随主机开机自动启动，避免大量容器在系统重启后同时拉起。</li>
 <li>ONVIF 摄像头必须填写 <code>ip</code>，且 IP 在 <code>cameras.ip</code> 中唯一。</li>
 <li>RTSP 流源的 <code>ip</code> 为空，<code>stream_name</code> 在 RTSP 流源中必须唯一。</li>
 <li>编辑运行中的摄像头会重建容器，使 URL、分辨率、FPS 和流名生效。</li>
@@ -459,7 +460,7 @@ virtualwebcam.sourceType=camera|rtsp</code></pre>
   &quot;prefix&quot;: &quot;屏&quot;
 }</code></pre>
 <h3 id="6-3-摄像头"><a class="anchor" href="#6-3-摄像头">#</a>6.3 摄像头</h3>
-<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/cameras?project_id=1</code></td><td>摄像头列表，并同步 Docker 状态</td></tr><tr><td>GET</td><td><code>/api/cameras/statuses?project_id=1</code></td><td>轻量刷新状态</td></tr><tr><td>GET</td><td><code>/api/resource-stats?project_id=1</code></td><td>采集摄像头容器 CPU、内存、网络和磁盘读写</td></tr><tr><td>POST</td><td><code>/api/cameras?project_id=1</code></td><td>创建并启动一路摄像头</td></tr><tr><td>POST</td><td><code>/api/cameras/bulk?project_id=1</code></td><td>批量生成摄像头配置，不启动</td></tr><tr><td>PUT</td><td><code>/api/cameras/:id</code></td><td>编辑摄像头配置</td></tr><tr><td>PATCH</td><td><code>/api/cameras/:id/display-targets</code></td><td>更新屏幕绑定</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/start</code></td><td>启动</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/stop</code></td><td>停止</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/restart</code></td><td>重启</td></tr><tr><td>DELETE</td><td><code>/api/cameras/:id</code></td><td>删除</td></tr><tr><td>GET</td><td><code>/api/cameras/:id/logs</code></td><td>获取容器日志</td></tr></tbody></table>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/cameras?project_id=1</code></td><td>摄像头列表，并同步 Docker 状态</td></tr><tr><td>GET</td><td><code>/api/cameras/statuses?project_id=1</code></td><td>轻量刷新状态</td></tr><tr><td>GET</td><td><code>/api/resource-stats?project_id=1</code></td><td>采集摄像头容器 CPU、内存、网络和磁盘读写</td></tr><tr><td>POST</td><td><code>/api/cameras?project_id=1</code></td><td>创建并启动一路摄像头</td></tr><tr><td>POST</td><td><code>/api/cameras/bulk?project_id=1</code></td><td>批量生成 ONVIF 摄像头或 RTSP 流源配置，不启动</td></tr><tr><td>PUT</td><td><code>/api/cameras/:id</code></td><td>编辑摄像头配置</td></tr><tr><td>PATCH</td><td><code>/api/cameras/:id/display-targets</code></td><td>更新屏幕绑定</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/start</code></td><td>启动</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/stop</code></td><td>停止</td></tr><tr><td>POST</td><td><code>/api/cameras/:id/restart</code></td><td>重启</td></tr><tr><td>DELETE</td><td><code>/api/cameras/:id</code></td><td>删除</td></tr><tr><td>GET</td><td><code>/api/cameras/:id/logs</code></td><td>获取容器日志</td></tr></tbody></table>
 <p>创建 ONVIF 摄像头请求：</p>
 <pre><code class="language-json">{
   &quot;source_type&quot;: &quot;camera&quot;,
@@ -643,7 +644,7 @@ npm run test:coverage
 npm run build</code></pre>
 <p>后端 <code>npm run test:unit</code> 使用 Node 内置 <code>node:test</code>，当前覆盖认证哈希、会话 Token、Docker 友好错误、容器状态映射、CPU / 内存 / 网络 / 磁盘统计等纯逻辑。</p>
 <p>后端 <code>npm run test:coverage</code> 使用 Node 22 自带覆盖率，当前覆盖 <code>src/auth.js</code> 和 <code>src/docker-metrics.js</code>。前端 <code>npm run test:coverage</code> 使用 Vitest + V8 覆盖率，当前覆盖 <code>src/utils/**/*.js</code>，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。</p>
-<p><code>npm run test:api</code> 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。</p>
+<p><code>npm run test:api</code> 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成视频源配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。</p>
 <h3 id="8-6-演示数据脚本"><a class="anchor" href="#8-6-演示数据脚本">#</a>8.6 演示数据脚本</h3>
 <p><code>scripts/seed-demo-cameras.sh</code> 会通过登录接口获取会话令牌，然后调用现有 API 幂等创建演示项目、大屏地址、默认停止的视频源、<code>viewer01</code> 和 <code>operator01</code> 演示用户及项目授权。脚本默认使用 <code>admin / admin123456</code> 和 <code>http://127.0.0.1:8177/api</code>，可通过 <code>ADMIN_USERNAME</code>、<code>ADMIN_PASSWORD</code>、<code>DEMO_USER_PASSWORD</code> 和 <code>API_BASE</code> 覆盖。脚本不直接写 SQLite，也不会立即启动视频源容器。</p>
 <h2 id="9-关键配置"><a class="anchor" href="#9-关键配置">#</a>9. 关键配置</h2>

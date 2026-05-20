@@ -223,6 +223,24 @@ try {
   });
   assert(bulkResult.cameras.length === 2, 'bulk camera creation failed');
 
+  const bulkRtspResult = await request(`/cameras/bulk?project_id=${project.id}`, {
+    method: 'POST',
+    token: userToken,
+    body: {
+      source_type: 'rtsp',
+      count: 2,
+      name_prefix: 'rtsp-source-',
+      stream_prefix: 'bulk-rtsp-',
+      web_url: 'https://example.com/rtsp-dashboard',
+      width: 1280,
+      height: 720,
+      fps: 15,
+    },
+    expected: 201,
+  });
+  assert(bulkRtspResult.cameras.length === 2, 'bulk RTSP creation failed');
+  assert(bulkRtspResult.cameras.every((camera) => camera.source_type === 'rtsp' && camera.ip === null), 'bulk RTSP should not allocate camera IPs');
+
   const [cameraA, cameraB] = bulkResult.cameras;
   await request(`/cameras/${cameraA.id}/display-targets`, {
     method: 'PATCH',
@@ -258,7 +276,7 @@ try {
   });
 
   const exported = await request(`/projects/${project.id}/export`, { token: adminToken });
-  assert(exported.cameras.length === 2, 'exported camera count mismatch');
+  assert(exported.cameras.length === 4, 'exported camera count mismatch');
   assert(exported.screen_urls.length === 2, 'exported screen URL count mismatch');
   assert(exported.summary.screen_url_count === 2, 'exported screen URL summary mismatch');
 
@@ -268,9 +286,10 @@ try {
     body: exported,
     expected: 201,
   });
-  assert(imported.cameras.length === 2, 'imported camera count mismatch');
+  assert(imported.cameras.length === 4, 'imported camera count mismatch');
   assert(imported.screen_urls.length === 2, 'imported screen URL count mismatch');
   assert(imported.remapped_ips.length === 2, 'import should remap duplicate camera IPs');
+  assert(imported.remapped_streams.length === 2, 'import should remap duplicate RTSP stream names');
 
   const importedScreenUrls = await request(`/screen-urls?project_id=${imported.project.id}`, { token: adminToken });
   assert(importedScreenUrls.length === 2, 'imported screen URL list mismatch');

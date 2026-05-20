@@ -184,7 +184,7 @@ virtualwebcam:latest
 6. 写入 MediaMTX 配置并启动 MediaMTX。
 7. 写入 go2rtc 配置并启动 go2rtc。
 8. 启动 FFmpeg，把 Xvfb 画面推入 `rtsp://127.0.0.1:8556/<stream_name>`。
-9. 监控子进程。任一关键进程退出时，容器退出，由 Docker `unless-stopped` 策略重启。
+9. 监控子进程。任一关键进程退出时，容器退出，管理后台会把该路视频源状态同步为异常，等待用户手动重启。
 
 `rtsp-publisher` 模式不会启动 MediaMTX 和 go2rtc，FFmpeg 直接推送到 `RTSP_PUSH_URL`。
 `rtsp-gateway` 模式不会启动 Xvfb、Chrome、FFmpeg 和 go2rtc，只启动 MediaMTX。
@@ -412,8 +412,9 @@ Docker Compose 部署时挂载到：
 - 合并区域绑定：必须提供 `display_region`，后端根据矩形区域计算 `display_targets`。
 - 一个屏幕槽位同一时间只能被一个摄像头占用。
 - 大屏地址属于项目资源，普通用户只能读取授权项目的大屏地址；`operator` 或系统管理员才能新增、编辑、删除。
-- 批量生成只写入数据库，状态为 `stopped`，不立即启动 Docker 容器。
+- 批量生成支持 ONVIF 摄像头和 RTSP 流源，只写入数据库，状态为 `stopped`，不立即启动 Docker 容器。
 - 单路创建会写入数据库，并尝试启动 Docker 容器。
+- 每路视频源容器使用 Docker `no` 重启策略，不随主机开机自动启动，避免大量容器在系统重启后同时拉起。
 - ONVIF 摄像头必须填写 `ip`，且 IP 在 `cameras.ip` 中唯一。
 - RTSP 流源的 `ip` 为空，`stream_name` 在 RTSP 流源中必须唯一。
 - 编辑运行中的摄像头会重建容器，使 URL、分辨率、FPS 和流名生效。
@@ -477,7 +478,7 @@ GET /api/health
 | GET | `/api/cameras/statuses?project_id=1` | 轻量刷新状态 |
 | GET | `/api/resource-stats?project_id=1` | 采集摄像头容器 CPU、内存、网络和磁盘读写 |
 | POST | `/api/cameras?project_id=1` | 创建并启动一路摄像头 |
-| POST | `/api/cameras/bulk?project_id=1` | 批量生成摄像头配置，不启动 |
+| POST | `/api/cameras/bulk?project_id=1` | 批量生成 ONVIF 摄像头或 RTSP 流源配置，不启动 |
 | PUT | `/api/cameras/:id` | 编辑摄像头配置 |
 | PATCH | `/api/cameras/:id/display-targets` | 更新屏幕绑定 |
 | POST | `/api/cameras/:id/start` | 启动 |
@@ -751,7 +752,7 @@ npm run build
 
 后端 `npm run test:coverage` 使用 Node 22 自带覆盖率，当前覆盖 `src/auth.js` 和 `src/docker-metrics.js`。前端 `npm run test:coverage` 使用 Vitest + V8 覆盖率，当前覆盖 `src/utils/**/*.js`，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。
 
-`npm run test:api` 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成摄像头配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
+`npm run test:api` 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成视频源配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
 
 ### 8.6 演示数据脚本
 

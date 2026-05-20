@@ -95,12 +95,14 @@ const loading = ref(false);
 const saving = ref(false);
 const createError = ref('');
 const bulkCreating = ref(false);
+const bulkError = ref('');
 const statusRefreshing = ref(false);
 let statusPollTimer = null;
 let resourcePollTimer = null;
 let stickyHeaderObserver = null;
 const error = ref('');
 const toast = ref('');
+const toastKind = ref('info');
 const activeLogs = ref(null);
 const editingCamera = ref(null);
 const logText = ref('');
@@ -263,6 +265,7 @@ const form = reactive({
 });
 
 const bulkForm = reactive({
+  source_type: 'camera',
   count: 8,
   start_ip: '192.168.110.211',
   name_prefix: 'web-cam-',
@@ -492,13 +495,28 @@ const matrixDensityConfig = {
 const matrixColumnSize = computed(() => matrixDensityConfig[matrixDensity.value]?.column || matrixDensityConfig.standard.column);
 const matrixRowSize = computed(() => matrixDensityConfig[matrixDensity.value]?.row || matrixDensityConfig.standard.row);
 
-function showToast(message) {
+function showToast(message, options = {}) {
+  const duration = options.duration || 1800;
   toast.value = message;
+  toastKind.value = options.kind || 'info';
   window.setTimeout(() => {
     if (toast.value === message) {
       toast.value = '';
     }
-  }, 1800);
+  }, duration);
+}
+
+function showOperationError(message) {
+  error.value = message;
+  showToast(message, {
+    kind: 'error',
+    duration: 6000,
+  });
+}
+
+function operationFailureMessage(doneMessage, err) {
+  const actionName = String(doneMessage || '操作').replace(/^已/, '') || '操作';
+  return `${actionName}失败：${err.message || '未知错误'}`;
 }
 
 function userRoleLabel(role) {
@@ -800,6 +818,7 @@ async function openCreateSourceModal() {
 
 async function openBulkCreateModal() {
   error.value = '';
+  bulkError.value = '';
   await refreshScreenUrls();
   resetUrlPicker('bulk');
   showBulkModal.value = true;
@@ -1502,15 +1521,21 @@ async function submitBulk() {
 
   bulkCreating.value = true;
   error.value = '';
+  bulkError.value = '';
 
   try {
-	    const result = await bulkCreateCameras({ ...bulkForm }, selectedProjectId.value);
-	    await refresh();
-	    showBulkModal.value = false;
-	    const remappedCount = result.remapped_ips?.length || 0;
-    showToast(remappedCount ? `已生成 ${result.cameras.length} 路，${remappedCount} 个 IP 已重映射` : `已生成 ${result.cameras.length} 路`);
+    const result = await bulkCreateCameras({ ...bulkForm }, selectedProjectId.value);
+    await refresh();
+    showBulkModal.value = false;
+    const remappedCount = result.remapped_ips?.length || 0;
+    const remappedStreamCount = result.remapped_streams?.length || 0;
+    const suffixParts = [];
+    if (remappedCount) suffixParts.push(`${remappedCount} 个 IP 已重映射`);
+    if (remappedStreamCount) suffixParts.push(`${remappedStreamCount} 个流名已自动调整`);
+    showToast(suffixParts.length ? `已生成 ${result.cameras.length} 路，${suffixParts.join('，')}` : `已生成 ${result.cameras.length} 路`);
   } catch (err) {
-    error.value = err.message;
+    error.value = '';
+    bulkError.value = err.message;
   } finally {
     bulkCreating.value = false;
   }
@@ -1848,7 +1873,7 @@ async function runAction(action, camera, doneMessage) {
     }
     showToast(doneMessage);
   } catch (err) {
-    error.value = err.message;
+    showOperationError(operationFailureMessage(doneMessage, err));
     await refresh().catch(() => {});
     if (keepActionMenuOpen) {
       openActionMenuId.value = camera.id;
@@ -1871,20 +1896,28 @@ async function runBatchAction(action, doneMessage) {
   targets.forEach((camera) => setCameraBusy(camera.id, true));
 
   let failed = 0;
+  let firstErrorMessage = '';
 
   try {
     for (const camera of targets) {
       try {
         await action(camera.id);
-      } catch {
+      } catch (err) {
         failed += 1;
+        if (!firstErrorMessage) {
+          firstErrorMessage = operationFailureMessage(doneMessage, err);
+        }
       }
     }
 
     await refresh();
-    showToast(failed > 0 ? `${doneMessage}，${failed} 路失败` : `${doneMessage} ${targets.length} 路`);
+    if (failed > 0) {
+      showOperationError(`${doneMessage}，${failed} 路失败。${firstErrorMessage}`);
+    } else {
+      showToast(`${doneMessage} ${targets.length} 路`);
+    }
   } catch (err) {
-    error.value = err.message;
+    showOperationError(operationFailureMessage(doneMessage, err));
     await refresh().catch(() => {});
   } finally {
     targets.forEach((camera) => setCameraBusy(camera.id, false));
@@ -3030,29 +3063,32 @@ onBeforeUnmount(() => {
 	      <section class="modal-card">
 	        <div class="modal-head">
 	          <div>
-	            <h2>批量生成摄像头配置</h2>
-	            <p>只写入配置，不启动 Docker 容器，适合先录入几十路摄像头。</p>
+	            <h2>批量生成视频源配置</h2>
+	            <p>只写入配置，不启动 Docker 容器，适合先录入多路 ONVIF 摄像头或 RTSP 流源。</p>
 	          </div>
 	          <button class="icon-button" type="button" title="关闭" @click="showBulkModal = false">
 	            <X :size="16" />
 	          </button>
 	        </div>
 	        <div class="bulk-form-grid modal-form-grid">
+	          <label class="wide-field source-type-field">
+	            <span>源类型</span>
+	            <select v-model="bulkForm.source_type">
+	              <option value="camera">ONVIF 摄像头（独立 IP）</option>
+	              <option value="rtsp">RTSP 流源（共享 IP + 流路径）</option>
+	            </select>
+	          </label>
 	          <label>
 	            <span>数量</span>
 	            <input v-model.number="bulkForm.count" type="number" min="1" max="200" />
 	          </label>
-	          <label>
+	          <label v-if="bulkForm.source_type === 'camera'">
 	            <span>起始 IP</span>
 	            <input v-model.trim="bulkForm.start_ip" inputmode="numeric" />
 	          </label>
 	          <label>
 	            <span>名称前缀</span>
 	            <input v-model.trim="bulkForm.name_prefix" />
-	          </label>
-	          <label>
-	            <span>流名前缀</span>
-	            <input v-model.trim="bulkForm.stream_prefix" />
 	          </label>
 	          <label class="wide-field">
 	            <span>网页 URL</span>
@@ -3097,6 +3133,7 @@ onBeforeUnmount(() => {
 	            <input v-model.number="bulkForm.fps" type="number" min="1" max="60" />
 	          </label>
 	        </div>
+	        <p v-if="bulkError" class="error modal-error">{{ bulkError }}</p>
 	        <div class="modal-actions">
 	          <button class="text-button" type="button" @click="showBulkModal = false">取消</button>
 	          <button class="primary-button" type="button" :disabled="bulkCreating" @click="submitBulk">
@@ -3274,7 +3311,7 @@ onBeforeUnmount(() => {
       </form>
     </div>
 
-    <div v-if="toast" class="toast">{{ toast }}</div>
+    <div v-if="toast" class="toast" :class="toastKind">{{ toast }}</div>
     </template>
   </main>
 </template>
