@@ -77,8 +77,8 @@ CIDR 实际主机范围：192.168.5.193 - 192.168.5.254
 注意：
 
 - 地址池不能和路由器 DHCP、真实摄像头、中控、大屏控制器、服务器等冲突。
-- `HOST_MACVLAN_IP` 必须占用地址池内一个未使用 IP，建议固定为 `.210`。
-- 摄像头从 `.211` 开始，便于现场识别。
+- `HOST_MACVLAN_IP` 必须使用同网段未被占用的辅助 IP，不能分配给摄像头容器。
+- 摄像头从业务预留段开始分配，例如 `.200`，便于现场识别。
 - 如果客户现场 IP 不足，优先使用 RTSP 流源。
 
 ### 2.3 规划端口
@@ -469,11 +469,12 @@ name,url,remark
 名称：web-cam-01
 虚拟 IP：192.168.5.200
 网页 URL：https://example.com/screen/lobby
-流名称：screen01
 宽度：1280
 高度：720
 FPS：15
 ```
+
+流名称由系统自动生成，用于 RTSP 路径和 ONVIF Profile，新增时用户不需要填写。
 
 创建后，后端会通过 Docker 创建容器，容器启动流程为：
 
@@ -522,11 +523,12 @@ Live Video：显示网页画面
 源类型：RTSP 流源（共享 IP + 流路径）
 名称：rtsp-screen-01
 网页 URL：https://example.com/screen/lobby
-流名称：screen01
 宽度：1280
 高度：720
 FPS：15
 ```
+
+流名称由系统自动生成，并会避免和已有 RTSP 流源冲突。
 
 系统会自动创建或复用共享网关容器：
 
@@ -558,7 +560,9 @@ RTSP 流源不提供 ONVIF，不占用独立摄像头 IP。
 2. 单屏投放时，直接绑定到一个屏幕。
 3. 多屏合并展示时，用鼠标在矩阵上拖拽画矩形围栏。
 4. 把视频源绑定到围栏区域。
-5. 围栏内会显示视频源名称、IP、流名称和覆盖屏幕。
+5. 围栏内会显示视频源名称、地址、流名称和覆盖屏幕。
+
+已经绑定到矩阵围栏的视频源可以直接点击打开编辑窗口，快速修改视频源名称和网页 URL。围栏内的打开按钮会打开该视频源配置的网页 URL，便于现场核对大屏页面。
 
 没有画围栏的屏幕默认是单屏区域。围栏表示一组屏幕合并展示，类似电子围栏。
 
@@ -698,9 +702,11 @@ sqlite3 backend/data/virtualwebcam.db ".backup 'backups/pre-upgrade-$(date +%F-%
 ### 19.2 升级管理后台
 
 ```bash
-docker compose build manager-backend manager-frontend
-docker compose up -d manager-backend manager-frontend
+chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh --yes --keep-data --frontend-port 9528
 ```
+
+如果旧版本目录里没有 `.env`，或者需要重新指定现场网络参数，应补全 `--host-if`、`--host-ip`、`--subnet`、`--gateway`、`--ip-range`、`--host-macvlan-ip` 等部署参数。
 
 ### 19.3 升级容器模板
 
@@ -710,14 +716,17 @@ docker compose up -d manager-backend manager-frontend
 docker compose --profile image build virtualwebcam-image
 ```
 
-然后在网页端按项目分批重启视频源，或者命令行批量重启：
+本版本创建的视频源容器不会随 Docker 开机自启动。旧版本已经创建的摄像头容器可能仍保留旧自启动策略，升级后建议执行一次：
 
 ```bash
-docker ps --filter label=virtualwebcam.managed=true --format '{{.Names}}' \
-  | xargs -r -n1 docker restart
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker update --restart=no
 ```
 
-如果希望视频源使用新镜像且容器配置也更新，建议在管理后台编辑保存或重建视频源。
+如果希望旧视频源也完全使用新镜像，可以在业务允许中断时删除旧摄像头容器。数据库中的视频源配置会保留，后续在管理后台点击启动时会按新镜像重新创建容器：
+
+```bash
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker rm -f
+```
 
 ## 20. 更换网络环境
 

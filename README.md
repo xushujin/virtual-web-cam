@@ -147,6 +147,126 @@ chmod +x ubuntu26.04-deploy.sh
   --host-macvlan-ip 192.168.5.199
 ```
 
+## 旧版本升级
+
+已经部署过旧版本的客户机，升级时只需要保留现场配置和 SQLite 数据库，再用新代码重建镜像和管理后台。不要执行 `docker compose down -v`，也不要删除 `backend/data`。
+
+推荐升级步骤：
+
+```bash
+cd /opt/virtual-web-cam
+
+# 1. 备份现场配置和业务数据库
+mkdir -p backups
+cp -a .env "backups/.env.$(date +%Y%m%d-%H%M%S)"
+cp -a backend/data "backups/backend-data.$(date +%Y%m%d-%H%M%S)"
+
+# 2. 更新代码
+git pull
+
+# 3. 保留数据并重新构建、启动管理后台
+chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh --yes --keep-data --frontend-port 9528
+```
+
+如果旧版本目录里没有 `.env`，或者需要重新指定现场网络参数，就把部署参数补全：
+
+```bash
+./ubuntu26.04-deploy.sh --yes --keep-data \
+  --host-if br0 \
+  --host-ip 192.168.5.198 \
+  --subnet 192.168.5.0/24 \
+  --gateway 192.168.5.1 \
+  --ip-range 192.168.5.192/26 \
+  --host-macvlan-ip 192.168.5.199 \
+  --frontend-port 9528
+```
+
+本版本已经把新创建的摄像头容器改为不随 Docker 开机自启动。旧版本已经创建出来的摄像头容器可能仍保留旧的自启动策略，升级后建议执行一次：
+
+```bash
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker update --restart=no
+```
+
+如果需要让旧摄像头容器也完全使用新镜像，可以在业务允许中断时删除旧摄像头容器。数据库里的摄像头配置会保留，后续在管理后台点击启动时会用新镜像重新创建容器：
+
+```bash
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker rm -f
+```
+
+升级后检查：
+
+```bash
+docker compose --env-file .env ps
+docker compose --env-file .env logs --tail=100 manager-backend
+```
+
+访问地址：
+
+```text
+http://<宿主机IP>:9528
+```
+
+## 应用卸载
+
+卸载前先确认是否需要保留项目、摄像头配置和大屏地址库。业务数据默认在 `backend/data/virtualwebcam.db`，现场配置默认在 `.env`。
+
+建议先备份：
+
+```bash
+cd /opt/virtual-web-cam
+mkdir -p backups
+cp -a .env "backups/.env.before-uninstall.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+cp -a backend/data "backups/backend-data.before-uninstall.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+```
+
+只停止管理后台，不删除业务数据：
+
+```bash
+docker compose --env-file .env down
+```
+
+停止并删除本项目创建的视频源容器：
+
+```bash
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker rm -f
+docker ps -aq --filter "label=virtualwebcam.rtspGateway=true" | xargs -r docker rm -f
+```
+
+删除 Docker 网络：
+
+```bash
+docker network rm onvif_macvlan 2>/dev/null || true
+docker network rm virtualwebcam_rtsp 2>/dev/null || true
+docker network rm virtualwebcam-manager 2>/dev/null || true
+```
+
+删除宿主机 macvlan 辅助接口和开机恢复服务：
+
+```bash
+sudo systemctl disable --now virtualwebcam-macvlan-host.service 2>/dev/null || true
+sudo rm -f /etc/systemd/system/virtualwebcam-macvlan-host.service
+sudo rm -f /usr/local/sbin/virtualwebcam-macvlan-host
+sudo systemctl daemon-reload
+sudo ip link delete macvlan-host 2>/dev/null || true
+```
+
+可选删除镜像：
+
+```bash
+docker image rm virtualwebcam:latest 2>/dev/null || true
+docker image rm virtual-web-cam-manager-backend virtual-web-cam-manager-frontend 2>/dev/null || true
+```
+
+确认不再需要历史数据后，才删除项目目录：
+
+```bash
+cd ..
+rm -rf virtual-web-cam
+```
+
+如果只是临时停用或准备以后恢复，不要删除项目目录、`.env`、`backend/data` 和 `backups`。
+
 ## 构建镜像
 
 ```bash

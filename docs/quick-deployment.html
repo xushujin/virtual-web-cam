@@ -184,6 +184,7 @@
 <li>ONVIF 摄像头：每路使用一个独立局域网 IP，提供 RTSP + ONVIF。</li>
 <li>RTSP 流源：多路共享宿主机 IP，通过不同流路径区分，适合现场 IP 不足的项目。</li>
 </ul>
+<p>新增和批量生成视频源时，流名称由系统自动生成，现场用户只需要关注名称、网页 URL、ONVIF 虚拟 IP、分辨率和 FPS。</p>
 <p>典型地址：</p>
 <pre><code class="language-text">ONVIF 摄像头 RTSP：rtsp://192.168.5.200:554/screen01
 ONVIF 摄像头入口：http://192.168.5.200/onvif/device_service
@@ -276,7 +277,6 @@ http://&lt;客户主机IP&gt;:9528</code></pre>
 名称：web-cam-01
 虚拟 IP：192.168.5.200
 网页 URL：业务网页地址
-流名称：screen01
 分辨率：1280 x 720
 FPS：15</code></pre>
 <p>验收：</p>
@@ -288,7 +288,6 @@ FPS：15</code></pre>
 <pre><code class="language-text">源类型：RTSP 流源（共享 IP + 流路径）
 名称：rtsp-screen-01
 网页 URL：业务网页地址
-流名称：screen01
 分辨率：1280 x 720
 FPS：15</code></pre>
 <p>验收：</p>

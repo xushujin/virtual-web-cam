@@ -215,8 +215,8 @@ CIDR 实际主机范围：192.168.5.193 - 192.168.5.254
 <p>注意：</p>
 <ul>
 <li>地址池不能和路由器 DHCP、真实摄像头、中控、大屏控制器、服务器等冲突。</li>
-<li><code>HOST_MACVLAN_IP</code> 必须占用地址池内一个未使用 IP，建议固定为 <code>.210</code>。</li>
-<li>摄像头从 <code>.211</code> 开始，便于现场识别。</li>
+<li><code>HOST_MACVLAN_IP</code> 必须使用同网段未被占用的辅助 IP，不能分配给摄像头容器。</li>
+<li>摄像头从业务预留段开始分配，例如 <code>.200</code>，便于现场识别。</li>
 <li>如果客户现场 IP 不足，优先使用 RTSP 流源。</li>
 </ul>
 <h3 id="2-3-规划端口"><a class="anchor" href="#2-3-规划端口">#</a>2.3 规划端口</h3>
@@ -441,10 +441,10 @@ URL：https://example.com/screen/lobby
 名称：web-cam-01
 虚拟 IP：192.168.5.200
 网页 URL：https://example.com/screen/lobby
-流名称：screen01
 宽度：1280
 高度：720
 FPS：15</code></pre>
+<p>流名称由系统自动生成，用于 RTSP 路径和 ONVIF Profile，新增时用户不需要填写。</p>
 <p>创建后，后端会通过 Docker 创建容器，容器启动流程为：</p>
 <pre><code class="language-text">Xvfb -&gt; openbox -&gt; Chrome -&gt; FFmpeg -&gt; MediaMTX -&gt; go2rtc</code></pre>
 <p>对外地址：</p>
@@ -468,10 +468,10 @@ Live Video：显示网页画面</code></pre>
 <pre><code class="language-text">源类型：RTSP 流源（共享 IP + 流路径）
 名称：rtsp-screen-01
 网页 URL：https://example.com/screen/lobby
-流名称：screen01
 宽度：1280
 高度：720
 FPS：15</code></pre>
+<p>流名称由系统自动生成，并会避免和已有 RTSP 流源冲突。</p>
 <p>系统会自动创建或复用共享网关容器：</p>
 <pre><code class="language-text">virtualwebcam-rtsp-gateway</code></pre>
 <p>对外地址：</p>
@@ -487,8 +487,9 @@ FPS：15</code></pre>
 <li>单屏投放时，直接绑定到一个屏幕。</li>
 <li>多屏合并展示时，用鼠标在矩阵上拖拽画矩形围栏。</li>
 <li>把视频源绑定到围栏区域。</li>
-<li>围栏内会显示视频源名称、IP、流名称和覆盖屏幕。</li>
+<li>围栏内会显示视频源名称、地址、流名称和覆盖屏幕。</li>
 </ol>
+<p>已经绑定到矩阵围栏的视频源可以直接点击打开编辑窗口，快速修改视频源名称和网页 URL。围栏内的打开按钮会打开该视频源配置的网页 URL，便于现场核对大屏页面。</p>
 <p>没有画围栏的屏幕默认是单屏区域。围栏表示一组屏幕合并展示，类似电子围栏。</p>
 <h2 id="16-状态和资源监控"><a class="anchor" href="#16-状态和资源监控">#</a>16. 状态和资源监控</h2>
 <p>摄像头列表会展示：</p>
@@ -565,15 +566,16 @@ docker ps --filter label=virtualwebcam.managed=true
 mkdir -p backups
 sqlite3 backend/data/virtualwebcam.db &quot;.backup &#39;backups/pre-upgrade-$(date +%F-%H%M%S).db&#39;&quot;</code></pre>
 <h3 id="19-2-升级管理后台"><a class="anchor" href="#19-2-升级管理后台">#</a>19.2 升级管理后台</h3>
-<pre><code class="language-bash">docker compose build manager-backend manager-frontend
-docker compose up -d manager-backend manager-frontend</code></pre>
+<pre><code class="language-bash">chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh --yes --keep-data --frontend-port 9528</code></pre>
+<p>如果旧版本目录里没有 <code>.env</code>，或者需要重新指定现场网络参数，应补全 <code>--host-if</code>、<code>--host-ip</code>、<code>--subnet</code>、<code>--gateway</code>、<code>--ip-range</code>、<code>--host-macvlan-ip</code> 等部署参数。</p>
 <h3 id="19-3-升级容器模板"><a class="anchor" href="#19-3-升级容器模板">#</a>19.3 升级容器模板</h3>
 <p>如果修改了 <code>container/</code>：</p>
 <pre><code class="language-bash">docker compose --profile image build virtualwebcam-image</code></pre>
-<p>然后在网页端按项目分批重启视频源，或者命令行批量重启：</p>
-<pre><code class="language-bash">docker ps --filter label=virtualwebcam.managed=true --format &#39;{{.Names}}&#39; \
-  | xargs -r -n1 docker restart</code></pre>
-<p>如果希望视频源使用新镜像且容器配置也更新，建议在管理后台编辑保存或重建视频源。</p>
+<p>本版本创建的视频源容器不会随 Docker 开机自启动。旧版本已经创建的摄像头容器可能仍保留旧自启动策略，升级后建议执行一次：</p>
+<pre><code class="language-bash">docker ps -aq --filter &quot;label=virtualwebcam.cameraId&quot; | xargs -r docker update --restart=no</code></pre>
+<p>如果希望旧视频源也完全使用新镜像，可以在业务允许中断时删除旧摄像头容器。数据库中的视频源配置会保留，后续在管理后台点击启动时会按新镜像重新创建容器：</p>
+<pre><code class="language-bash">docker ps -aq --filter &quot;label=virtualwebcam.cameraId&quot; | xargs -r docker rm -f</code></pre>
 <h2 id="20-更换网络环境"><a class="anchor" href="#20-更换网络环境">#</a>20. 更换网络环境</h2>
 <p>假设客户从 <code>192.168.5.0/24</code> 迁移到 <code>192.168.9.0/24</code>：</p>
 <pre><code class="language-text">旧宿主机 IP：192.168.5.198

@@ -13,7 +13,7 @@
 - 创建项目和矩阵屏幕规格。
 - 创建、启动、停止、重启、删除网页视频源。
 - 查看容器日志。
-- 获取 RTSP、ONVIF、go2rtc 地址。
+- 获取 RTSP、ONVIF 地址和播放测试命令。
 - 维护摄像头和矩阵屏幕的绑定关系。
 
 系统支持两类视频源：
@@ -539,6 +539,7 @@ API_TOKEN="change-me" docker compose up -d --build manager-backend manager-front
 ### 9.1 通过网页创建 ONVIF 摄像头
 
 如果项目里已经维护了“大屏地址”，网页 URL 可以直接搜索选择；也可以手动输入任意合法的 `http://` 或 `https://` 地址。
+从“大屏地址”候选中选择网页 URL 时，系统会自动把该地址的名称回填到视频源名称中。流名称由系统自动生成，用户不需要填写。
 
 1. 打开 `http://192.168.5.198:9528`。
 2. 进入项目。
@@ -549,7 +550,6 @@ API_TOKEN="change-me" docker compose up -d --build manager-backend manager-front
    - 名称：`web-cam-01`
    - 虚拟 IP：`192.168.5.200`
    - 网页 URL：业务网页地址
-   - 流名称：`screen01`
    - 分辨率：`1280 x 720`
    - FPS：`15`
 7. 点击创建。
@@ -567,6 +567,7 @@ ONVIF：http://192.168.5.200/onvif/device_service
 当现场 IP 地址不足，或者中控支持直接 RTSP 接入时，可以创建 RTSP 流源：
 
 如果项目里已经维护了“大屏地址”，网页 URL 可以直接搜索选择；也可以手动输入。
+流名称由系统自动生成，并会避免和已有 RTSP 流源冲突。
 
 1. 打开 `http://192.168.5.198:9528`。
 2. 进入项目。
@@ -576,7 +577,6 @@ ONVIF：http://192.168.5.200/onvif/device_service
 6. 填写：
    - 名称：`rtsp-screen-01`
    - 网页 URL：业务网页地址
-   - 流名称：`screen01`
    - 分辨率：`1280 x 720`
    - FPS：`15`
 7. 点击创建。
@@ -865,27 +865,30 @@ mkdir -p backups
 sqlite3 backend/data/virtualwebcam.db ".backup 'backups/pre-upgrade-$(date +%F-%H%M%S).db'"
 ```
 
-### 13.2 重新构建
+### 13.2 保留数据重新部署
 
 ```bash
-docker compose --profile image build virtualwebcam-image
-docker compose build manager-backend manager-frontend
-docker compose up -d manager-backend manager-frontend
+chmod +x ubuntu26.04-deploy.sh
+./ubuntu26.04-deploy.sh --yes --keep-data --frontend-port 9528
 ```
 
-### 13.3 重建摄像头容器
+如果旧版本目录里没有 `.env`，或者需要重新指定现场网络参数，应补全 `--host-if`、`--host-ip`、`--subnet`、`--gateway`、`--ip-range`、`--host-macvlan-ip` 等参数。
 
-如果只更新管理后台，不需要重建摄像头容器。  
-如果更新了 `container/` 镜像，需要逐路重启或编辑保存触发重建。
+### 13.3 处理旧摄像头容器
 
-批量方式：
+如果只更新管理后台，不需要重建摄像头容器。
+
+本版本创建的视频源容器不会随 Docker 开机自启动。旧版本已经创建的摄像头容器可能仍保留旧自启动策略，升级后建议执行一次：
 
 ```bash
-docker ps --filter label=virtualwebcam.managed=true --format '{{.Names}}' \
-  | xargs -r -n1 docker restart
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker update --restart=no
 ```
 
-更推荐在网页端按项目分批重启，便于观察影响。
+如果需要让旧摄像头容器完全使用新镜像，可以在业务允许中断时删除旧摄像头容器。数据库里的视频源配置会保留，后续在管理后台点击启动时会用新镜像重新创建：
+
+```bash
+docker ps -aq --filter "label=virtualwebcam.cameraId" | xargs -r docker rm -f
+```
 
 ## 14. 清理
 
