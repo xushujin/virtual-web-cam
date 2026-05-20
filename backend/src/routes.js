@@ -413,6 +413,20 @@ async function availableRtspStreamName(preferredName, reservedStreamNames = new 
     return preferredName;
   }
 
+  const numericName = String(preferredName || '').match(/^(.*?)(\d+)$/);
+  if (numericName) {
+    const prefix = numericName[1];
+    const width = numericName[2].length;
+    const start = Number.parseInt(numericName[2], 10) + 1;
+
+    for (let index = start; index < start + 10000; index += 1) {
+      const candidate = `${prefix}${String(index).padStart(width, '0')}`;
+      if (!used.has(candidate) && !reservedStreamNames.has(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
   const baseName = `${preferredName}-import`;
   if (!used.has(baseName) && !reservedStreamNames.has(baseName)) {
     return baseName;
@@ -1578,7 +1592,7 @@ router.post('/cameras', async (req, res) => {
     const { displayTargets, displayRegion } = resolveDisplayAssignment(camera.display_targets, camera.display_region, project);
     await assertDisplayTargetsAvailable(projectId, 0, displayTargets);
     if (camera.source_type === 'rtsp') {
-      await assertRtspStreamNameAvailable(camera.stream_name);
+      camera.stream_name = await availableRtspStreamName(camera.stream_name);
     }
 
     const result = await db.run(

@@ -93,6 +93,7 @@ const loginError = ref('');
 const cameras = ref([]);
 const loading = ref(false);
 const saving = ref(false);
+const createError = ref('');
 const bulkCreating = ref(false);
 const statusRefreshing = ref(false);
 let statusPollTimer = null;
@@ -712,12 +713,24 @@ function applyProject(project) {
   projectDraft.prefix = project.prefix;
 }
 
+function nextStreamName(prefix = 'screen') {
+  const used = new Set(cameras.value.map((camera) => camera.stream_name).filter(Boolean));
+
+  for (let index = 1; index < 10000; index += 1) {
+    const candidate = `${prefix}${String(index).padStart(2, '0')}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${prefix}${Date.now().toString(36)}`;
+}
+
 function resetForm() {
-  const nextNumber = cameras.value.length + 1;
   form.source_type = 'camera';
   form.name = '';
   form.ip = '';
-  form.stream_name = `screen${String(nextNumber).padStart(2, '0')}`;
+  form.stream_name = nextStreamName();
   form.web_url = 'https://www.baidu.com';
   form.width = 1280;
   form.height = 720;
@@ -778,12 +791,15 @@ function incrementIp(value) {
 }
 
 async function openCreateSourceModal() {
+  error.value = '';
+  createError.value = '';
   await refreshScreenUrls();
   resetUrlPicker('create');
   showCreateModal.value = true;
 }
 
 async function openBulkCreateModal() {
+  error.value = '';
   await refreshScreenUrls();
   resetUrlPicker('bulk');
   showBulkModal.value = true;
@@ -805,9 +821,10 @@ async function cloneCamera(camera) {
   showToast(form.source_type === 'rtsp' || form.ip ? '已复制到新增弹窗' : '已复制，请补充虚拟 IP');
 }
 
-function sourcePayload(payload) {
+function sourcePayload(payload, { autoStreamName = false } = {}) {
   return {
     ...payload,
+    stream_name: payload.stream_name || (autoStreamName ? nextStreamName() : payload.stream_name),
     ip: payload.source_type === 'rtsp' ? null : payload.ip,
   };
 }
@@ -1106,6 +1123,9 @@ function applyScreenUrl(target, item) {
 
 function applyScreenUrlFromPicker(key, target, item) {
   applyScreenUrl(target, item);
+  if (key === 'create') {
+    target.name = item.name;
+  }
   closeUrlPicker(key);
 }
 
@@ -1456,20 +1476,22 @@ async function addProject() {
 }
 
 async function submit() {
-  if (!canCreateCamera.value || !canManageSelectedProject.value) return;
+  if (!canCreateCamera.value) return;
 
   saving.value = true;
-  error.value = '';
+  createError.value = '';
 
   try {
-	    await createCamera(sourcePayload(form), selectedProjectId.value);
+	    await createCamera(sourcePayload(form, { autoStreamName: true }), selectedProjectId.value);
 	    resetForm();
 	    await refresh();
 	    showCreateModal.value = false;
 	    showToast('已创建');
   } catch (err) {
-    error.value = err.message;
+    const message = err.message;
     await refresh().catch(() => {});
+    error.value = '';
+    createError.value = message;
   } finally {
     saving.value = false;
   }
@@ -2981,10 +3003,6 @@ onBeforeUnmount(() => {
 	            </div>
 	          </label>
 	          <label>
-	            <span>流名称</span>
-	            <input v-model.trim="form.stream_name" required placeholder="screen01" />
-	          </label>
-	          <label>
 	            <span>宽度</span>
 	            <input v-model.number="form.width" required type="number" min="320" max="7680" step="1" />
 	          </label>
@@ -2997,6 +3015,7 @@ onBeforeUnmount(() => {
 	            <input v-model.number="form.fps" required type="number" min="1" max="60" step="1" />
 	          </label>
 	        </div>
+	        <p v-if="createError" class="error modal-error">{{ createError }}</p>
 	        <div class="modal-actions">
 	          <button class="text-button" type="button" @click="showCreateModal = false">取消</button>
 	          <button class="primary-button" type="submit" :disabled="!canCreateCamera">

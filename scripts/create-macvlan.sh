@@ -4,7 +4,7 @@ set -euo pipefail
 NETWORK_NAME="${NETWORK_NAME:-onvif_macvlan}"
 SUBNET="${SUBNET:-192.168.5.0/24}"
 GATEWAY="${GATEWAY:-192.168.5.1}"
-IP_RANGE="${IP_RANGE:-192.168.5.208/28}"
+IP_RANGE="${IP_RANGE:-192.168.5.192/26}"
 PARENT_IFACE="${PARENT_IFACE:-br0}"
 
 if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then

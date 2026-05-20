@@ -56,11 +56,11 @@ usage() {
 无人值守部署示例:
   ./ubuntu26.04-deploy.sh --yes \
     --host-if br0 \
-    --host-ip 192.168.5.111 \
+    --host-ip 192.168.5.198 \
     --subnet 192.168.5.0/24 \
     --gateway 192.168.5.1 \
-    --ip-range 192.168.5.208/28 \
-    --host-macvlan-ip 192.168.5.210
+    --ip-range 192.168.5.192/26 \
+    --host-macvlan-ip 192.168.5.199
 
 选项:
   -y, --yes                         使用检测值和参数值，不逐项询问
@@ -81,7 +81,7 @@ usage() {
       --docker-network NAME         Docker macvlan 网络名称，默认 onvif_macvlan
       --admin-username NAME         初始管理员用户名
       --admin-password PASSWORD     初始管理员密码
-      --frontend-port PORT          前端端口，默认 5177
+      --frontend-port PORT          前端端口，默认 9528
       --backend-port PORT           后端端口，默认 8177
       --rtsp-port PORT              RTSP 端口，默认 554
   -h, --help                        显示帮助
@@ -297,14 +297,14 @@ net = ipaddress.ip_network(sys.argv[1], strict=False)
 candidate = None
 
 if net.version == 4 and net.prefixlen <= 24 and net.num_addresses >= 256:
-    start = int(net.network_address) + 208
-    candidate = ipaddress.ip_network(f"{ipaddress.ip_address(start)}/28", strict=False)
+    start = int(net.network_address) + 192
+    candidate = ipaddress.ip_network(f"{ipaddress.ip_address(start)}/26", strict=False)
     if not candidate.subnet_of(net):
         candidate = None
 
 if candidate is None:
-    if net.prefixlen <= 28:
-        pools = list(net.subnets(new_prefix=28))
+    if net.prefixlen <= 26:
+        pools = list(net.subnets(new_prefix=26))
         candidate = pools[-2] if len(pools) > 1 else pools[0]
     else:
         candidate = net
@@ -320,7 +320,10 @@ import sys
 
 net = ipaddress.ip_network(sys.argv[1], strict=False)
 hosts = list(net.hosts())
-if len(hosts) >= 2:
+preferred = ipaddress.ip_address(int(net.network_address) + 7)
+if preferred in hosts:
+    print(preferred)
+elif len(hosts) >= 2:
     print(hosts[1])
 elif hosts:
     print(hosts[0])
@@ -585,7 +588,7 @@ prepare_config() {
   RTSP_GATEWAY_PORT="${RTSP_PORT_INPUT:-${RTSP_GATEWAY_PORT:-554}}"
   RTSP_NETWORK="${RTSP_NETWORK:-virtualwebcam_rtsp}"
   ADMIN_USERNAME="${ADMIN_USERNAME_INPUT:-${ADMIN_USERNAME:-admin}}"
-  FRONTEND_PORT="${FRONTEND_PORT_INPUT:-${FRONTEND_PORT:-5177}}"
+  FRONTEND_PORT="${FRONTEND_PORT_INPUT:-${FRONTEND_PORT:-9528}}"
   BACKEND_PORT="${BACKEND_PORT_INPUT:-${BACKEND_PORT:-8177}}"
   HOST_IF="${HOST_IF_INPUT:-${HOST_IF:-$detected_iface}}"
   SUBNET="${SUBNET_INPUT:-${SUBNET:-$detected_subnet}}"

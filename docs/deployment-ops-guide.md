@@ -2,9 +2,9 @@
 
 版本：1.0  
 目标环境：Linux + Docker  
-当前验证网络：`br0 = 192.168.5.111/24`  
-虚拟摄像头地址池：`192.168.5.208/28`，建议摄像头从 `192.168.5.211` 开始使用  
-管理后台端口：前端 `5177`，后端 `8177`
+当前验证网络：`br0 = 192.168.5.198/24`  
+虚拟摄像头地址池：`192.168.5.192/26`，建议摄像头从 `192.168.5.200` 开始使用  
+管理后台端口：前端 `9528`，后端 `8177`
 
 ## 1. 部署目标
 
@@ -24,15 +24,15 @@
 ONVIF 摄像头示例：
 
 ```text
-RTSP:  rtsp://192.168.5.211:554/screen01
-ONVIF: http://192.168.5.211/onvif/device_service
-Web:   http://192.168.5.211
+RTSP:  rtsp://192.168.5.200:554/screen01
+ONVIF: http://192.168.5.200/onvif/device_service
+Web:   http://192.168.5.200
 ```
 
 RTSP 流源示例：
 
 ```text
-RTSP:  rtsp://192.168.5.111:554/screen01
+RTSP:  rtsp://192.168.5.198:554/screen01
 ```
 
 ## 2. 部署前检查
@@ -70,7 +70,7 @@ ip route
 期望能看到：
 
 ```text
-br0: 192.168.5.111/24
+br0: 192.168.5.198/24
 default via 192.168.5.1
 ```
 
@@ -79,7 +79,7 @@ default via 192.168.5.1
 宿主机需要保留：
 
 ```text
-5177/tcp  前端管理页面
+9528/tcp  前端管理页面
 8177/tcp  后端 API
 554/tcp   共享 RTSP 网关。只有创建 RTSP 流源时才会占用
 ```
@@ -99,8 +99,8 @@ docker compose up -d --build manager-backend manager-frontend
 访问管理后台：
 
 ```text
-http://localhost:5177
-http://192.168.5.111:5177
+http://localhost:9528
+http://192.168.5.198:9528
 ```
 
 检查服务：
@@ -120,7 +120,7 @@ macvlan 网络由宿主机 Docker 管理。每个 ONVIF 摄像头容器会在该
 sudo PARENT_IFACE=br0 \
   SUBNET=192.168.5.0/24 \
   GATEWAY=192.168.5.1 \
-  IP_RANGE=192.168.5.208/28 \
+  IP_RANGE=192.168.5.192/26 \
   NETWORK_NAME=onvif_macvlan \
   ./scripts/create-macvlan.sh
 ```
@@ -130,7 +130,7 @@ sudo PARENT_IFACE=br0 \
 ```bash
 sudo docker network create -d macvlan \
   --subnet=192.168.5.0/24 \
-  --ip-range=192.168.5.208/28 \
+  --ip-range=192.168.5.192/26 \
   --gateway=192.168.5.1 \
   -o parent=br0 \
   onvif_macvlan
@@ -147,7 +147,7 @@ docker network inspect onvif_macvlan
 ```text
 Driver: macvlan
 Subnet: 192.168.5.0/24
-IPRange: 192.168.5.208/28
+IPRange: 192.168.5.192/26
 Gateway: 192.168.5.1
 Parent: br0
 ```
@@ -159,8 +159,8 @@ macvlan 的常见限制是：宿主机默认不能访问同一宿主机上的 ma
 如果需要在宿主机本机打开：
 
 ```text
-http://192.168.5.211
-rtsp://192.168.5.211:554/screen01
+http://192.168.5.200
+rtsp://192.168.5.200:554/screen01
 ```
 
 需要创建宿主机侧辅助接口。
@@ -169,8 +169,8 @@ rtsp://192.168.5.211:554/screen01
 
 ```bash
 sudo HOST_IF=br0 \
-  HOST_MACVLAN_IP=192.168.5.210 \
-  ROUTE_CIDR=192.168.5.208/28 \
+  HOST_MACVLAN_IP=192.168.5.199 \
+  ROUTE_CIDR=192.168.5.192/26 \
   ./scripts/setup-macvlan-host.sh
 ```
 
@@ -179,9 +179,9 @@ sudo HOST_IF=br0 \
 ```bash
 sudo ip link delete macvlan-host 2>/dev/null || true
 sudo ip link add macvlan-host link br0 type macvlan mode bridge
-sudo ip addr add 192.168.5.210/32 dev macvlan-host
+sudo ip addr add 192.168.5.199/32 dev macvlan-host
 sudo ip link set macvlan-host up
-sudo ip route replace 192.168.5.208/28 dev macvlan-host
+sudo ip route replace 192.168.5.192/26 dev macvlan-host
 ```
 
 ### 5.3 开机恢复
@@ -198,7 +198,7 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/mola/genai/src/virtual-web-cam
-ExecStart=/usr/bin/env HOST_IF=br0 HOST_MACVLAN_IP=192.168.5.210 ROUTE_CIDR=192.168.5.208/28 /mola/genai/src/virtual-web-cam/scripts/setup-macvlan-host.sh
+ExecStart=/usr/bin/env HOST_IF=br0 HOST_MACVLAN_IP=192.168.5.199 ROUTE_CIDR=192.168.5.192/26 /mola/genai/src/virtual-web-cam/scripts/setup-macvlan-host.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -237,11 +237,11 @@ sudo systemctl enable --now virtualwebcam-macvlan-host.service
 
 ```text
 宿主机网卡：br0
-宿主机 IP：192.168.9.111
+宿主机 IP：192.168.9.198
 网关：192.168.9.1
-虚拟摄像头地址池：192.168.9.208/28
-宿主机辅助 IP：192.168.9.210
-摄像头起始 IP：192.168.9.211
+虚拟摄像头地址池：192.168.9.192/26
+宿主机辅助 IP：192.168.9.199
+摄像头起始 IP：192.168.9.200
 Docker macvlan 网络名：onvif_macvlan
 ```
 
@@ -254,7 +254,7 @@ ip route | grep default
 
 如果现场网关不是 `192.168.9.1`，后续命令里的 `GATEWAY` 必须替换成真实网关。
 
-建议先确认地址池不会和路由器 DHCP、真实摄像头、中控、大屏控制器或其他设备冲突。`192.168.9.208/28` 只是示例，可用地址范围通常为 `192.168.9.209-192.168.9.222`，其中建议预留 `192.168.9.210` 给宿主机辅助接口，摄像头从 `192.168.9.211` 开始。
+建议先确认地址池不会和路由器 DHCP、真实摄像头、中控、大屏控制器或其他设备冲突。`192.168.9.192/26` 只是示例，CIDR 实际主机范围是 `192.168.9.193 - 192.168.9.254`；业务上只从 `192.168.9.200 - 192.168.9.240` 分配摄像头 IP，并预留 `192.168.9.199` 给宿主机辅助接口。
 
 #### 5.4.1 停止并移除旧摄像头容器
 
@@ -285,7 +285,7 @@ docker ps -a
 sudo PARENT_IFACE=br0 \
   SUBNET=192.168.9.0/24 \
   GATEWAY=192.168.9.1 \
-  IP_RANGE=192.168.9.208/28 \
+  IP_RANGE=192.168.9.192/26 \
   NETWORK_NAME=onvif_macvlan \
   ./scripts/create-macvlan.sh
 ```
@@ -295,7 +295,7 @@ sudo PARENT_IFACE=br0 \
 ```bash
 sudo docker network create -d macvlan \
   --subnet=192.168.9.0/24 \
-  --ip-range=192.168.9.208/28 \
+  --ip-range=192.168.9.192/26 \
   --gateway=192.168.9.1 \
   -o parent=br0 \
   onvif_macvlan
@@ -311,19 +311,19 @@ docker network inspect onvif_macvlan
 
 ```text
 Subnet: 192.168.9.0/24
-IPRange: 192.168.9.208/28
+IPRange: 192.168.9.192/26
 Gateway: 192.168.9.1
 Parent: br0
 ```
 
 #### 5.4.4 重建宿主机辅助接口
 
-如果只需要局域网其他设备访问虚拟摄像头，可以跳过这一步。如果要在宿主机本机用浏览器、`mpv`、ODM 访问 `192.168.9.211` 这类 macvlan 容器 IP，则需要执行：
+如果只需要局域网其他设备访问虚拟摄像头，可以跳过这一步。如果要在宿主机本机用浏览器、`mpv`、ODM 访问 `192.168.9.200` 这类 macvlan 容器 IP，则需要执行：
 
 ```bash
 sudo HOST_IF=br0 \
-  HOST_MACVLAN_IP=192.168.9.210 \
-  ROUTE_CIDR=192.168.9.208/28 \
+  HOST_MACVLAN_IP=192.168.9.199 \
+  ROUTE_CIDR=192.168.9.192/26 \
   ./scripts/setup-macvlan-host.sh
 ```
 
@@ -332,15 +332,15 @@ sudo HOST_IF=br0 \
 ```bash
 sudo ip link delete macvlan-host 2>/dev/null || true
 sudo ip link add macvlan-host link br0 type macvlan mode bridge
-sudo ip addr add 192.168.9.210/32 dev macvlan-host
+sudo ip addr add 192.168.9.199/32 dev macvlan-host
 sudo ip link set macvlan-host up
-sudo ip route replace 192.168.9.208/28 dev macvlan-host
+sudo ip route replace 192.168.9.192/26 dev macvlan-host
 ```
 
 如果之前配置了 systemd 开机恢复，也要同步修改：
 
 ```ini
-ExecStart=/usr/bin/env HOST_IF=br0 HOST_MACVLAN_IP=192.168.9.210 ROUTE_CIDR=192.168.9.208/28 /mola/genai/src/virtual-web-cam/scripts/setup-macvlan-host.sh
+ExecStart=/usr/bin/env HOST_IF=br0 HOST_MACVLAN_IP=192.168.9.199 ROUTE_CIDR=192.168.9.192/26 /mola/genai/src/virtual-web-cam/scripts/setup-macvlan-host.sh
 ```
 
 修改后执行：
@@ -358,10 +358,10 @@ sudo systemctl restart virtualwebcam-macvlan-host.service
 HOST_IF=br0
 SUBNET=192.168.9.0/24
 GATEWAY=192.168.9.1
-IP_RANGE=192.168.9.208/28
-HOST_MACVLAN_IP=192.168.9.210
-ROUTE_CIDR=192.168.9.208/28
-RTSP_GATEWAY_HOST=192.168.9.111
+IP_RANGE=192.168.9.192/26
+HOST_MACVLAN_IP=192.168.9.199
+ROUTE_CIDR=192.168.9.192/26
+RTSP_GATEWAY_HOST=192.168.9.198
 ```
 
 后端真正创建摄像头容器时主要读取 `DOCKER_NETWORK`，只要网络名仍为 `onvif_macvlan`，通常不需要修改后端配置。
@@ -372,15 +372,15 @@ RTSP_GATEWAY_HOST=192.168.9.111
 进入管理后台：
 
 ```text
-http://192.168.9.111:5177
+http://192.168.9.198:9528
 ```
 
 在摄像头管理页面逐个编辑摄像头，把旧 IP 改到新网段，例如：
 
 ```text
-192.168.5.211 -> 192.168.9.211
-192.168.5.212 -> 192.168.9.212
-192.168.5.213 -> 192.168.9.213
+192.168.5.200 -> 192.168.9.200
+192.168.5.201 -> 192.168.9.201
+192.168.5.202 -> 192.168.9.202
 ```
 
 保存后重新启动摄像头。因为旧容器已经删除，启动时后端会按新的 IP 创建容器。
@@ -415,15 +415,15 @@ docker inspect <容器名或容器ID> | grep -A5 onvif_macvlan
 从宿主机本机验证：
 
 ```bash
-curl -I http://192.168.9.211
-mpv --rtsp-transport=tcp rtsp://192.168.9.211:554/screen01
+curl -I http://192.168.9.200
+mpv --rtsp-transport=tcp rtsp://192.168.9.200:554/screen01
 ```
 
 从 ONVIF Device Manager 或中控手动添加：
 
 ```text
-ONVIF：http://192.168.9.211/onvif/device_service
-RTSP：rtsp://192.168.9.211:554/screen01
+ONVIF：http://192.168.9.200/onvif/device_service
+RTSP：rtsp://192.168.9.200:554/screen01
 ```
 
 迁移完成后，旧地址 `192.168.5.xxx` 不应再出现在摄像头列表、RTSP 地址、ONVIF 地址和中控配置中。
@@ -465,7 +465,7 @@ docker logs --tail=80 virtualwebcam-manager-frontend
 访问：
 
 ```text
-http://192.168.5.111:5177
+http://192.168.5.198:9528
 ```
 
 ### 7.2 开发模式部署
@@ -480,7 +480,7 @@ DOCKER_NETWORK=onvif_macvlan \
 DOCKER_EGRESS_NETWORK=bridge \
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
 CAMERA_RTSP_PORT=554 \
-RTSP_GATEWAY_HOST=192.168.5.111 \
+RTSP_GATEWAY_HOST=192.168.5.198 \
 RTSP_GATEWAY_PORT=554 \
 RTSP_NETWORK=virtualwebcam_rtsp \
 npm run dev
@@ -490,7 +490,7 @@ npm run dev
 
 ```bash
 cd frontend
-npm run dev -- --port 5177
+npm run dev -- --port 9528
 ```
 
 ## 8. 安全配置
@@ -540,14 +540,14 @@ API_TOKEN="change-me" docker compose up -d --build manager-backend manager-front
 
 如果项目里已经维护了“大屏地址”，网页 URL 可以直接搜索选择；也可以手动输入任意合法的 `http://` 或 `https://` 地址。
 
-1. 打开 `http://192.168.5.111:5177`。
+1. 打开 `http://192.168.5.198:9528`。
 2. 进入项目。
 3. 打开“摄像头管理”。
 4. 点击“新增源”。
 5. 源类型选择“ONVIF 摄像头（独立 IP）”。
 6. 填写：
    - 名称：`web-cam-01`
-   - 虚拟 IP：`192.168.5.211`
+   - 虚拟 IP：`192.168.5.200`
    - 网页 URL：业务网页地址
    - 流名称：`screen01`
    - 分辨率：`1280 x 720`
@@ -558,8 +558,8 @@ API_TOKEN="change-me" docker compose up -d --build manager-backend manager-front
 
 ```text
 状态：运行中
-RTSP：rtsp://192.168.5.211:554/screen01
-ONVIF：http://192.168.5.211/onvif/device_service
+RTSP：rtsp://192.168.5.200:554/screen01
+ONVIF：http://192.168.5.200/onvif/device_service
 ```
 
 ### 9.2 通过网页创建 RTSP 流源
@@ -568,7 +568,7 @@ ONVIF：http://192.168.5.211/onvif/device_service
 
 如果项目里已经维护了“大屏地址”，网页 URL 可以直接搜索选择；也可以手动输入。
 
-1. 打开 `http://192.168.5.111:5177`。
+1. 打开 `http://192.168.5.198:9528`。
 2. 进入项目。
 3. 打开“摄像头管理”。
 4. 点击“新增源”。
@@ -585,7 +585,7 @@ ONVIF：http://192.168.5.211/onvif/device_service
 
 ```text
 状态：运行中
-RTSP：rtsp://192.168.5.111:554/screen01
+RTSP：rtsp://192.168.5.198:554/screen01
 ONVIF：无
 ```
 
@@ -597,7 +597,7 @@ curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
   -d '{
     "source_type": "camera",
     "name": "web-cam-01",
-    "ip": "192.168.5.211",
+    "ip": "192.168.5.200",
     "stream_name": "screen01",
     "web_url": "https://www.baidu.com",
     "width": 1280,
@@ -647,7 +647,7 @@ docker create \
   -e FPS=15 \
   virtualwebcam:latest
 
-docker network connect --ip 192.168.5.211 onvif_macvlan web-cam-01
+docker network connect --ip 192.168.5.200 onvif_macvlan web-cam-01
 docker start web-cam-01
 ```
 
@@ -700,13 +700,13 @@ docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}
 该验证只适用于 ONVIF 摄像头。
 
 ```bash
-curl -I http://192.168.5.211
+curl -I http://192.168.5.200
 ```
 
 浏览器打开：
 
 ```text
-http://192.168.5.211
+http://192.168.5.200
 ```
 
 ### 10.3 RTSP
@@ -714,19 +714,19 @@ http://192.168.5.211
 推荐使用 mpv：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01
 ```
 
 RTSP 流源使用宿主机共享网关地址：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.111:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.198:554/screen01
 ```
 
 如果使用 ffplay：
 
 ```bash
-ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
+ffplay -rtsp_transport tcp rtsp://192.168.5.200:554/screen01
 ```
 
 注意：部分播放器在容器重启或网页 URL 切换后可能停留历史帧，需要关闭后重新打开。mpv 在源重启时通常会退出，更适合作为验收工具。
@@ -738,7 +738,7 @@ ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
 ONVIF Device Manager 手动添加：
 
 ```text
-地址：http://192.168.5.211/onvif/device_service
+地址：http://192.168.5.200/onvif/device_service
 用户名：空
 密码：空
 ```
@@ -748,7 +748,7 @@ ONVIF Device Manager 手动添加：
 ```text
 设备类型：NVT
 Profile：screen01
-Stream URI：rtsp://192.168.5.211:554/screen01
+Stream URI：rtsp://192.168.5.200:554/screen01
 Live Video：显示网页画面
 ```
 
@@ -792,7 +792,7 @@ docker restart virtualwebcam-1-web-cam-01
 验证时请重新打开播放器：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01
 ```
 
 ### 11.5 状态同步
@@ -975,8 +975,8 @@ Camera IP already exists
 
 ```bash
 docker network inspect onvif_macvlan
-arp -a | grep 192.168.5.211
-ping 192.168.5.211
+arp -a | grep 192.168.5.200
+ping 192.168.5.200
 ```
 
 换一个未使用的 IP，或删除旧容器。
@@ -1025,7 +1025,7 @@ curl -I https://目标网页
 
 ```bash
 sudo ./scripts/setup-macvlan-host.sh
-ip route | grep 192.168.5.208
+ip route | grep 192.168.5.192
 ```
 
 ### 15.7 RTSP 播放器停留旧画面
@@ -1035,7 +1035,7 @@ ip route | grep 192.168.5.208
 推荐验收：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01
 ```
 
 ### 15.8 ONVIF 自动发现不到
@@ -1043,7 +1043,7 @@ mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
 手动添加：
 
 ```text
-http://192.168.5.211/onvif/device_service
+http://192.168.5.200/onvif/device_service
 ```
 
 如果手动添加成功、Live Video 正常，说明 ONVIF 接入链路可用。自动发现依赖 UDP 3702 和网络广播策略，需要单独排查。

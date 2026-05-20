@@ -234,7 +234,7 @@ ensure_screen_url "$DEFAULT_PROJECT_ID" "生产看板" "https://www.baidu.com" "
 ensure_screen_url "$DEFAULT_PROJECT_ID" "会议室日程" "https://gitee.com" "复杂页面测试"
 ensure_screen_url "$SHOP_PROJECT_ID" "门店活动页" "https://example.com" "门店横屏测试"
 
-ensure_bulk_cameras "$DEFAULT_PROJECT_ID" 6 "192.168.5.211" "大厅屏-" "demo-screen-" "https://example.com" 1280 720 15
+ensure_bulk_cameras "$DEFAULT_PROJECT_ID" 6 "192.168.5.200" "大厅屏-" "demo-screen-" "https://example.com" 1280 720 15
 ensure_bulk_cameras "$SHOP_PROJECT_ID" 4 "192.168.5.221" "门店屏-" "shop-screen-" "https://example.com" 1920 1080 10
 
 VIEWER_ID="$(ensure_user "viewer01" "只读验收员" "user" | tail -n 1)"

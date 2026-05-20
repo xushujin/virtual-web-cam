@@ -71,13 +71,13 @@ usage() {
       --admin-username NAME         初始管理员用户名
       --admin-password PASSWORD     初始管理员密码
       --backend-port PORT           后端宿主机端口，默认 8177
-      --frontend-port PORT          前端宿主机端口，默认 5177
+      --frontend-port PORT          前端宿主机端口，默认 9528
       --rtsp-port PORT              RTSP 共享网关宿主机端口，默认 554
 
 示例:
   ./scripts/ubuntu-one-click-deploy.sh
-  ./scripts/ubuntu-one-click-deploy.sh --yes --host-if br0 --host-ip 192.168.5.111
-  ./scripts/ubuntu-one-click-deploy.sh --yes --host-if ens33 --subnet 192.168.9.0/24 --gateway 192.168.9.1 --ip-range 192.168.9.208/28 --host-macvlan-ip 192.168.9.210
+  ./scripts/ubuntu-one-click-deploy.sh --yes --host-if br0 --host-ip 192.168.5.198
+  ./scripts/ubuntu-one-click-deploy.sh --yes --host-if ens33 --subnet 192.168.9.0/24 --gateway 192.168.9.1 --ip-range 192.168.9.192/26 --host-macvlan-ip 192.168.9.199
 EOF
 }
 
@@ -287,13 +287,13 @@ if net.version != 4:
 
 candidate = None
 if net.prefixlen <= 24 and net.num_addresses >= 256:
-    possible = ipaddress.ip_network(f"{net.network_address + 208}/28", strict=False)
+    possible = ipaddress.ip_network(f"{net.network_address + 192}/26", strict=False)
     if possible.subnet_of(net):
         candidate = possible
 
 if candidate is None:
-    if net.prefixlen <= 28:
-        pools = list(net.subnets(new_prefix=28))
+    if net.prefixlen <= 26:
+        pools = list(net.subnets(new_prefix=26))
         candidate = pools[-2] if len(pools) > 1 else pools[0]
     else:
         candidate = net
@@ -304,7 +304,7 @@ PY
   fi
 
   local base="${subnet%.*}"
-  printf '%s.208/28\n' "$base"
+  printf '%s.192/26\n' "$base"
 }
 
 suggest_host_macvlan_ip() {
@@ -317,7 +317,10 @@ import sys
 
 net = ipaddress.ip_network(sys.argv[1], strict=False)
 hosts = list(net.hosts())
-if len(hosts) >= 2:
+preferred = ipaddress.ip_address(int(net.network_address) + 7)
+if preferred in hosts:
+    print(preferred)
+elif len(hosts) >= 2:
     print(hosts[1])
 elif hosts:
     print(hosts[0])
@@ -481,7 +484,7 @@ prepare_config() {
   RTSP_NETWORK="${RTSP_NETWORK:-virtualwebcam_rtsp}"
   ADMIN_USERNAME="${ADMIN_USERNAME_INPUT:-${ADMIN_USERNAME:-admin}}"
   BACKEND_PORT="${BACKEND_PORT_INPUT:-${BACKEND_PORT:-8177}}"
-  FRONTEND_PORT="${FRONTEND_PORT_INPUT:-${FRONTEND_PORT:-5177}}"
+  FRONTEND_PORT="${FRONTEND_PORT_INPUT:-${FRONTEND_PORT:-9528}}"
   HOST_IF="${HOST_IF_INPUT:-${HOST_IF:-$detected_iface}}"
   SUBNET="${SUBNET_INPUT:-${SUBNET:-$detected_subnet}}"
   GATEWAY="${GATEWAY_INPUT:-${GATEWAY:-$detected_gateway}}"

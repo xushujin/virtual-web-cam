@@ -453,6 +453,10 @@ button:disabled,
   margin-bottom: 18px;
 }
 
+.modal-error {
+  margin: 0;
+}
+
 .auth-screen {
   display: grid;
   place-items: center;

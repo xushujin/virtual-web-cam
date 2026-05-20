@@ -79,6 +79,53 @@ RTSP 流源使用共享网关，对外地址为：
 └── docker-compose.yml
 ```
 
+## 极简部署指南
+
+客户只需要先确认 6 个网络信息，就可以用根目录脚本完成部署：
+
+| 需要确认的信息 | 示例 | 说明 |
+| --- | --- | --- |
+| 宿主机网卡或网桥名 | `br0` | 承载虚拟摄像头 IP 的宿主机网络接口，也可能是 `eth0`、`ens160` 等 |
+| 宿主机管理 IP | `192.168.5.198` | 访问管理后台使用，例如 `http://192.168.5.198:9528` |
+| 局域网网段 | `192.168.5.0/24` | 宿主机、网关和虚拟摄像头所在网段 |
+| 网关 | `192.168.5.1` | 现场路由器或三层交换机地址 |
+| 摄像头业务预留 IP 范围 | `192.168.5.200-192.168.5.240` | 预留给虚拟 ONVIF 摄像头容器使用，必须没有被其它设备占用 |
+| 宿主机 macvlan 辅助 IP | `192.168.5.199` | 让宿主机本机也能访问 macvlan 容器，必须空闲，不分配给容器 |
+
+确认这些信息后，在 Ubuntu 26.04 客户机上执行：
+
+```bash
+chmod +x ubuntu26.04-deploy.sh
+
+./ubuntu26.04-deploy.sh --yes \
+  --host-if br0 \
+  --host-ip 192.168.5.198 \
+  --subnet 192.168.5.0/24 \
+  --gateway 192.168.5.1 \
+  --ip-range 192.168.5.192/26 \
+  --host-macvlan-ip 192.168.5.199
+```
+
+`--ip-range` 参数需要 CIDR 格式；上面的 `192.168.5.192/26` 实际主机地址范围是 `192.168.5.193-192.168.5.254`，不是精确的 `192.168.5.200-192.168.5.240`。这里使用它只是为了让 Docker macvlan 地址池覆盖客户预留段；现场创建视频源时，只从 `192.168.5.200-192.168.5.240` 中分配，不要使用宿主机管理 IP `192.168.5.198` 和辅助 IP `192.168.5.199`。
+
+部署完成后访问：
+
+```text
+http://192.168.5.198:9528
+```
+
+默认登录账号在首次部署时由环境变量决定，未修改时为：
+
+```text
+admin / admin123456
+```
+
+注意事项：
+
+- `--host-macvlan-ip` 必须是同网段空闲 IP，不能分配给虚拟摄像头。
+- `192.168.5.200-192.168.5.240` 要提前从现场网络中预留出来，不要被 DHCP、摄像头、电脑或其它设备占用。
+- 交换机或路由器如果限制同一物理口出现多个 MAC/IP，macvlan 容器可能无法被其它设备访问。
+
 ## Ubuntu 26.04 客户机部署
 
 客户电脑已经安装 Ubuntu 26.04 时，推荐直接运行根目录部署脚本，并按提示填写现场网卡、主机 IP、网关和 ONVIF 摄像头地址池：
@@ -93,11 +140,11 @@ chmod +x ubuntu26.04-deploy.sh
 ```bash
 ./ubuntu26.04-deploy.sh --yes \
   --host-if br0 \
-  --host-ip 192.168.5.111 \
+  --host-ip 192.168.5.198 \
   --subnet 192.168.5.0/24 \
   --gateway 192.168.5.1 \
-  --ip-range 192.168.5.208/28 \
-  --host-macvlan-ip 192.168.5.210
+  --ip-range 192.168.5.192/26 \
+  --host-macvlan-ip 192.168.5.199
 ```
 
 ## 构建镜像
@@ -114,7 +161,7 @@ docker build -t virtualwebcam:latest ./container
 
 ## 创建 macvlan 网络
 
-本项目当前按宿主机实际网络 `br0 = 192.168.5.111/24` 配置。默认虚拟摄像头地址池为 `192.168.5.208/28`，可分配 `192.168.5.209-192.168.5.222`。其中 `192.168.5.210` 预留给宿主机侧 `macvlan-host` 辅助接口，建议从 `192.168.5.211` 开始给摄像头使用。
+本项目当前按宿主机实际网络 `br0 = 192.168.5.198/24` 配置。示例中虚拟摄像头业务预留地址为 `192.168.5.200-192.168.5.240`，宿主机侧 `macvlan-host` 辅助接口使用 `192.168.5.199`。脚本的 `--ip-range` 需要 CIDR 格式，`192.168.5.200-192.168.5.240` 不能用单个标准 CIDR 精确表达，因此示例使用 `192.168.5.192/26` 作为覆盖地址池；实际创建摄像头时不要使用 `192.168.5.198` 和 `192.168.5.199`。
 
 创建 Docker macvlan 网络：
 
@@ -122,7 +169,7 @@ docker build -t virtualwebcam:latest ./container
 sudo PARENT_IFACE=br0 \
   SUBNET=192.168.5.0/24 \
   GATEWAY=192.168.5.1 \
-  IP_RANGE=192.168.5.208/28 \
+  IP_RANGE=192.168.5.192/26 \
   NETWORK_NAME=onvif_macvlan \
   ./scripts/create-macvlan.sh
 ```
@@ -132,7 +179,7 @@ sudo PARENT_IFACE=br0 \
 ```bash
 sudo docker network create -d macvlan \
   --subnet=192.168.5.0/24 \
-  --ip-range=192.168.5.208/28 \
+  --ip-range=192.168.5.192/26 \
   --gateway=192.168.5.1 \
   -o parent=br0 \
   onvif_macvlan
@@ -140,28 +187,28 @@ sudo docker network create -d macvlan \
 
 ## 宿主机访问 macvlan 容器
 
-macvlan 的常见限制是宿主机默认不能直接访问同一块物理网卡下的 macvlan 容器。如果只从局域网其他机器或中控访问虚拟摄像头，可以不做这一步；如果要在宿主机本机访问 `192.168.5.211`、`192.168.5.212`，需要创建宿主机侧辅助接口：
+macvlan 的常见限制是宿主机默认不能直接访问同一块物理网卡下的 macvlan 容器。如果只从局域网其他机器或中控访问虚拟摄像头，可以不做这一步；如果要在宿主机本机访问 `192.168.5.200`、`192.168.5.201`，需要创建宿主机侧辅助接口：
 
 ```bash
 sudo ip link delete macvlan-host 2>/dev/null || true
 sudo ip link add macvlan-host link br0 type macvlan mode bridge
-sudo ip addr add 192.168.5.210/32 dev macvlan-host
+sudo ip addr add 192.168.5.199/32 dev macvlan-host
 sudo ip link set macvlan-host up
-sudo ip route add 192.168.5.208/28 dev macvlan-host
+sudo ip route add 192.168.5.192/26 dev macvlan-host
 ```
 
 也可以使用内置脚本：
 
 ```bash
 sudo HOST_IF=br0 \
-  HOST_MACVLAN_IP=192.168.5.210 \
-  ROUTE_CIDR=192.168.5.208/28 \
+  HOST_MACVLAN_IP=192.168.5.199 \
+  ROUTE_CIDR=192.168.5.192/26 \
   ./scripts/setup-macvlan-host.sh
 ```
 
-如果当前登录用户不能免密 `sudo`，管理后台仍然可以创建和管理 macvlan 摄像头容器；只是宿主机本机无法直接访问 `192.168.5.211` 这类 macvlan 容器 IP。同网段其他设备、中控、ODM 通常可以直接访问。要让宿主机本机也能访问，需要由有 sudo 权限的用户执行上面的辅助接口命令。
+如果当前登录用户不能免密 `sudo`，管理后台仍然可以创建和管理 macvlan 摄像头容器；只是宿主机本机无法直接访问 `192.168.5.200` 这类 macvlan 容器 IP。同网段其他设备、中控、ODM 通常可以直接访问。要让宿主机本机也能访问，需要由有 sudo 权限的用户执行上面的辅助接口命令。
 
-这个 all-in-one 镜像里的 MediaMTX 运行在摄像头容器内部，FFmpeg 推到容器内 `127.0.0.1:8556`，go2rtc 再对外输出 `554` 和 `80`。因此不再需要宿主机单独运行 `mediamtx`，也不需要让 go2rtc 从宿主机 `192.168.5.210:554` 拉流。
+这个 all-in-one 镜像里的 MediaMTX 运行在摄像头容器内部，FFmpeg 推到容器内 `127.0.0.1:8556`，go2rtc 再对外输出 `554` 和 `80`。因此不再需要宿主机单独运行 `mediamtx`，也不需要让 go2rtc 从宿主机辅助 IP 拉流。
 
 ## 单容器运行
 
@@ -169,7 +216,7 @@ sudo HOST_IF=br0 \
 docker run -d \
   --name web-cam-01 \
   --network onvif_macvlan \
-  --ip 192.168.5.211 \
+  --ip 192.168.5.200 \
   -e WEB_URL="https://www.baidu.com" \
   -e STREAM_NAME="screen01" \
   -e WIDTH=1280 \
@@ -188,9 +235,9 @@ docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}
 同网段其他机器或中控可访问：
 
 ```text
-RTSP:  rtsp://192.168.5.211:554/screen01
-ONVIF: http://192.168.5.211/onvif/device_service
-Web:   http://192.168.5.211
+RTSP:  rtsp://192.168.5.200:554/screen01
+ONVIF: http://192.168.5.200/onvif/device_service
+Web:   http://192.168.5.200
 ```
 
 ## 启动管理后台
@@ -209,18 +256,18 @@ PORT=8177 \
 DOCKER_NETWORK=onvif_macvlan \
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
 CAMERA_RTSP_PORT=554 \
-RTSP_GATEWAY_HOST=192.168.5.111 \
+RTSP_GATEWAY_HOST=192.168.5.198 \
 RTSP_GATEWAY_PORT=554 \
 npm run dev
 
 cd ../frontend
-npm run dev -- --port 5177
+npm run dev -- --port 9528
 ```
 
 访问：
 
 ```text
-http://<host_ip>:5177
+http://<host_ip>:9528
 ```
 
 后台 API 默认监听：
@@ -316,7 +363,7 @@ curl -X POST http://localhost:8177/api/cameras \
   -d '{
     "source_type": "camera",
     "name": "web-cam-01",
-    "ip": "192.168.5.211",
+    "ip": "192.168.5.200",
     "stream_name": "screen01",
     "web_url": "https://www.baidu.com",
     "width": 1280,
@@ -345,18 +392,18 @@ curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
 RTSP 流源创建成功后会自动启动共享网关容器 `virtualwebcam-rtsp-gateway`，输出地址类似：
 
 ```text
-rtsp://192.168.5.111:554/screen01
+rtsp://192.168.5.198:554/screen01
 ```
 
 ## 验证口径
 
 本项目当前验证重点：
 
-- Docker macvlan：`onvif_macvlan`，`192.168.5.0/24`，`ip-range=192.168.5.208/28`，`parent=br0`
+- Docker macvlan：`onvif_macvlan`，`192.168.5.0/24`，`ip-range=192.168.5.192/26`，`parent=br0`
 - 镜像：`virtualwebcam:latest`
 - 管理后台健康检查：Docker socket 可访问、macvlan 网络存在、镜像存在
-- ONVIF 摄像头：`rtsp://192.168.5.211:554/screen01`、`http://192.168.5.211/onvif/device_service`
-- RTSP 流源：`rtsp://192.168.5.111:554/<stream_name>`
+- ONVIF 摄像头：`rtsp://192.168.5.200:554/screen01`、`http://192.168.5.200/onvif/device_service`
+- RTSP 流源：`rtsp://192.168.5.198:554/<stream_name>`
 - 播放器验收：推荐复制页面内的 mpv 测试命令，格式为 `mpv --rtsp-transport=tcp <rtsp_url>`
 - ffprobe 验收：RTSP 返回 H.264 视频流
 - ODM 验收：ONVIF 手动添加成功即可，自动发现不作为核心验收项

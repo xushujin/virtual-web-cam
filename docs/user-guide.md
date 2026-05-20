@@ -2,7 +2,7 @@
 
 版本：1.0  
 适用对象：项目管理员、现场实施人员、运维人员  
-访问地址：`http://<宿主机IP>:5177`，当前示例为 `http://192.168.5.111:5177`
+访问地址：`http://<宿主机IP>:9528`，当前示例为 `http://192.168.5.198:9528`
 
 ## 1. 系统能做什么
 
@@ -78,7 +78,7 @@ RTSP 地址：rtsp://宿主机IP:554/流名称
 浏览器打开：
 
 ```text
-http://192.168.5.111:5177
+http://192.168.5.198:9528
 ```
 
 页面顶部会显示运行环境状态。
@@ -239,7 +239,7 @@ name,url,remark
 
 - 源类型：选择 `ONVIF 摄像头（独立 IP）`。
 - 名称：例如 `web-cam-01`。
-- 虚拟 IP：例如 `192.168.5.211`。
+- 虚拟 IP：例如 `192.168.5.200`。
 - 网页 URL：要显示的大屏网页地址。可以手动输入，也可以从项目“大屏地址”候选中搜索选择。
 - 流名称：例如 `screen01`。
 - 宽度：通常 `1280`。
@@ -273,7 +273,7 @@ name,url,remark
 RTSP 流源不需要填写虚拟 IP。创建后系统会自动维护共享 RTSP 网关，最终地址类似：
 
 ```text
-rtsp://192.168.5.111:554/screen01
+rtsp://192.168.5.198:554/screen01
 ```
 
 RTSP 流源没有 ONVIF 地址，也没有 go2rtc 页面。
@@ -298,7 +298,7 @@ RTSP 流源没有 ONVIF 地址，也没有 go2rtc 页面。
 
 ```text
 数量：8
-起始 IP：192.168.5.211
+起始 IP：192.168.5.200
 名称前缀：web-cam-
 流名前缀：screen
 ```
@@ -306,8 +306,8 @@ RTSP 流源没有 ONVIF 地址，也没有 go2rtc 页面。
 生成结果：
 
 ```text
-web-cam-01 -> 192.168.5.211 -> screen01
-web-cam-02 -> 192.168.5.212 -> screen02
+web-cam-01 -> 192.168.5.200 -> screen01
+web-cam-02 -> 192.168.5.201 -> screen02
 ...
 web-cam-08 -> 192.168.5.218 -> screen08
 ```
@@ -386,7 +386,7 @@ RTSP 流源没有 ONVIF 和 go2rtc 页面，所以对应按钮不会显示。
 修改网页 URL 后，建议重新打开播放器：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01
 ```
 
 部分播放器可能停留在旧画面，重新打开即可。
@@ -585,7 +585,7 @@ IP
 
 ```text
 协议：ONVIF
-IP：192.168.5.211
+IP：192.168.5.200
 端口：80
 用户名：空
 密码：空
@@ -594,7 +594,7 @@ IP：192.168.5.211
 如果要求完整地址：
 
 ```text
-http://192.168.5.211/onvif/device_service
+http://192.168.5.200/onvif/device_service
 ```
 
 ### 10.2 RTSP 直连
@@ -602,13 +602,13 @@ http://192.168.5.211/onvif/device_service
 ONVIF 摄像头的 RTSP 地址：
 
 ```text
-rtsp://192.168.5.211:554/screen01
+rtsp://192.168.5.200:554/screen01
 ```
 
 RTSP 流源的 RTSP 地址：
 
 ```text
-rtsp://192.168.5.111:554/screen01
+rtsp://192.168.5.198:554/screen01
 ```
 
 两者的区别是：ONVIF 摄像头使用摄像头独立 IP，RTSP 流源使用宿主机共享网关 IP。
@@ -618,14 +618,14 @@ rtsp://192.168.5.111:554/screen01
 ONVIF Device Manager 手动添加：
 
 ```text
-http://192.168.5.211/onvif/device_service
+http://192.168.5.200/onvif/device_service
 ```
 
 成功后应能看到：
 
 ```text
 Profile：screen01
-Stream URI：rtsp://192.168.5.211:554/screen01
+Stream URI：rtsp://192.168.5.200:554/screen01
 Live Video：网页画面
 ```
 
@@ -634,19 +634,19 @@ Live Video：网页画面
 推荐：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01
 ```
 
 如果是 RTSP 流源：
 
 ```bash
-mpv --rtsp-transport=tcp rtsp://192.168.5.111:554/screen01
+mpv --rtsp-transport=tcp rtsp://192.168.5.198:554/screen01
 ```
 
 也可以使用：
 
 ```bash
-ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
+ffplay -rtsp_transport tcp rtsp://192.168.5.200:554/screen01
 ```
 
 如果修改了网页 URL 或重启了容器，播放器可能不会自动刷新。关闭播放器重新打开即可。
@@ -658,16 +658,16 @@ ffplay -rtsp_transport tcp rtsp://192.168.5.211:554/screen01
 当前地址池：
 
 ```text
-192.168.5.208/28
+192.168.5.192/26
 ```
 
 建议：
 
 ```text
-192.168.5.210  宿主机 macvlan-host 辅助接口
-192.168.5.211  摄像头 01
-192.168.5.212  摄像头 02
-192.168.5.213  摄像头 03
+192.168.5.199  宿主机 macvlan-host 辅助接口
+192.168.5.200  摄像头 01
+192.168.5.201  摄像头 02
+192.168.5.202  摄像头 03
 ...
 ```
 
@@ -713,7 +713,7 @@ meeting-schedule
 
 这是 macvlan 的常见限制。运维需要配置 `macvlan-host` 辅助接口。其他同网段机器通常可以直接访问。
 
-RTSP 流源不使用 macvlan 摄像头 IP，不受这个限制；它使用宿主机 IP，例如 `rtsp://192.168.5.111:554/screen01`。
+RTSP 流源不使用 macvlan 摄像头 IP，不受这个限制；它使用宿主机 IP，例如 `rtsp://192.168.5.198:554/screen01`。
 
 ### 13.4 为什么 ONVIF 自动发现不到？
 

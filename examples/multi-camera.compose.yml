@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     networks:
       onvif_macvlan:
-        ipv4_address: 192.168.5.211
+        ipv4_address: 192.168.5.200
     environment:
       WEB_URL: https://www.baidu.com
       STREAM_NAME: screen01
@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
     networks:
       onvif_macvlan:
-        ipv4_address: 192.168.5.212
+        ipv4_address: 192.168.5.201
     environment:
       WEB_URL: https://gitee.com
       STREAM_NAME: screen02

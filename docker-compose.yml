@@ -41,7 +41,7 @@ services:
     depends_on:
       - manager-backend
     ports:
-      - "${FRONTEND_PORT:-5177}:80"
+      - "${FRONTEND_PORT:-9528}:80"
 
 networks:
   default:

@@ -175,19 +175,19 @@
       <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-简明部署文档">VirtualWebCam 简明部署文档</a><a class="toc-level-2" href="#1-部署结果">1. 部署结果</a><a class="toc-level-2" href="#2-部署前确认">2. 部署前确认</a><a class="toc-level-2" href="#3-配置现场环境">3. 配置现场环境</a><a class="toc-level-2" href="#4-创建-macvlan-网络">4. 创建 macvlan 网络</a><a class="toc-level-2" href="#5-配置宿主机访问-macvlan-容器">5. 配置宿主机访问 macvlan 容器</a><a class="toc-level-2" href="#6-构建镜像和启动后台">6. 构建镜像和启动后台</a><a class="toc-level-2" href="#7-登录和初始化">7. 登录和初始化</a><a class="toc-level-2" href="#8-创建视频源">8. 创建视频源</a><a class="toc-level-3" href="#8-1-创建-onvif-摄像头">8.1 创建 ONVIF 摄像头</a><a class="toc-level-3" href="#8-2-创建-rtsp-流源">8.2 创建 RTSP 流源</a><a class="toc-level-2" href="#9-常用验收命令">9. 常用验收命令</a><a class="toc-level-2" href="#10-最常见问题">10. 最常见问题</a><a class="toc-level-3" href="#10-1-后台提示-docker-不可访问">10.1 后台提示 Docker 不可访问</a><a class="toc-level-3" href="#10-2-客户主机打不开-onvif-摄像头-ip">10.2 客户主机打不开 ONVIF 摄像头 IP</a><a class="toc-level-3" href="#10-3-rtsp-播放器显示旧画面">10.3 RTSP 播放器显示旧画面</a><a class="toc-level-3" href="#10-4-更换客户现场网段">10.4 更换客户现场网段</a></nav>
     </aside>
     <main><h1 id="virtualwebcam-简明部署文档"><a class="anchor" href="#virtualwebcam-简明部署文档">#</a>VirtualWebCam 简明部署文档</h1>
-<p>版本：1.0 适用对象：客户主机现场快速部署 默认端口：前端 <code>5177</code>，后端 <code>8177</code>，RTSP <code>554</code> 默认网络示例：<code>br0 = 192.168.5.111/24</code></p>
+<p>版本：1.0 适用对象：客户主机现场快速部署 默认端口：前端 <code>9528</code>，后端 <code>8177</code>，RTSP <code>554</code> 默认网络示例：<code>br0 = 192.168.5.198/24</code></p>
 <h2 id="1-部署结果"><a class="anchor" href="#1-部署结果">#</a>1. 部署结果</h2>
 <p>部署完成后，客户通过浏览器访问：</p>
-<pre><code class="language-text">http://&lt;客户主机IP&gt;:5177</code></pre>
+<pre><code class="language-text">http://&lt;客户主机IP&gt;:9528</code></pre>
 <p>系统可以创建两类视频源：</p>
 <ul>
 <li>ONVIF 摄像头：每路使用一个独立局域网 IP，提供 RTSP + ONVIF。</li>
 <li>RTSP 流源：多路共享宿主机 IP，通过不同流路径区分，适合现场 IP 不足的项目。</li>
 </ul>
 <p>典型地址：</p>
-<pre><code class="language-text">ONVIF 摄像头 RTSP：rtsp://192.168.5.211:554/screen01
-ONVIF 摄像头入口：http://192.168.5.211/onvif/device_service
-RTSP 流源地址：rtsp://192.168.5.111:554/screen01</code></pre>
+<pre><code class="language-text">ONVIF 摄像头 RTSP：rtsp://192.168.5.200:554/screen01
+ONVIF 摄像头入口：http://192.168.5.200/onvif/device_service
+RTSP 流源地址：rtsp://192.168.5.198:554/screen01</code></pre>
 <h2 id="2-部署前确认"><a class="anchor" href="#2-部署前确认">#</a>2. 部署前确认</h2>
 <p>客户主机已经安装 Ubuntu 26.04 时，推荐先使用根目录部署脚本：</p>
 <pre><code class="language-bash">chmod +x ubuntu26.04-deploy.sh
@@ -202,7 +202,7 @@ docker ps</code></pre>
 <ul>
 <li>Docker 已安装并运行。</li>
 <li>当前登录用户能执行 <code>docker ps</code>。</li>
-<li>明确客户主机网卡、IP、网关，例如 <code>br0</code>、<code>192.168.5.111</code>、<code>192.168.5.1</code>。</li>
+<li>明确客户主机网卡、IP、网关，例如 <code>br0</code>、<code>192.168.5.198</code>、<code>192.168.5.1</code>。</li>
 </ul>
 <p>如果 <code>docker ps</code> 提示无权限：</p>
 <pre><code class="language-bash">sudo usermod -aG docker &quot;$USER&quot;</code></pre>
@@ -210,41 +210,41 @@ docker ps</code></pre>
 <h2 id="3-配置现场环境"><a class="anchor" href="#3-配置现场环境">#</a>3. 配置现场环境</h2>
 <p>复制示例配置：</p>
 <pre><code class="language-bash">cp .env.example .env</code></pre>
-<p>按客户主机实际网络修改 <code>.env</code>。以下是 <code>192.168.5.111/24</code> 示例：</p>
+<p>按客户主机实际网络修改 <code>.env</code>。以下是 <code>192.168.5.198/24</code> 示例：</p>
 <pre><code class="language-env">DOCKER_NETWORK=onvif_macvlan
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest
 CONTAINER_PREFIX=virtualwebcam
 CAMERA_RTSP_PORT=554
-RTSP_GATEWAY_HOST=192.168.5.111
+RTSP_GATEWAY_HOST=192.168.5.198
 RTSP_GATEWAY_PORT=554
 RTSP_NETWORK=virtualwebcam_rtsp
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=请改成强密码
 SESSION_SECRET=请改成长随机字符串
 BACKEND_PORT=8177
-FRONTEND_PORT=5177
+FRONTEND_PORT=9528
 HOST_IF=br0
 SUBNET=192.168.5.0/24
 GATEWAY=192.168.5.1
-IP_RANGE=192.168.5.208/28
-HOST_MACVLAN_IP=192.168.5.210
-ROUTE_CIDR=192.168.5.208/28</code></pre>
+IP_RANGE=192.168.5.192/26
+HOST_MACVLAN_IP=192.168.5.199
+ROUTE_CIDR=192.168.5.192/26</code></pre>
 <p>如果客户现场是 <code>192.168.9.xxx</code>，把上面的 <code>192.168.5</code> 全部替换成客户真实网段，并把 <code>RTSP_GATEWAY_HOST</code> 改成客户主机 IP。</p>
 <h2 id="4-创建-macvlan-网络"><a class="anchor" href="#4-创建-macvlan-网络">#</a>4. 创建 macvlan 网络</h2>
 <p>只有 ONVIF 摄像头需要 macvlan 独立 IP。RTSP 流源不依赖 macvlan，但建议仍先配置好，方便后续混合使用。</p>
 <pre><code class="language-bash">sudo PARENT_IFACE=br0 \
   SUBNET=192.168.5.0/24 \
   GATEWAY=192.168.5.1 \
-  IP_RANGE=192.168.5.208/28 \
+  IP_RANGE=192.168.5.192/26 \
   NETWORK_NAME=onvif_macvlan \
   ./scripts/create-macvlan.sh</code></pre>
 <p>检查：</p>
 <pre><code class="language-bash">docker network inspect onvif_macvlan</code></pre>
 <h2 id="5-配置宿主机访问-macvlan-容器"><a class="anchor" href="#5-配置宿主机访问-macvlan-容器">#</a>5. 配置宿主机访问 macvlan 容器</h2>
-<p>如果只让同网段其他电脑、中控或 ODM 访问虚拟摄像头，可以跳过本步骤。 如果要在客户主机本机访问 <code>192.168.5.211</code>，必须创建辅助接口：</p>
+<p>如果只让同网段其他电脑、中控或 ODM 访问虚拟摄像头，可以跳过本步骤。 如果要在客户主机本机访问 <code>192.168.5.200</code>，必须创建辅助接口：</p>
 <pre><code class="language-bash">sudo HOST_IF=br0 \
-  HOST_MACVLAN_IP=192.168.5.210 \
-  ROUTE_CIDR=192.168.5.208/28 \
+  HOST_MACVLAN_IP=192.168.5.199 \
+  ROUTE_CIDR=192.168.5.192/26 \
   ./scripts/setup-macvlan-host.sh</code></pre>
 <p>重启主机后该接口会丢失，生产环境请参考详细部署文档配置 systemd 开机恢复。</p>
 <h2 id="6-构建镜像和启动后台"><a class="anchor" href="#6-构建镜像和启动后台">#</a>6. 构建镜像和启动后台</h2>
@@ -255,8 +255,8 @@ docker compose up -d --build manager-backend manager-frontend</code></pre>
 <pre><code class="language-bash">docker compose ps
 curl http://localhost:8177/api/health</code></pre>
 <p>访问：</p>
-<pre><code class="language-text">http://localhost:5177
-http://&lt;客户主机IP&gt;:5177</code></pre>
+<pre><code class="language-text">http://localhost:9528
+http://&lt;客户主机IP&gt;:9528</code></pre>
 <h2 id="7-登录和初始化"><a class="anchor" href="#7-登录和初始化">#</a>7. 登录和初始化</h2>
 <p>使用 <code>.env</code> 中配置的管理员登录：</p>
 <pre><code class="language-text">用户名：admin
@@ -274,15 +274,15 @@ http://&lt;客户主机IP&gt;:5177</code></pre>
 <p>进入项目 -&gt; 摄像头管理 -&gt; 新增源：</p>
 <pre><code class="language-text">源类型：ONVIF 摄像头（独立 IP）
 名称：web-cam-01
-虚拟 IP：192.168.5.211
+虚拟 IP：192.168.5.200
 网页 URL：业务网页地址
 流名称：screen01
 分辨率：1280 x 720
 FPS：15</code></pre>
 <p>验收：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.211:554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01</code></pre>
 <p>ONVIF Device Manager 手动添加：</p>
-<pre><code class="language-text">http://192.168.5.211/onvif/device_service</code></pre>
+<pre><code class="language-text">http://192.168.5.200/onvif/device_service</code></pre>
 <h3 id="8-2-创建-rtsp-流源"><a class="anchor" href="#8-2-创建-rtsp-流源">#</a>8.2 创建 RTSP 流源</h3>
 <p>现场 IP 不足时，使用 RTSP 流源：</p>
 <pre><code class="language-text">源类型：RTSP 流源（共享 IP + 流路径）
@@ -292,7 +292,7 @@ FPS：15</code></pre>
 分辨率：1280 x 720
 FPS：15</code></pre>
 <p>验收：</p>
-<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.111:554/screen01</code></pre>
+<pre><code class="language-bash">mpv --rtsp-transport=tcp rtsp://192.168.5.198:554/screen01</code></pre>
 <h2 id="9-常用验收命令"><a class="anchor" href="#9-常用验收命令">#</a>9. 常用验收命令</h2>
 <pre><code class="language-bash">docker ps
 docker compose ps
@@ -310,7 +310,7 @@ docker ps --filter label=virtualwebcam.managed=true</code></pre>
 docker compose logs --tail=100 manager-backend</code></pre>
 <h3 id="10-2-客户主机打不开-onvif-摄像头-ip"><a class="anchor" href="#10-2-客户主机打不开-onvif-摄像头-ip">#</a>10.2 客户主机打不开 ONVIF 摄像头 IP</h3>
 <p>大概率没有配置 <code>macvlan-host</code> 辅助接口。执行：</p>
-<pre><code class="language-bash">sudo HOST_IF=br0 HOST_MACVLAN_IP=192.168.5.210 ROUTE_CIDR=192.168.5.208/28 ./scripts/setup-macvlan-host.sh</code></pre>
+<pre><code class="language-bash">sudo HOST_IF=br0 HOST_MACVLAN_IP=192.168.5.199 ROUTE_CIDR=192.168.5.192/26 ./scripts/setup-macvlan-host.sh</code></pre>
 <h3 id="10-3-rtsp-播放器显示旧画面"><a class="anchor" href="#10-3-rtsp-播放器显示旧画面">#</a>10.3 RTSP 播放器显示旧画面</h3>
 <p>修改网页 URL 或重启容器后，关闭播放器重新打开。推荐验收使用：</p>
 <pre><code class="language-bash">mpv --rtsp-transport=tcp &lt;RTSP地址&gt;</code></pre>

@@ -2,8 +2,8 @@
 
 版本：1.0  
 适用项目：VirtualWebCam 网页转 RTSP + 虚拟 ONVIF 摄像头管理系统  
-默认端口：前端 `5177`，后端 `8177`  
-默认网络：`br0 = 192.168.5.111/24`，macvlan 网络 `onvif_macvlan`
+默认端口：前端 `9528`，后端 `8177`  
+默认网络：`br0 = 192.168.5.198/24`，macvlan 网络 `onvif_macvlan`
 
 ## 1. 项目目标
 
@@ -492,7 +492,7 @@ GET /api/health
 {
   "source_type": "camera",
   "name": "web-cam-01",
-  "ip": "192.168.5.211",
+  "ip": "192.168.5.200",
   "stream_name": "screen01",
   "web_url": "https://www.baidu.com",
   "width": 1280,
@@ -701,7 +701,7 @@ DOCKER_NETWORK=onvif_macvlan \
 DOCKER_EGRESS_NETWORK=bridge \
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
 CAMERA_RTSP_PORT=554 \
-RTSP_GATEWAY_HOST=192.168.5.111 \
+RTSP_GATEWAY_HOST=192.168.5.198 \
 RTSP_GATEWAY_PORT=554 \
 RTSP_NETWORK=virtualwebcam_rtsp \
 npm run dev
@@ -711,13 +711,13 @@ npm run dev
 
 ```bash
 cd frontend
-npm run dev -- --port 5177
+npm run dev -- --port 9528
 ```
 
 访问：
 
 ```text
-http://localhost:5177
+http://localhost:9528
 ```
 
 ### 8.4 构建镜像
@@ -766,17 +766,17 @@ DOCKER_NETWORK=onvif_macvlan
 VIRTUALWEBCAM_IMAGE=virtualwebcam:latest
 CONTAINER_PREFIX=virtualwebcam
 CAMERA_RTSP_PORT=554
-RTSP_GATEWAY_HOST=192.168.5.111
+RTSP_GATEWAY_HOST=192.168.5.198
 RTSP_GATEWAY_PORT=554
 RTSP_NETWORK=virtualwebcam_rtsp
 BACKEND_PORT=8177
-FRONTEND_PORT=5177
+FRONTEND_PORT=9528
 HOST_IF=br0
 SUBNET=192.168.5.0/24
 GATEWAY=192.168.5.1
-IP_RANGE=192.168.5.208/28
-HOST_MACVLAN_IP=192.168.5.210
-ROUTE_CIDR=192.168.5.208/28
+IP_RANGE=192.168.5.192/26
+HOST_MACVLAN_IP=192.168.5.199
+ROUTE_CIDR=192.168.5.192/26
 ```
 
 后端可用环境变量：
