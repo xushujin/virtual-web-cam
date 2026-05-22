@@ -283,6 +283,66 @@ function decodeDockerLog(buffer) {
   return chunks.join('');
 }
 
+function padNumber(value, size = 2) {
+  return String(value).padStart(size, '0');
+}
+
+function formatDateChinaTime(date) {
+  const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+
+  return [
+    chinaTime.getUTCFullYear(),
+    '-',
+    padNumber(chinaTime.getUTCMonth() + 1),
+    '-',
+    padNumber(chinaTime.getUTCDate()),
+    ' ',
+    padNumber(chinaTime.getUTCHours()),
+    ':',
+    padNumber(chinaTime.getUTCMinutes()),
+    ':',
+    padNumber(chinaTime.getUTCSeconds()),
+    '.',
+    padNumber(chinaTime.getUTCMilliseconds(), 3),
+    ' +08:00',
+  ].join('');
+}
+
+function parseDockerTimestamp(value) {
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:?\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, base, fraction = '0', zone] = match;
+  const millis = fraction.padEnd(3, '0').slice(0, 3);
+  const normalizedZone = zone === 'Z' ? 'Z' : `${zone.slice(0, 3)}:${zone.slice(-2)}`;
+  const date = new Date(`${base}.${millis}${normalizedZone}`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDockerLogLineChinaTime(line) {
+  const match = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)(.*)$/);
+  if (!match) {
+    return line;
+  }
+
+  const date = parseDockerTimestamp(match[1]);
+  if (!date) {
+    return line;
+  }
+
+  return `${formatDateChinaTime(date)}${match[2]}`;
+}
+
+function formatDockerLogsChinaTime(logs) {
+  return String(logs || '')
+    .split('\n')
+    .map(formatDockerLogLineChinaTime)
+    .join('\n');
+}
+
 async function findContainer(camera) {
   const found = await docker.listContainers({
     all: true,
@@ -557,7 +617,7 @@ async function cameraLogs(camera, tail = 300) {
     tail,
   });
 
-  return decodeDockerLog(buffer);
+  return formatDockerLogsChinaTime(decodeDockerLog(buffer));
 }
 
 module.exports = {
@@ -570,6 +630,7 @@ module.exports = {
   cameraLogs,
   cameraResourceStats,
   ensureStarted,
+  formatDockerLogsChinaTime,
   friendlyDockerError,
   inspectCamera,
   inspectManagedCameras,

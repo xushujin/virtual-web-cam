@@ -36,6 +36,21 @@ test('friendlyDockerError explains common runtime failures', () => {
   );
 });
 
+test('formatDockerLogsChinaTime converts Docker timestamps to China time', () => {
+  assert.equal(
+    dockerService.formatDockerLogsChinaTime('2026-05-22T14:30:01.123456789Z starting service'),
+    '2026-05-22 22:30:01.123 +08:00 starting service',
+  );
+  assert.equal(
+    dockerService.formatDockerLogsChinaTime('2026-05-22T14:30:01+00:00 starting service'),
+    '2026-05-22 22:30:01.000 +08:00 starting service',
+  );
+  assert.equal(
+    dockerService.formatDockerLogsChinaTime('plain log line'),
+    'plain log line',
+  );
+});
+
 test('appStatusFromState maps Docker states to app states', () => {
   assert.equal(appStatusFromState({ Running: true }), 'running');
   assert.equal(appStatusFromState({ Status: 'exited', ExitCode: 0 }), 'stopped');
