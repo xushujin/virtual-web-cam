@@ -41,6 +41,7 @@ require_int GO2RTC_RTSP_PORT "$GO2RTC_RTSP_PORT"
 require_int GO2RTC_API_PORT "$GO2RTC_API_PORT"
 require_int GO2RTC_WEBRTC_PORT "$GO2RTC_WEBRTC_PORT"
 
+(( FPS >= 2 && FPS <= 60 )) || die "FPS must be between 2 and 60, got '${FPS}'"
 [[ "$STREAM_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || die "STREAM_NAME may only contain letters, numbers, dot, underscore and dash"
 [[ "$WEB_URL" =~ ^https?:// ]] || die "WEB_URL must start with http:// or https://"
 [[ "$OUTPUT_MODE" =~ ^(onvif|rtsp-publisher|rtsp-gateway)$ ]] || die "OUTPUT_MODE must be onvif, rtsp-publisher or rtsp-gateway"
@@ -170,6 +171,7 @@ start_openbox() {
 
 chrome_loop() {
   while true; do
+    local exit_code=0
     DISPLAY="$XVFB_DISPLAY" "$CHROME_BIN" \
       --no-sandbox \
       --disable-dev-shm-usage \
@@ -194,8 +196,8 @@ chrome_loop() {
       --start-fullscreen \
       --kiosk \
       --new-window \
-      "$WEB_URL"
-    log "Chrome exited, restarting in 2 seconds"
+      "$WEB_URL" || exit_code=$?
+    log "Chrome exited with status ${exit_code}, restarting in 2 seconds"
     sleep 2
   done
 }
@@ -231,6 +233,7 @@ ffmpeg_loop() {
   fi
 
   while true; do
+    local exit_code=0
     ffmpeg -hide_banner -loglevel info -re \
       -f x11grab \
       -draw_mouse 0 \
@@ -246,8 +249,8 @@ ffmpeg_loop() {
       -bf 0 \
       -an \
       -rtsp_transport tcp \
-      -f rtsp "$FFMPEG_OUTPUT_URL"
-    log "FFmpeg exited, restarting in 2 seconds"
+      -f rtsp "$FFMPEG_OUTPUT_URL" || exit_code=$?
+    log "FFmpeg exited with status ${exit_code}, restarting in 2 seconds"
     sleep 2
   done
 }

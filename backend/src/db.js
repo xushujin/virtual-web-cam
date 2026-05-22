@@ -186,6 +186,7 @@ async function initDb() {
   }
 
   await api.run('UPDATE cameras SET project_id = 1 WHERE project_id IS NULL');
+  await api.run('UPDATE cameras SET fps = 2 WHERE fps IS NULL OR fps < 2');
   await api.exec('CREATE INDEX IF NOT EXISTS idx_cameras_project_id ON cameras(project_id);');
 
   const adminUser = await api.get("SELECT id FROM users WHERE role = 'admin' LIMIT 1");

@@ -242,6 +242,22 @@ try {
   assert(bulkRtspResult.cameras.every((camera) => camera.source_type === 'rtsp' && camera.ip === null), 'bulk RTSP should not allocate camera IPs');
 
   const [cameraA, cameraB] = bulkResult.cameras;
+  await request(`/cameras/${cameraA.id}`, {
+    method: 'PUT',
+    token: userToken,
+    body: {
+      source_type: cameraA.source_type,
+      name: cameraA.name,
+      ip: cameraA.ip,
+      stream_name: cameraA.stream_name,
+      web_url: cameraA.web_url,
+      width: cameraA.width,
+      height: cameraA.height,
+      fps: 1,
+    },
+    expected: 400,
+  });
+
   await request(`/cameras/${cameraA.id}/display-targets`, {
     method: 'PATCH',
     token: userToken,

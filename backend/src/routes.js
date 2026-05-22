@@ -6,6 +6,9 @@ const dockerService = require('./docker');
 
 const router = express.Router();
 
+const MIN_CAMERA_FPS = 2;
+const MAX_CAMERA_FPS = 60;
+
 const displayTargetsSchema = z.array(z.coerce.number().int().min(1).max(9999)).max(300).default([]);
 const displayRegionSchema = z.object({
   row: z.coerce.number().int().min(1).max(9999),
@@ -27,7 +30,7 @@ const cameraBaseSchema = z.object({
   }),
   width: z.coerce.number().int().min(320).max(7680).default(1280),
   height: z.coerce.number().int().min(240).max(4320).default(720),
-  fps: z.coerce.number().int().min(1).max(60).default(15),
+  fps: z.coerce.number().int().min(MIN_CAMERA_FPS).max(MAX_CAMERA_FPS).default(15),
   display_targets: displayTargetsSchema,
   display_region: displayRegionSchema.optional().default(null),
 });
@@ -126,7 +129,7 @@ const cameraBulkCreateSchema = z.object({
   }),
   width: z.coerce.number().int().min(320).max(7680).default(1280),
   height: z.coerce.number().int().min(240).max(4320).default(720),
-  fps: z.coerce.number().int().min(1).max(60).default(15),
+  fps: z.coerce.number().int().min(MIN_CAMERA_FPS).max(MAX_CAMERA_FPS).default(15),
 }).superRefine((value, ctx) => {
   if (value.source_type === 'camera' && !value.start_ip) {
     ctx.addIssue({
@@ -1759,7 +1762,7 @@ router.put('/cameras/:id', async (req, res) => {
     let nextStatus = updated.status;
     let recreateError = null;
 
-    if (camera.status === 'running') {
+    if (camera.status === 'running' || camera.status === 'error') {
       try {
         await dockerService.recreateCamera(updated);
         nextStatus = 'running';
@@ -1770,6 +1773,14 @@ router.put('/cameras/:id', async (req, res) => {
 
       await setStatus(camera.id, nextStatus);
       updated.status = nextStatus;
+    } else {
+      try {
+        await dockerService.removeCameraContainer(updated);
+      } catch (error) {
+        recreateError = dockerService.friendlyDockerError(error);
+      }
+      await setStatus(camera.id, 'stopped');
+      updated.status = 'stopped';
     }
 
     await recordAudit({

@@ -906,11 +906,20 @@ build_and_start() {
 
   log "启动管理后台：manager-backend / manager-frontend"
   log "等价命令：docker compose --env-file ${ENV_FILE} up -d --build manager-backend manager-frontend"
-  if ! compose_cmd up -d --build manager-backend manager-frontend; then
-    warn "管理后台构建或启动失败。若错误停在 load metadata for docker.io/library/node:20-bookworm-slim，通常是 Docker 守护进程访问 Docker Hub、DNS、代理或镜像源异常；脚本已保留 HTTP(S)_PROXY/NO_PROXY 环境给 sudo。"
-    warn "可先执行：docker pull node:20-bookworm-slim，再重跑本脚本；或配置 Docker daemon 镜像源/代理。"
+  local compose_log
+  compose_log="$(mktemp)"
+  if ! compose_cmd up -d --build manager-backend manager-frontend 2>&1 | tee "$compose_log"; then
+    if grep -Eqi 'address already in use|failed to bind host port|port is already allocated' "$compose_log"; then
+      warn "管理后台启动失败：端口已被占用。请先执行 ss -ltnp | grep -E ':(${FRONTEND_PORT}|${BACKEND_PORT})\\b' 查看占用进程，释放端口后重跑脚本。"
+      warn "如果暂时不能释放端口，可改用其它前端端口重跑，例如：./ubuntu26.04-deploy.sh --yes --keep-data --frontend-port 9530"
+    else
+      warn "管理后台构建或启动失败。若错误停在 load metadata for docker.io/library/node:20-bookworm-slim，通常是 Docker 守护进程访问 Docker Hub、DNS、代理或镜像源异常；脚本已保留 HTTP(S)_PROXY/NO_PROXY 环境给 sudo。"
+      warn "可先执行：docker pull node:20-bookworm-slim，再重跑本脚本；或配置 Docker daemon 镜像源/代理。"
+    fi
+    rm -f "$compose_log"
     return 1
   fi
+  rm -f "$compose_log"
 }
 
 wait_for_services() {

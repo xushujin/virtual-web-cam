@@ -3,6 +3,7 @@ const JSON_HEADERS = {
 };
 
 const AUTH_TOKEN_KEY = 'virtualwebcam-auth-token';
+const UNAUTHORIZED_EVENT = 'virtualwebcam:unauthorized';
 
 function withAuthHeaders(headers = {}) {
   const sessionToken = window.localStorage.getItem(AUTH_TOKEN_KEY) || '';
@@ -27,7 +28,20 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const detail = payload?.error || response.statusText || 'Request failed';
-    throw new Error(detail);
+    const sessionExpired = response.status === 401 && path !== '/api/auth/login';
+    const error = new Error(sessionExpired ? '登录已过期，请重新登录' : detail);
+    error.status = response.status;
+
+    if (sessionExpired) {
+      storeAuthToken('');
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT, {
+        detail: {
+          message: error.message,
+        },
+      }));
+    }
+
+    throw error;
   }
 
   return payload;

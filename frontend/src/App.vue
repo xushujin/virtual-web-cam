@@ -552,6 +552,19 @@ function resetSessionState() {
   error.value = '';
 }
 
+function handleUnauthorized(event) {
+  stopBackgroundPolling();
+  storeAuthToken('');
+  currentUser.value = null;
+  authChecking.value = false;
+  resetSessionState();
+  loginError.value = event.detail?.message || '登录已过期，请重新登录';
+  showToast(loginError.value, {
+    kind: 'error',
+    duration: 6000,
+  });
+}
+
 function startBackgroundPolling() {
   if (!statusPollTimer) {
     statusPollTimer = window.setInterval(() => {
@@ -872,6 +885,12 @@ function toggleActionMenu(id) {
   openActionMenuId.value = openActionMenuId.value === id ? null : id;
 }
 
+function isCameraRowActive(camera) {
+  return openActionMenuId.value === camera.id
+    || editingCamera.value?.id === camera.id
+    || activeLogs.value?.id === camera.id;
+}
+
 async function refreshSystemStatus() {
   systemLoading.value = true;
 
@@ -1162,7 +1181,7 @@ function applyScreenUrl(target, item) {
 
 function applyScreenUrlFromPicker(key, target, item) {
   applyScreenUrl(target, item);
-  if (key === 'create') {
+  if (key === 'create' || key === 'edit') {
     target.name = item.name;
   }
   closeUrlPicker(key);
@@ -2093,6 +2112,7 @@ function auditDetailSummary(log) {
 }
 
 onMounted(async () => {
+  window.addEventListener('virtualwebcam:unauthorized', handleUnauthorized);
   await loadCurrentSession();
   await nextTick();
   updateFixedHeaderHeights();
@@ -2108,6 +2128,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('virtualwebcam:unauthorized', handleUnauthorized);
   stopBackgroundPolling();
   stickyHeaderObserver?.disconnect();
   projectHeaderObserver?.disconnect();
@@ -2591,7 +2612,7 @@ onBeforeUnmount(() => {
 		                  <td :colspan="cameraTableColspan" class="empty">没有匹配的摄像头</td>
 		                </tr>
 		                <template v-for="camera in filteredCameras" :key="camera.id">
-		                <tr>
+		                <tr :class="{ 'camera-row-active': isCameraRowActive(camera) }">
 	                  <td class="select-cell">
 	                    <input type="checkbox" :checked="selectedCameraIds.has(camera.id)" @change="toggleCameraSelection(camera.id, $event.target.checked)" />
 	                  </td>
@@ -2639,7 +2660,7 @@ onBeforeUnmount(() => {
                     </div>
                   </td>
                 </tr>
-                <tr v-if="openActionMenuId === camera.id" class="action-detail-row">
+                <tr v-if="openActionMenuId === camera.id" class="action-detail-row" :class="{ 'camera-row-active': isCameraRowActive(camera) }">
                   <td :colspan="cameraTableColspan">
                     <div class="row-action-sheet" @click.stop>
                       <div class="row-action-sheet-buttons">
@@ -3069,7 +3090,7 @@ onBeforeUnmount(() => {
 	          </label>
 	          <label>
 	            <span>FPS</span>
-	            <input v-model.number="form.fps" required type="number" min="1" max="60" step="1" />
+	            <input v-model.number="form.fps" required type="number" min="2" max="60" step="1" />
 	          </label>
 	        </div>
 	        <p v-if="createError" class="error modal-error">{{ createError }}</p>
@@ -3154,7 +3175,7 @@ onBeforeUnmount(() => {
 	          </label>
 	          <label>
 	            <span>FPS</span>
-	            <input v-model.number="bulkForm.fps" type="number" min="1" max="60" />
+	            <input v-model.number="bulkForm.fps" type="number" min="2" max="60" />
 	          </label>
 	        </div>
 	        <p v-if="bulkError" class="error modal-error">{{ bulkError }}</p>
@@ -3238,7 +3259,7 @@ onBeforeUnmount(() => {
 	      </form>
 	    </div>
 
-	    <div v-if="activeLogs" class="drawer" role="dialog" aria-modal="true">
+	    <div v-if="activeLogs" class="drawer log-drawer" role="dialog" aria-modal="true">
       <div class="drawer-head">
         <div>
           <h2>{{ activeLogs.name }}</h2>
@@ -3250,7 +3271,7 @@ onBeforeUnmount(() => {
           <button type="button" @click="activeLogs = null">关闭</button>
         </div>
       </div>
-      <pre>{{ logLoading ? '加载中' : logText }}</pre>
+      <pre><code>{{ logLoading ? '加载中' : logText }}</code></pre>
     </div>
 
     <div v-if="editingCamera" class="drawer edit-drawer" role="dialog" aria-modal="true">
@@ -3325,7 +3346,7 @@ onBeforeUnmount(() => {
           </label>
           <label>
             <span>FPS</span>
-            <input v-model.number="editForm.fps" required type="number" min="1" max="60" />
+            <input v-model.number="editForm.fps" required type="number" min="2" max="60" />
           </label>
         </div>
         <button class="primary-button" type="submit" :disabled="isCameraBusy(editingCamera.id)">

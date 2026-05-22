@@ -154,7 +154,7 @@ virtualwebcam:latest
 | `STREAM_NAME` | `screen01` | RTSP 路径名，只允许字母、数字、点、下划线、短横线 |
 | `WIDTH` | `1280` | 采集宽度 |
 | `HEIGHT` | `720` | 采集高度 |
-| `FPS` | `15` | 采集帧率 |
+| `FPS` | `15` | 采集帧率，支持 `2-60`。1 FPS 在 RTSP/H.264 客户端上容易出现时间戳推断失败，生产不支持 |
 | `OUTPUT_MODE` | `onvif` | 运行角色：`onvif`、`rtsp-publisher`、`rtsp-gateway` |
 | `DISPLAY_ID` | `99` | Xvfb display 编号，默认容器内固定即可 |
 | `MEDIAMTX_RTSP_PORT` | `8556` | MediaMTX 内部 RTSP 端口 |
@@ -817,7 +817,7 @@ go2rtc 已提供 ONVIF 手动添加能力，但自动发现依赖网络广播、
 几十路摄像头会消耗 CPU、内存和 Chrome 资源。建议：
 
 - 优先使用 1280x720@15。
-- 静态看板可降到 10 FPS。
+- 静态看板可降到 2 FPS；不要使用 1 FPS，部分 RTSP/H.264 客户端会出现 PTS 或播放兼容问题。
 - 每台宿主机按 CPU、内存、网页复杂度压测后确定路数。
 - 对复杂 Web 页面启用页面自身的轻量化模式。
 
