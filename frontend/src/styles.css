@@ -508,7 +508,7 @@ button:disabled,
 }
 
 .project-detail {
-  padding-top: 0;
+  padding-top: max(calc(var(--project-header-panel-height) + 6px), 62px);
 }
 
 .project-create-panel,
@@ -522,11 +522,13 @@ button:disabled,
 }
 
 .project-header-panel {
-  position: sticky;
+  position: fixed;
   top: calc(var(--sticky-status-header-height) + 6px);
+  left: 50%;
   z-index: 20;
-  width: 100%;
+  width: min(calc(100vw - 48px), 1760px);
   padding: 8px 14px;
+  transform: translateX(-50%);
   backdrop-filter: blur(10px);
 }
 
@@ -4021,7 +4023,7 @@ td small {
   }
 
   .project-header-panel {
-    width: 100%;
+    width: calc(100vw - 32px);
   }
 
   .sticky-status-header {

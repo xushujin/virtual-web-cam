@@ -706,11 +706,21 @@ watch(uiTheme, (theme) => {
   for (const option of themeOptions) {
     document.body.classList.toggle(`virtualwebcam-${option.value}-body`, normalized === option.value && normalized !== 'light');
   }
+  nextTick(() => {
+    updateFixedHeaderHeights();
+    window.requestAnimationFrame?.(updateFixedHeaderHeights);
+  });
 }, { immediate: true });
+
+function normalizedStickyHeaderHeight(height) {
+  if (!height) return 0;
+  const maxHeight = window.matchMedia?.('(max-width: 720px)').matches ? 320 : 210;
+  return Math.min(Math.ceil(height), maxHeight);
+}
 
 function updateStickyHeaderHeight() {
   const height = stickyHeaderRef.value?.offsetHeight || 0;
-  document.documentElement.style.setProperty('--sticky-status-header-height', `${height}px`);
+  document.documentElement.style.setProperty('--sticky-status-header-height', `${normalizedStickyHeaderHeight(height)}px`);
 }
 
 function updateProjectHeaderHeight() {
