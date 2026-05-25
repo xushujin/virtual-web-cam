@@ -59,6 +59,8 @@ export function calculateResourceRates(previous, current) {
 
 export function resourceStatusText(stats, statusLabel) {
   if (!stats) return '未采集';
+  if (stats.status === 'missing') return '未找到容器';
+  if (stats.status === 'unavailable') return stats.error || '采集失败';
   if (stats.status !== 'running') return statusLabel(stats.status);
   return `${formatPercent(stats.cpu_percent)} / ${formatBytes(stats.memory_usage_bytes)}`;
 }

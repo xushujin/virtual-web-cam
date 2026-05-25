@@ -92,6 +92,8 @@ describe('resource utilities', () => {
       network_tx_bps: 20,
     })).toBe('网络 ↓10 B/s ↑20 B/s');
     expect(resourceDiskText(stats)).toBe('磁盘累计 读 0 B / 写 4.0 KB');
+    expect(resourceStatusText({ status: 'unavailable', error: '采集超时' }, statusLabel)).toBe('采集超时');
+    expect(resourceStatusText({ status: 'missing' }, statusLabel)).toBe('未找到容器');
     expect(resourceStatusText({ status: 'stopped' }, statusLabel)).toBe('已停止');
     expect(resourceStatusText(null, statusLabel)).toBe('未采集');
     expect(resourceNetworkText({ status: 'stopped' })).toBe('-');

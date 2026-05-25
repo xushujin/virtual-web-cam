@@ -22,6 +22,8 @@ const RTSP_GATEWAY_PORT = process.env.RTSP_GATEWAY_PORT || '554';
 const RTSP_GATEWAY_CONTAINER = process.env.RTSP_GATEWAY_CONTAINER || `${CONTAINER_PREFIX}-rtsp-gateway`;
 const RTSP_NETWORK = process.env.RTSP_NETWORK || `${CONTAINER_PREFIX}_rtsp`;
 const CAMERA_RESTART_POLICY = { Name: 'no' };
+const RESOURCE_STATS_CONCURRENCY = 10;
+const RESOURCE_STATS_TIMEOUT_MS = 2500;
 
 function defaultGatewayHost() {
   for (const addresses of Object.values(os.networkInterfaces())) {
@@ -109,6 +111,29 @@ function friendlyDockerError(error) {
   }
 
   return message;
+}
+
+function timeoutError(label, timeoutMs) {
+  const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+  error.code = 'ETIMEOUT';
+  return error;
+}
+
+async function withTimeout(promise, timeoutMs, label) {
+  let timer = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(timeoutError(label, timeoutMs)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 async function runtimeStatus() {
@@ -407,52 +432,82 @@ async function inspectManagedCameras() {
   return result;
 }
 
-async function cameraResourceStats(cameras) {
-  const items = [];
-  const summary = {
-    cpuPercent: 0,
-    memoryUsageBytes: 0,
-    memoryLimitBytes: 0,
-    networkRxBytes: 0,
-    networkTxBytes: 0,
-    blockReadBytes: 0,
-    blockWriteBytes: 0,
-    running: 0,
-    total: cameras.length,
-  };
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
 
-  for (const camera of cameras) {
-    const container = await findContainer(camera);
-
-    if (!container) {
-      items.push({
-        camera_id: camera.id,
-        status: 'missing',
-      });
-      continue;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
     }
+  }
 
-    const info = await container.inspect();
-    const state = info.State || {};
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
 
-    if (!state.Running) {
-      items.push({
-        camera_id: camera.id,
-        container_id: info.Id,
-        status: appStatusFromState(state),
-      });
-      continue;
+  return results;
+}
+
+function appStatusFromListItem(item) {
+  if (item.State === 'running') {
+    return 'running';
+  }
+
+  if (item.State === 'exited' && item.Status?.includes('(0)')) {
+    return 'stopped';
+  }
+
+  return item.State === 'exited' ? 'error' : appStatusFromState({ Status: item.State });
+}
+
+function managedContainerMap(containers) {
+  const result = new Map();
+
+  for (const item of containers) {
+    const cameraId = Number.parseInt(item.Labels?.['virtualwebcam.cameraId'], 10);
+    if (Number.isFinite(cameraId)) {
+      result.set(cameraId, item);
     }
+  }
 
-    const stats = await container.stats({ stream: false });
+  return result;
+}
+
+async function collectCameraResourceStats(camera, containerItem) {
+  if (!containerItem) {
+    return {
+      camera_id: camera.id,
+      status: 'missing',
+    };
+  }
+
+  const status = appStatusFromListItem(containerItem);
+  if (status !== 'running') {
+    return {
+      camera_id: camera.id,
+      container_id: containerItem.Id,
+      status,
+    };
+  }
+
+  try {
+    const container = docker.getContainer(containerItem.Id);
+    const stats = await withTimeout(
+      container.stats({ stream: false }),
+      RESOURCE_STATS_TIMEOUT_MS,
+      `Docker stats ${camera.id}`,
+    );
     const memory = memoryStats(stats);
     const network = sumNetwork(stats.networks);
     const block = sumBlockIo(stats.blkio_stats?.io_service_bytes_recursive);
     const cpu = cpuPercent(stats);
 
-    const item = {
+    return {
       camera_id: camera.id,
-      container_id: info.Id,
+      container_id: containerItem.Id,
       status: 'running',
       cpu_percent: cpu,
       memory_usage_bytes: memory.usageBytes,
@@ -463,21 +518,78 @@ async function cameraResourceStats(cameras) {
       block_read_bytes: block.readBytes,
       block_write_bytes: block.writeBytes,
     };
+  } catch (error) {
+    return {
+      camera_id: camera.id,
+      container_id: containerItem.Id,
+      status: 'unavailable',
+      error: error.code === 'ETIMEOUT' ? '采集超时' : friendlyDockerError(error),
+    };
+  }
+}
 
-    summary.running += 1;
-    summary.cpuPercent += cpu;
-    summary.memoryUsageBytes += memory.usageBytes;
-    summary.memoryLimitBytes += memory.limitBytes;
-    summary.networkRxBytes += network.rxBytes;
-    summary.networkTxBytes += network.txBytes;
-    summary.blockReadBytes += block.readBytes;
-    summary.blockWriteBytes += block.writeBytes;
-    items.push(item);
+function summarizeResourceItems(items, total) {
+  const summary = {
+    cpuPercent: 0,
+    memoryUsageBytes: 0,
+    memoryLimitBytes: 0,
+    networkRxBytes: 0,
+    networkTxBytes: 0,
+    blockReadBytes: 0,
+    blockWriteBytes: 0,
+    running: 0,
+    sampled: 0,
+    failed: 0,
+    total,
+  };
+
+  for (const item of items) {
+    if (item.status === 'running') {
+      summary.running += 1;
+      summary.sampled += 1;
+    } else if (item.status === 'unavailable') {
+      summary.running += 1;
+      summary.failed += 1;
+    }
+
+    if (item.status !== 'running') {
+      continue;
+    }
+
+    summary.cpuPercent += item.cpu_percent || 0;
+    summary.memoryUsageBytes += item.memory_usage_bytes || 0;
+    summary.memoryLimitBytes += item.memory_limit_bytes || 0;
+    summary.networkRxBytes += item.network_rx_bytes || 0;
+    summary.networkTxBytes += item.network_tx_bytes || 0;
+    summary.blockReadBytes += item.block_read_bytes || 0;
+    summary.blockWriteBytes += item.block_write_bytes || 0;
   }
 
   summary.memoryPercent = summary.memoryLimitBytes > 0
     ? (summary.memoryUsageBytes / summary.memoryLimitBytes) * 100
     : 0;
+
+  return summary;
+}
+
+async function cameraResourceStats(cameras) {
+  const containers = await withTimeout(
+    docker.listContainers({
+      all: true,
+      filters: {
+        label: ['virtualwebcam.managed=true'],
+      },
+    }),
+    RESOURCE_STATS_TIMEOUT_MS,
+    'Docker container list',
+  );
+  const containersByCameraId = managedContainerMap(containers);
+  const items = await mapWithConcurrency(
+    cameras,
+    RESOURCE_STATS_CONCURRENCY,
+    (camera) => collectCameraResourceStats(camera, containersByCameraId.get(camera.id)),
+  );
+  const summary = summarizeResourceItems(items, cameras.length);
 
   return {
     collected_at: new Date().toISOString(),
