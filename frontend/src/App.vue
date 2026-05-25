@@ -169,6 +169,8 @@ const themeOptions = [
   { value: 'ocean', label: '海蓝' },
 ];
 const themeValues = new Set(themeOptions.map((item) => item.value));
+const projectSections = new Set(['cameras', 'matrix', 'screenUrls', 'settings', 'audit']);
+const navigationStateKey = 'virtualwebcam-navigation-state';
 function normalizeTheme(theme) {
   return themeValues.has(theme) ? theme : 'eye';
 }
@@ -537,7 +539,44 @@ function canManageProject(project) {
   return isSystemAdmin.value || project?.permission_role === 'operator' || project?.permission_role === 'admin';
 }
 
-function resetSessionState() {
+function normalizeProjectSection(section, project = selectedProject.value) {
+  if (!projectSections.has(section)) return 'cameras';
+  if (section === 'settings' && !canManageProject(project)) return 'cameras';
+  return section;
+}
+
+function readNavigationState() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(navigationStateKey) || '{}');
+    return {
+      view: value.view === 'users' || value.view === 'project' ? value.view : 'projects',
+      projectId: Number.isFinite(Number(value.projectId)) ? Number(value.projectId) : null,
+      section: projectSections.has(value.section) ? value.section : 'cameras',
+    };
+  } catch {
+    return {
+      view: 'projects',
+      projectId: null,
+      section: 'cameras',
+    };
+  }
+}
+
+function writeNavigationState() {
+  if (!isAuthenticated.value) return;
+
+  window.localStorage.setItem(navigationStateKey, JSON.stringify({
+    view: currentView.value,
+    projectId: selectedProjectId.value,
+    section: projectSection.value,
+  }));
+}
+
+function clearNavigationState() {
+  window.localStorage.removeItem(navigationStateKey);
+}
+
+function resetSessionState({ clearNavigation = true } = {}) {
   projects.value = [];
   selectedProjectId.value = null;
   currentView.value = 'projects';
@@ -550,6 +589,9 @@ function resetSessionState() {
   activeLogs.value = null;
   editingCamera.value = null;
   error.value = '';
+  if (clearNavigation) {
+    clearNavigationState();
+  }
 }
 
 function handleUnauthorized(event) {
@@ -595,7 +637,18 @@ function stopBackgroundPolling() {
 }
 
 async function bootstrapAfterAuth() {
+  const navigationState = readNavigationState();
   await refreshProjects();
+  const restoredProject = navigationState.projectId
+    ? projects.value.find((project) => project.id === navigationState.projectId)
+    : null;
+
+  if (navigationState.view === 'project' && restoredProject) {
+    await enterProject(restoredProject, normalizeProjectSection(navigationState.section, restoredProject));
+  } else if (navigationState.view === 'users' && isSystemAdmin.value) {
+    await openUserManagement();
+  }
+
   await refreshSystemStatus();
   startBackgroundPolling();
 }
@@ -714,8 +767,7 @@ watch(uiTheme, (theme) => {
 
 function normalizedStickyHeaderHeight(height) {
   if (!height) return 0;
-  const maxHeight = window.matchMedia?.('(max-width: 720px)').matches ? 320 : 210;
-  return Math.min(Math.ceil(height), maxHeight);
+  return Math.ceil(height);
 }
 
 function updateStickyHeaderHeight() {
@@ -743,6 +795,10 @@ watch([isAuthenticated, currentView, systemLoading, systemProblems, selectedProj
   await nextTick();
   observeProjectHeader();
   updateFixedHeaderHeights();
+});
+
+watch([currentView, selectedProjectId, projectSection], () => {
+  writeNavigationState();
 });
 
 watch(cameraColumns, (columns) => {
@@ -2237,6 +2293,32 @@ onBeforeUnmount(() => {
           <RefreshCw :size="16" />
         </button>
       </section>
+
+      <section v-if="currentView === 'project' && selectedProject" ref="projectHeaderRef" class="panel project-header-panel">
+        <div class="project-title-row">
+          <div>
+            <h2>{{ selectedProject.name }}</h2>
+            <p>{{ projectDraft.rows }} 行 x {{ projectDraft.cols }} 列，共 {{ projectDraft.rows * projectDraft.cols }} 块屏</p>
+          </div>
+          <div class="section-tabs" role="tablist">
+            <button type="button" :class="{ active: projectSection === 'cameras' }" @click="switchProjectSection('cameras')">
+              摄像头管理
+            </button>
+            <button type="button" :class="{ active: projectSection === 'matrix' }" @click="switchProjectSection('matrix')">
+              矩阵绑定
+            </button>
+            <button type="button" :class="{ active: projectSection === 'screenUrls' }" @click="switchProjectSection('screenUrls')">
+              大屏地址
+            </button>
+            <button v-if="canManageSelectedProject" type="button" :class="{ active: projectSection === 'settings' }" @click="switchProjectSection('settings')">
+              项目设置
+            </button>
+            <button type="button" :class="{ active: projectSection === 'audit' }" @click="switchProjectSection('audit')">
+              操作审计
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <p v-if="error" class="error global-error">{{ error }}</p>
@@ -2409,32 +2491,6 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else-if="selectedProject" class="project-detail">
-      <section ref="projectHeaderRef" class="panel project-header-panel">
-        <div class="project-title-row">
-          <div>
-            <h2>{{ selectedProject.name }}</h2>
-            <p>{{ projectDraft.rows }} 行 x {{ projectDraft.cols }} 列，共 {{ projectDraft.rows * projectDraft.cols }} 块屏</p>
-          </div>
-          <div class="section-tabs" role="tablist">
-            <button type="button" :class="{ active: projectSection === 'cameras' }" @click="switchProjectSection('cameras')">
-              摄像头管理
-            </button>
-            <button type="button" :class="{ active: projectSection === 'matrix' }" @click="switchProjectSection('matrix')">
-              矩阵绑定
-            </button>
-            <button type="button" :class="{ active: projectSection === 'screenUrls' }" @click="switchProjectSection('screenUrls')">
-              大屏地址
-            </button>
-            <button v-if="canManageSelectedProject" type="button" :class="{ active: projectSection === 'settings' }" @click="switchProjectSection('settings')">
-              项目设置
-            </button>
-            <button type="button" :class="{ active: projectSection === 'audit' }" @click="switchProjectSection('audit')">
-              操作审计
-            </button>
-          </div>
-        </div>
-      </section>
-
       <section v-if="projectSection === 'cameras'" class="camera-page">
         <section class="panel list-panel">
           <div class="panel-heading camera-list-heading">
