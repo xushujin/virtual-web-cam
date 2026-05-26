@@ -1379,6 +1379,11 @@ button:disabled,
   cursor: grab;
 }
 
+.camera-card.locked {
+  cursor: default;
+  opacity: 0.72;
+}
+
 .camera-card:active {
   cursor: grabbing;
 }
@@ -1473,6 +1478,37 @@ button:disabled,
   font-size: 13px;
 }
 
+.matrix-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.matrix-lock-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 86px;
+  height: 40px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.matrix-lock-button.active {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
 .matrix-density-control {
   display: inline-flex;
   align-items: center;
@@ -1501,6 +1537,15 @@ button:disabled,
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
 }
 
+.matrix-density-control.locked {
+  opacity: 0.66;
+}
+
+.matrix-density-control button:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
 .matrix-board {
   display: grid;
   grid-auto-rows: minmax(158px, auto);
@@ -1509,6 +1554,10 @@ button:disabled,
   overflow: auto;
   padding-bottom: 4px;
   touch-action: none;
+}
+
+.matrix-board.locked {
+  touch-action: auto;
 }
 
 .matrix-board.density-compact {
@@ -1956,6 +2005,13 @@ button:disabled,
   background: #f2f4f7;
 }
 
+.assignment-card-actions button:disabled {
+  background: #f8fafc;
+  color: #98a2b3;
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .assigned-list {
   align-content: start;
 }
@@ -1969,6 +2025,10 @@ button:disabled,
   border-radius: 8px;
   background: #ffffff;
   padding: 9px;
+}
+
+.assigned-row.locked {
+  background: #f8fafc;
 }
 
 .assigned-row strong,
@@ -2008,6 +2068,12 @@ button:disabled,
   background: #ffffff;
   color: #344054;
   cursor: pointer;
+}
+
+.assigned-row button:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .list-panel {
@@ -3326,6 +3392,7 @@ td small {
 .theme-cyber .project-card-tools button,
 .theme-cyber .assignment-card-actions button,
 .theme-cyber .assigned-row button,
+.theme-cyber .matrix-lock-button,
 .theme-cyber .screen-url-actions button,
 .theme-cyber .url-picker-trigger,
 .theme-cyber .url-picker-empty button,
@@ -3338,6 +3405,7 @@ td small {
 }
 
 .theme-cyber .screen-url-actions button:hover,
+.theme-cyber .matrix-lock-button:hover,
 .theme-cyber .url-picker-trigger:hover,
 .theme-cyber .url-picker-list button:hover,
 .theme-cyber .url-picker-empty button:hover,
@@ -3657,6 +3725,12 @@ td small {
   background: linear-gradient(135deg, rgba(0, 229, 255, 0.22), rgba(186, 255, 87, 0.12));
   color: #f7fffb;
   box-shadow: inset 0 0 0 1px rgba(35, 241, 255, 0.24);
+}
+
+.theme-cyber .matrix-lock-button.active {
+  border-color: rgba(255, 183, 77, 0.62);
+  background: rgba(45, 28, 7, 0.72);
+  color: #ffd79c;
 }
 
 .theme-cyber .system-strip {

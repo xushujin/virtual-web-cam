@@ -6,6 +6,7 @@ import {
   FileText,
   GripVertical,
   House,
+  Lock,
   LogOut,
   Play,
   Plus,
@@ -16,6 +17,7 @@ import {
   Sparkles,
   Square,
   Trash2,
+  Unlock,
   Upload,
   UserPlus,
   X,
@@ -157,6 +159,7 @@ const draftRegion = ref(null);
 const isSelectingRegion = ref(false);
 const matrixAssignCameraId = ref('');
 const matrixDensity = ref('standard');
+const matrixLocked = ref(false);
 const importInput = ref(null);
 const importingProject = ref(false);
 const showCreateModal = ref(false);
@@ -173,6 +176,7 @@ const themeOptions = [
 const themeValues = new Set(themeOptions.map((item) => item.value));
 const projectSections = new Set(['cameras', 'matrix', 'screenUrls', 'settings', 'audit']);
 const navigationStateKey = 'virtualwebcam-navigation-state';
+const matrixLockStateKey = 'virtualwebcam-matrix-lock-state';
 function normalizeTheme(theme) {
   return themeValues.has(theme) ? theme : 'eye';
 }
@@ -305,6 +309,7 @@ const canManageSelectedProject = computed(() => (
   isSystemAdmin.value || selectedProjectPermission.value === 'operator' || selectedProjectPermission.value === 'admin'
 ));
 const canCreateProjects = computed(() => isSystemAdmin.value);
+const canOperateMatrix = computed(() => canManageSelectedProject.value && !matrixLocked.value);
 
 const systemProblems = computed(() => {
   const runtime = systemStatus.value?.runtime;
@@ -756,6 +761,39 @@ function themeSwitchTitle() {
   return `当前：${themeLabel()}，切换为${next.label}主题`;
 }
 
+function readMatrixLockStates() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(matrixLockStateKey) || '{}');
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function readMatrixLockState(projectId = selectedProjectId.value) {
+  if (!projectId) return false;
+  return Boolean(readMatrixLockStates()[projectId]);
+}
+
+function writeMatrixLockState(projectId = selectedProjectId.value, locked = matrixLocked.value) {
+  if (!projectId) return;
+
+  const states = readMatrixLockStates();
+  if (locked) {
+    states[projectId] = true;
+  } else {
+    delete states[projectId];
+  }
+  window.localStorage.setItem(matrixLockStateKey, JSON.stringify(states));
+}
+
+function toggleMatrixLock() {
+  if (!canManageSelectedProject.value) return;
+
+  matrixLocked.value = !matrixLocked.value;
+  showToast(matrixLocked.value ? '矩阵围栏已锁定' : '矩阵围栏已解锁');
+}
+
 function updateAuditLimit(value) {
   auditLimit.value = Number.parseInt(value, 10) || 80;
   refreshAuditLogs();
@@ -844,6 +882,18 @@ watch([draftRegion, cameras], () => {
 
 watch([currentView, selectedProjectId, projectSection], () => {
   writeNavigationState();
+});
+
+watch(selectedProjectId, (projectId) => {
+  matrixLocked.value = readMatrixLockState(projectId);
+  clearDraftRegion();
+});
+
+watch(matrixLocked, (locked) => {
+  writeMatrixLockState(selectedProjectId.value, locked);
+  if (locked) {
+    clearDraftRegion();
+  }
 });
 
 watch(cameraColumns, (columns) => {
@@ -1299,6 +1349,10 @@ function applyScreenUrlFromPicker(key, target, item) {
 }
 
 function openScreenUrlManagerFromModal(modalKey) {
+  if (modalKey === 'edit' && matrixLocked.value && cameraEditorMode.value === 'matrix') {
+    return;
+  }
+
   if (modalKey === 'create') {
     showCreateModal.value = false;
   } else if (modalKey === 'bulk') {
@@ -1808,14 +1862,24 @@ function screenCellClass(index) {
     running: assignments.some((camera) => camera.status === 'running'),
     error: assignments.some((camera) => camera.status === 'error'),
     selected: form.display_targets.includes(index),
-    fenced: isCellInRegion(index, draftRegion.value),
-    drawing: isSelectingRegion.value && isCellInRegion(index, draftRegion.value),
-    dropping: hoverScreen.value === index,
+    fenced: !matrixLocked.value && isCellInRegion(index, draftRegion.value),
+    drawing: !matrixLocked.value && isSelectingRegion.value && isCellInRegion(index, draftRegion.value),
+    dropping: !matrixLocked.value && hoverScreen.value === index,
   };
 }
 
+function setMatrixHover(index) {
+  if (!canOperateMatrix.value) return;
+  hoverScreen.value = index;
+}
+
+function clearMatrixHover() {
+  if (!canOperateMatrix.value) return;
+  hoverScreen.value = null;
+}
+
 function beginDrag(camera, event) {
-  if (!canManageSelectedProject.value) {
+  if (!canOperateMatrix.value) {
     event.preventDefault();
     return;
   }
@@ -1831,7 +1895,7 @@ function endDrag() {
 }
 
 function beginRegionSelection(cell, event) {
-  if (!canManageSelectedProject.value) return;
+  if (!canOperateMatrix.value) return;
   if (event.button !== 0) return;
   if (event.target.closest('button, a, input, select')) return;
 
@@ -1843,6 +1907,7 @@ function beginRegionSelection(cell, event) {
 }
 
 function updateRegionSelection(cell) {
+  if (matrixLocked.value) return;
   if (!isSelectingRegion.value || !regionDragStart.value) return;
 
   draftRegion.value = createRegionFromCells(regionDragStart.value, cell);
@@ -1878,7 +1943,7 @@ function dropRegionForCell(index, regionOverride = null) {
 
 async function dropCameraOnScreen(index, event, regionOverride = null) {
   event.preventDefault();
-  if (!canManageSelectedProject.value) return;
+  if (!canOperateMatrix.value) return;
 
   const cameraId = Number.parseInt(event.dataTransfer.getData('text/plain') || draggedCameraId.value, 10);
   const camera = cameras.value.find((item) => item.id === cameraId);
@@ -1900,7 +1965,7 @@ async function dropCameraOnScreen(index, event, regionOverride = null) {
 }
 
 async function clearCameraAssignment(camera) {
-  if (!canManageSelectedProject.value) return;
+  if (!canOperateMatrix.value) return;
   await saveCameraTargets(camera, [], null, '已移除绑定');
 }
 
@@ -1918,7 +1983,7 @@ function matrixCameraOptionLabel(camera) {
 }
 
 async function assignCameraToDraftRegion(camera) {
-  if (!draftRegion.value || !camera || !canManageSelectedProject.value || isCameraBusy(camera.id)) return;
+  if (!draftRegion.value || !camera || !canOperateMatrix.value || isCameraBusy(camera.id)) return;
 
   const saved = await saveExclusiveScreenAssignment(
     camera,
@@ -1932,11 +1997,14 @@ async function assignCameraToDraftRegion(camera) {
 }
 
 async function assignSelectedCameraToDraftRegion() {
+  if (!canOperateMatrix.value) return;
   if (!selectedMatrixAssignCamera.value) return;
   await assignCameraToDraftRegion(selectedMatrixAssignCamera.value);
 }
 
 async function saveCameraTargets(camera, targets, region, message) {
+  if (!canOperateMatrix.value) return;
+
   setCameraBusy(camera.id, true);
   error.value = '';
 
@@ -1952,6 +2020,8 @@ async function saveCameraTargets(camera, targets, region, message) {
 }
 
 async function saveExclusiveScreenAssignment(camera, region, occupyingCameras) {
+  if (!canOperateMatrix.value) return false;
+
   const busyIds = [camera.id, ...occupyingCameras.map((item) => item.id)];
   busyIds.forEach((id) => setCameraBusy(id, true));
   error.value = '';
@@ -2880,7 +2950,8 @@ onBeforeUnmount(() => {
                 v-for="camera in unassignedCameras"
                 :key="camera.id"
                 class="camera-card"
-                :draggable="canManageSelectedProject"
+                :class="{ locked: matrixLocked }"
+                :draggable="canOperateMatrix"
                 @dragstart="beginDrag(camera, $event)"
                 @dragend="endDrag"
               >
@@ -2892,7 +2963,7 @@ onBeforeUnmount(() => {
                 <div class="camera-card-state">
                   <i :class="camera.status">{{ statusLabel(camera.status) }}</i>
                   <button
-                    v-if="draftRegion && canManageSelectedProject"
+                    v-if="draftRegion && canOperateMatrix"
                     class="camera-card-bind"
                     type="button"
                     title="绑定到当前围栏"
@@ -2913,7 +2984,7 @@ onBeforeUnmount(() => {
           <div class="sidebar-section selection-summary">
             <div class="panel-heading">
               <h2>当前围栏</h2>
-              <button class="text-button compact-button" type="button" :disabled="!draftRegion" @click="clearDraftRegion">
+              <button class="text-button compact-button" type="button" :disabled="!draftRegion || matrixLocked" @click="clearDraftRegion">
                 <X :size="14" />
                 <span>清除</span>
               </button>
@@ -2925,7 +2996,7 @@ onBeforeUnmount(() => {
             <div v-if="draftRegion" class="region-assign-panel">
               <label>
                 <span>摄像头源</span>
-                <select v-model="matrixAssignCameraId" :disabled="cameras.length === 0">
+                <select v-model="matrixAssignCameraId" :disabled="cameras.length === 0 || matrixLocked">
                   <option value="">请选择摄像头源</option>
                   <option v-for="camera in cameras" :key="camera.id" :value="String(camera.id)">
                     {{ matrixCameraOptionLabel(camera) }}
@@ -2935,7 +3006,7 @@ onBeforeUnmount(() => {
               <button
                 class="primary-button region-assign-button"
                 type="button"
-                :disabled="!selectedMatrixAssignCamera || !canManageSelectedProject || isCameraBusy(selectedMatrixAssignCamera.id)"
+                :disabled="!selectedMatrixAssignCamera || !canOperateMatrix || isCameraBusy(selectedMatrixAssignCamera.id)"
                 @click="assignSelectedCameraToDraftRegion"
               >
                 <Save :size="15" />
@@ -2949,13 +3020,13 @@ onBeforeUnmount(() => {
               <h2>已绑定区域</h2>
               <span class="count">{{ assignedCameraRegions.length }}</span>
             </div>
-            <article v-for="item in assignedCameraRegions" :key="item.camera.id" class="assigned-row">
+            <article v-for="item in assignedCameraRegions" :key="item.camera.id" class="assigned-row" :class="{ locked: matrixLocked }">
               <div>
                 <strong>{{ item.camera.name }}</strong>
                 <span>{{ regionSummary(item.region) }}</span>
                 <small>{{ sourceAddress(item.camera) }} · {{ item.camera.stream_name }} · {{ item.region.targets.length }}块屏</small>
               </div>
-              <button type="button" title="移除绑定" @click="clearCameraAssignment(item.camera)">
+              <button type="button" title="移除绑定" :disabled="matrixLocked || !canManageSelectedProject || isCameraBusy(item.camera.id)" @click="clearCameraAssignment(item.camera)">
                 <X :size="14" />
               </button>
             </article>
@@ -2969,17 +3040,31 @@ onBeforeUnmount(() => {
               <h2>矩阵围栏</h2>
               <p>{{ projectDraft.rows }} 行 x {{ projectDraft.cols }} 列，共 {{ projectDraft.rows * projectDraft.cols }} 块屏</p>
             </div>
-            <div class="matrix-density-control" role="group" aria-label="矩阵密度">
-              <button type="button" :class="{ active: matrixDensity === 'compact' }" @click="matrixDensity = 'compact'">紧凑</button>
-              <button type="button" :class="{ active: matrixDensity === 'standard' }" @click="matrixDensity = 'standard'">标准</button>
-              <button type="button" :class="{ active: matrixDensity === 'detail' }" @click="matrixDensity = 'detail'">详情</button>
+            <div class="matrix-panel-actions">
+              <button
+                v-if="canManageSelectedProject"
+                class="matrix-lock-button"
+                type="button"
+                :class="{ active: matrixLocked }"
+                :title="matrixLocked ? '解锁矩阵围栏' : '锁定矩阵围栏'"
+                @click="toggleMatrixLock"
+              >
+                <Lock v-if="matrixLocked" :size="15" />
+                <Unlock v-else :size="15" />
+                <span>{{ matrixLocked ? '已锁定' : '未锁定' }}</span>
+              </button>
+              <div class="matrix-density-control" :class="{ locked: matrixLocked }" role="group" aria-label="矩阵密度">
+                <button type="button" :disabled="matrixLocked" :class="{ active: matrixDensity === 'compact' }" @click="matrixDensity = 'compact'">紧凑</button>
+                <button type="button" :disabled="matrixLocked" :class="{ active: matrixDensity === 'standard' }" @click="matrixDensity = 'standard'">标准</button>
+                <button type="button" :disabled="matrixLocked" :class="{ active: matrixDensity === 'detail' }" @click="matrixDensity = 'detail'">详情</button>
+              </div>
             </div>
           </div>
 
           <div
             ref="matrixBoardRef"
             class="matrix-board"
-            :class="`density-${matrixDensity}`"
+            :class="[`density-${matrixDensity}`, { locked: matrixLocked }]"
             :style="{ gridTemplateColumns: `repeat(${projectDraft.cols}, ${matrixColumnSize})`, gridAutoRows: matrixRowSize }"
             @pointerup="endRegionSelection"
             @pointercancel="endRegionSelection"
@@ -2994,9 +3079,9 @@ onBeforeUnmount(() => {
               @pointerdown="beginRegionSelection(cell, $event)"
               @pointerenter="updateRegionSelection(cell)"
               @pointerup="endRegionSelection"
-              @dragenter.prevent="hoverScreen = cell.index"
+              @dragenter.prevent="setMatrixHover(cell.index)"
               @dragover.prevent
-              @dragleave="hoverScreen = null"
+              @dragleave="clearMatrixHover"
               @drop="dropCameraOnScreen(cell.index, $event)"
             >
               <header>
@@ -3030,9 +3115,9 @@ onBeforeUnmount(() => {
               :class="[item.camera.status, regionCardClass(item.region)]"
               :style="regionStyle(item.region)"
               @pointerdown.stop
-              @dragenter.prevent="hoverScreen = indexFromRowCol(item.region.row, item.region.col)"
+              @dragenter.prevent="setMatrixHover(indexFromRowCol(item.region.row, item.region.col))"
               @dragover.prevent
-              @dragleave="hoverScreen = null"
+              @dragleave="clearMatrixHover"
               @drop="dropCameraOnScreen(indexFromRowCol(item.region.row, item.region.col), $event, item.region)"
             >
               <button
@@ -3059,7 +3144,7 @@ onBeforeUnmount(() => {
                   <button v-if="item.camera.web_url" type="button" title="打开网页 URL" @click.stop="openUrl(item.camera.web_url)">
                     <ExternalLink :size="13" />
                   </button>
-                  <button type="button" title="移除绑定" @click.stop="clearCameraAssignment(item.camera)">
+                  <button type="button" title="移除绑定" :disabled="matrixLocked || !canManageSelectedProject || isCameraBusy(item.camera.id)" @click.stop="clearCameraAssignment(item.camera)">
                     <X :size="13" />
                   </button>
                 </div>
@@ -3500,7 +3585,7 @@ onBeforeUnmount(() => {
               <div v-if="screenUrlsLoading" class="url-picker-empty">地址库加载中</div>
               <div v-else-if="screenUrls.length === 0" class="url-picker-empty">
                 <span>暂无可选大屏地址</span>
-                <button type="button" @click="openScreenUrlManagerFromModal('edit')">去维护</button>
+                <button type="button" :disabled="matrixLocked && cameraEditorMode === 'matrix'" @click="openScreenUrlManagerFromModal('edit')">去维护</button>
               </div>
               <div v-else-if="urlPickerMatchCount('edit') === 0" class="url-picker-empty">没有匹配的大屏地址</div>
               <div v-else class="url-picker-list compact">
