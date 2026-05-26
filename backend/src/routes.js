@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const { z } = require('zod');
 const { createToken, hashPassword, publicUser, verifyPassword } = require('./auth');
 const { getDb } = require('./db');
@@ -105,12 +106,25 @@ const passwordChangeSchema = z.object({
 const backupConfigSchema = z.object({
   enabled: z.coerce.boolean().default(false),
   frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly']).default('daily'),
+  schedule_time: z.string().trim().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  schedule_minute: z.coerce.number().int().min(0).max(59).optional(),
+  schedule_weekday: z.coerce.number().int().min(1).max(7).optional(),
+  schedule_month_day: z.coerce.number().int().min(1).max(28).optional(),
   backup_path: z.string().trim().min(1).max(240),
 });
 
 const backupRestoreSchema = z.object({
   file: z.string().trim().min(1).max(240),
   confirmation: z.literal('RESTORE'),
+});
+
+const backupUploadParser = express.raw({
+  type: [
+    'application/octet-stream',
+    'application/vnd.sqlite3',
+    'application/x-sqlite3',
+  ],
+  limit: process.env.DB_BACKUP_UPLOAD_LIMIT || '200mb',
 });
 
 const projectMembersSchema = z.object({
@@ -1055,6 +1069,44 @@ router.get('/system/database-backup/files', async (req, res) => {
   }
 });
 
+router.get('/system/database-backup/files/:file/download', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  try {
+    const filePath = await backupService.getBackupFilePath(req.params.file);
+    await recordAudit({
+      action: 'system.backup_download',
+      targetType: 'system',
+      targetName: 'database_backup',
+      detail: {
+        file: filePath,
+      },
+    });
+    return res.download(filePath, path.basename(filePath));
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.delete('/system/database-backup/files/:file', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  try {
+    const result = await backupService.deleteBackupFile(req.params.file);
+    await recordAudit({
+      action: 'system.backup_delete',
+      targetType: 'system',
+      targetName: 'database_backup',
+      detail: {
+        file: result.path,
+      },
+    });
+    return res.json(result);
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
 router.post('/system/database-backup/restore', async (req, res) => {
   if (!assertSystemAdmin(req, res)) return;
 
@@ -1073,6 +1125,38 @@ router.post('/system/database-backup/restore', async (req, res) => {
       targetType: 'system',
       targetName: 'database_backup',
       detail: {
+        restored_file: result.restored_file,
+        safety_backup_file: result.safety_backup_file,
+      },
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || String(error) });
+  }
+});
+
+router.post('/system/database-backup/upload-restore', backupUploadParser, async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const confirmation = req.get('x-restore-confirmation') || '';
+  if (confirmation !== 'RESTORE') {
+    return res.status(400).json({ error: 'Invalid backup restore confirmation' });
+  }
+
+  const rawName = req.get('x-backup-filename') || 'uploaded.db';
+  let fileName = rawName;
+  try {
+    fileName = decodeURIComponent(rawName);
+  } catch {}
+
+  try {
+    const result = await backupService.restoreUploadedBackup(fileName, req.body);
+    await recordAudit({
+      action: 'system.backup_upload_restore',
+      targetType: 'system',
+      targetName: 'database_backup',
+      detail: {
+        uploaded_file: result.uploaded_file,
         restored_file: result.restored_file,
         safety_backup_file: result.safety_backup_file,
       },

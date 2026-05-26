@@ -23,10 +23,10 @@ async function request(path, options = {}) {
     ...options,
     headers: withAuthHeaders(options.headers || {}),
   });
-  const isJson = response.headers.get('content-type')?.includes('application/json');
-  const payload = isJson ? await response.json() : null;
 
   if (!response.ok) {
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const payload = isJson ? await response.json() : null;
     const detail = payload?.error || response.statusText || 'Request failed';
     const sessionExpired = response.status === 401 && path !== '/api/auth/login';
     const error = new Error(sessionExpired ? '登录已过期，请重新登录' : detail);
@@ -44,7 +44,35 @@ async function request(path, options = {}) {
     throw error;
   }
 
-  return payload;
+  const isJson = response.headers.get('content-type')?.includes('application/json');
+  return isJson ? await response.json() : null;
+}
+
+async function downloadRequest(path) {
+  const response = await fetch(path, {
+    headers: withAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const payload = isJson ? await response.json() : null;
+    const sessionExpired = response.status === 401;
+    const error = new Error(sessionExpired ? '登录已过期，请重新登录' : (payload?.error || response.statusText || 'Download failed'));
+    error.status = response.status;
+
+    if (sessionExpired) {
+      storeAuthToken('');
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT, {
+        detail: {
+          message: error.message,
+        },
+      }));
+    }
+
+    throw error;
+  }
+
+  return response.blob();
 }
 
 export function storeAuthToken(token) {
@@ -249,6 +277,16 @@ export function listDatabaseBackupFiles() {
   return request('/api/system/database-backup/files');
 }
 
+export function downloadDatabaseBackupFile(file) {
+  return downloadRequest(`/api/system/database-backup/files/${encodeURIComponent(file)}/download`);
+}
+
+export function deleteDatabaseBackupFile(file) {
+  return request(`/api/system/database-backup/files/${encodeURIComponent(file)}`, {
+    method: 'DELETE',
+  });
+}
+
 export function restoreDatabaseBackup(file) {
   return request('/api/system/database-backup/restore', {
     method: 'POST',
@@ -257,6 +295,18 @@ export function restoreDatabaseBackup(file) {
       file,
       confirmation: 'RESTORE',
     }),
+  });
+}
+
+export async function uploadRestoreDatabaseBackup(file) {
+  return request('/api/system/database-backup/upload-restore', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'X-Backup-Filename': encodeURIComponent(file.name || 'uploaded.db'),
+      'X-Restore-Confirmation': 'RESTORE',
+    },
+    body: await file.arrayBuffer(),
   });
 }
 

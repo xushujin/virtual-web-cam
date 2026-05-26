@@ -297,4 +297,5 @@ module.exports = {
   initDb,
   getDb,
   restoreDatabaseFromBackup,
+  verifyBackupFile,
 };

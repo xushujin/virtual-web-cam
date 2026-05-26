@@ -55,16 +55,24 @@ async function request(pathname, {
   method = 'GET',
   token = '',
   body,
+  rawBody,
+  headers = {},
+  responseType = 'json',
   expected = 200,
 } = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, {
     method,
     headers: {
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...headers,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: rawBody === undefined ? (body === undefined ? undefined : JSON.stringify(body)) : rawBody,
   });
+
+  if (responseType === 'arrayBuffer' && response.status === expected) {
+    return Buffer.from(await response.arrayBuffer());
+  }
 
   const text = await response.text();
   let payload = null;
@@ -195,10 +203,14 @@ try {
     body: {
       enabled: true,
       frequency: 'hourly',
+      schedule_minute: 30,
       backup_path: path.join(tempDir, 'db-backups'),
     },
   });
-  assert(backupConfig.enabled === true && backupConfig.frequency === 'hourly', 'backup config was not saved');
+  assert(
+    backupConfig.enabled === true && backupConfig.frequency === 'hourly' && backupConfig.schedule_minute === 30,
+    'backup config was not saved',
+  );
   assert(backupConfig.next_run_at, 'backup config should include next run time');
 
   const backupRun = await request('/system/database-backup/run', {
@@ -438,6 +450,15 @@ try {
     'backup file list should include manual backup',
   );
 
+  const downloadedBackup = await request(
+    `/system/database-backup/files/${encodeURIComponent(path.basename(backupRun.last_file))}/download`,
+    {
+      token: adminToken,
+      responseType: 'arrayBuffer',
+    },
+  );
+  assert(downloadedBackup.length > 0, 'downloaded backup should not be empty');
+
   await request('/system/database-backup/restore', {
     method: 'POST',
     token: userToken,
@@ -459,6 +480,30 @@ try {
   assert(restoredBackup.restored === true, 'database restore failed');
   assert(restoredBackup.restored_file === backupRun.last_file, 'restored backup file mismatch');
   await fs.access(restoredBackup.safety_backup_file);
+
+  await request('/system/database-backup/upload-restore', {
+    method: 'POST',
+    token: adminToken,
+    rawBody: downloadedBackup,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'X-Backup-Filename': encodeURIComponent('uploaded-regression.db'),
+      'X-Restore-Confirmation': 'RESTORE',
+    },
+  }).then(async (uploadedRestore) => {
+    assert(uploadedRestore.restored === true, 'uploaded database restore failed');
+    assert(uploadedRestore.uploaded_file.endsWith('.db'), 'uploaded restore should save a backup file');
+    await fs.access(uploadedRestore.uploaded_file);
+
+    const deletedBackup = await request(
+      `/system/database-backup/files/${encodeURIComponent(path.basename(uploadedRestore.uploaded_file))}`,
+      {
+        method: 'DELETE',
+        token: adminToken,
+      },
+    );
+    assert(deletedBackup.deleted === true, 'backup delete failed');
+  });
 
   console.log('API regression tests passed');
 } finally {

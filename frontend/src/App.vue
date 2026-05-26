@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import {
   Copy,
   DatabaseBackup,
+  Download,
   ExternalLink,
   FileText,
   GripVertical,
@@ -31,7 +32,9 @@ import {
   createScreenUrl,
   createUser,
   deleteCamera,
+  deleteDatabaseBackupFile,
   deleteScreenUrl,
+  downloadDatabaseBackupFile,
   exportProjectConfig,
   getCurrentUser,
   getDatabaseBackupConfig,
@@ -60,6 +63,7 @@ import {
   updateProject,
   updateScreenUrl,
   updateUserProjects,
+  uploadRestoreDatabaseBackup,
 } from './api';
 import {
   mpvCommand as buildMpvCommand,
@@ -154,8 +158,12 @@ const backupSaving = ref(false);
 const backupRunning = ref(false);
 const backupFilesLoading = ref(false);
 const backupRestoring = ref(false);
+const backupUploading = ref(false);
+const backupDownloadingFile = ref('');
+const backupDeletingFile = ref('');
 const selectedBackupFile = ref('');
 const restoreConfirmation = ref('');
+const backupUploadInput = ref(null);
 const resourceStats = ref(null);
 const previousResourceStats = ref(null);
 const resourceRates = ref(null);
@@ -212,6 +220,15 @@ const backupFrequencyOptions = [
   { value: 'daily', label: '每天' },
   { value: 'weekly', label: '每周' },
   { value: 'monthly', label: '每月' },
+];
+const backupWeekdayOptions = [
+  { value: 1, label: '周一' },
+  { value: 2, label: '周二' },
+  { value: 3, label: '周三' },
+  { value: 4, label: '周四' },
+  { value: 5, label: '周五' },
+  { value: 6, label: '周六' },
+  { value: 7, label: '周日' },
 ];
 const defaultCameraColumns = {
   ip: true,
@@ -289,6 +306,10 @@ const screenUrlForm = reactive({
 const backupForm = reactive({
   enabled: false,
   frequency: 'daily',
+  schedule_time: '02:00',
+  schedule_minute: 0,
+  schedule_weekday: 1,
+  schedule_month_day: 1,
   backup_path: '/data/backups',
 });
 
@@ -340,6 +361,22 @@ const canOperateMatrix = computed(() => canManageSelectedProject.value && !matri
 const backupFrequencyLabel = computed(() => (
   backupFrequencyOptions.find((item) => item.value === backupForm.frequency)?.label || backupForm.frequency
 ));
+const backupScheduleSummary = computed(() => {
+  if (backupForm.frequency === 'hourly') {
+    return `每小时第 ${String(backupForm.schedule_minute).padStart(2, '0')} 分钟执行`;
+  }
+
+  if (backupForm.frequency === 'weekly') {
+    const weekday = backupWeekdayOptions.find((item) => item.value === Number(backupForm.schedule_weekday))?.label || '周一';
+    return `每${weekday} ${backupForm.schedule_time} 执行`;
+  }
+
+  if (backupForm.frequency === 'monthly') {
+    return `每月 ${backupForm.schedule_month_day} 日 ${backupForm.schedule_time} 执行`;
+  }
+
+  return `每天 ${backupForm.schedule_time} 执行`;
+});
 const backupStatusLabel = computed(() => {
   if (!backupConfig.value || backupConfig.value.last_status === 'never') return '未执行';
   if (backupConfig.value.last_status === 'success') return '成功';
@@ -643,6 +680,9 @@ function resetSessionState({ clearNavigation = true } = {}) {
   backupFiles.value = [];
   selectedBackupFile.value = '';
   restoreConfirmation.value = '';
+  backupDownloadingFile.value = '';
+  backupDeletingFile.value = '';
+  backupUploading.value = false;
   activeLogs.value = null;
   editingCamera.value = null;
   error.value = '';
@@ -1119,6 +1159,12 @@ function applyBackupConfig(config = {}) {
   backupForm.frequency = backupFrequencyOptions.some((item) => item.value === config.frequency)
     ? config.frequency
     : 'daily';
+  backupForm.schedule_time = /^([01]\d|2[0-3]):[0-5]\d$/.test(config.schedule_time || '')
+    ? config.schedule_time
+    : '02:00';
+  backupForm.schedule_minute = Math.min(59, Math.max(0, Number(config.schedule_minute ?? 0) || 0));
+  backupForm.schedule_weekday = Math.min(7, Math.max(1, Number(config.schedule_weekday ?? 1) || 1));
+  backupForm.schedule_month_day = Math.min(28, Math.max(1, Number(config.schedule_month_day ?? 1) || 1));
   backupForm.backup_path = config.backup_path || '/data/backups';
 }
 
@@ -1232,6 +1278,91 @@ async function restoreSelectedBackup() {
     error.value = err.message;
   } finally {
     backupRestoring.value = false;
+  }
+}
+
+async function downloadSelectedBackup() {
+  if (!isSystemAdmin.value || !selectedBackupFile.value || backupDownloadingFile.value) return;
+
+  const fileName = selectedBackupFile.value;
+  backupDownloadingFile.value = fileName;
+  error.value = '';
+
+  try {
+    const blob = await downloadDatabaseBackupFile(fileName);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    showToast('备份文件下载已开始');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupDownloadingFile.value = '';
+  }
+}
+
+async function deleteSelectedBackup() {
+  if (!isSystemAdmin.value || !selectedBackupFile.value || backupDeletingFile.value) return;
+
+  const fileName = selectedBackupFile.value;
+  if (!window.confirm(`删除备份文件「${fileName}」？`)) return;
+
+  backupDeletingFile.value = fileName;
+  error.value = '';
+
+  try {
+    const result = await deleteDatabaseBackupFile(fileName);
+    if (result.state) {
+      applyBackupConfig(result.state);
+    }
+    await refreshBackupFiles();
+    showToast('备份文件已删除');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupDeletingFile.value = '';
+  }
+}
+
+function pickBackupUploadFile() {
+  if (!isSystemAdmin.value || backupUploading.value) return;
+  if (restoreConfirmation.value !== 'RESTORE') {
+    error.value = '请输入 RESTORE 确认恢复操作';
+    return;
+  }
+
+  backupUploadInput.value?.click();
+}
+
+async function restoreUploadedBackupFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file || backupUploading.value) return;
+  if (restoreConfirmation.value !== 'RESTORE') {
+    error.value = '请输入 RESTORE 确认恢复操作';
+    return;
+  }
+
+  backupUploading.value = true;
+  error.value = '';
+
+  try {
+    const result = await uploadRestoreDatabaseBackup(file);
+    const restoredState = result.state || await getDatabaseBackupConfig();
+    applyBackupConfig(restoredState);
+    restoreConfirmation.value = '';
+    await refreshBackupFiles();
+    await refreshProjects();
+    showToast('已上传备份并完成恢复');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupUploading.value = false;
   }
 }
 
@@ -2864,6 +2995,34 @@ onBeforeUnmount(() => {
               </select>
             </label>
 
+            <div class="backup-schedule-grid">
+              <label v-if="backupForm.frequency === 'hourly'">
+                <span>执行分钟</span>
+                <input v-model.number="backupForm.schedule_minute" type="number" min="0" max="59" step="1" :disabled="!backupForm.enabled" />
+              </label>
+
+              <template v-else>
+                <label>
+                  <span>执行时间</span>
+                  <input v-model="backupForm.schedule_time" type="time" :disabled="!backupForm.enabled" />
+                </label>
+                <label v-if="backupForm.frequency === 'weekly'">
+                  <span>执行星期</span>
+                  <select v-model.number="backupForm.schedule_weekday" :disabled="!backupForm.enabled">
+                    <option v-for="option in backupWeekdayOptions" :key="option.value" :value="option.value">
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </label>
+                <label v-if="backupForm.frequency === 'monthly'">
+                  <span>执行日期</span>
+                  <input v-model.number="backupForm.schedule_month_day" type="number" min="1" max="28" step="1" :disabled="!backupForm.enabled" />
+                </label>
+              </template>
+
+              <p>{{ backupScheduleSummary }}</p>
+            </div>
+
             <label class="wide-field">
               <span>备份路径（后端容器内）</span>
               <input v-model.trim="backupForm.backup_path" required placeholder="/data/backups" />
@@ -2878,6 +3037,10 @@ onBeforeUnmount(() => {
             <article>
               <span>下次执行</span>
               <strong>{{ formatBackupTime(backupConfig?.next_run_at) }}</strong>
+            </article>
+            <article>
+              <span>执行计划</span>
+              <strong>{{ backupScheduleSummary }}</strong>
             </article>
             <article>
               <span>最近结果</span>
@@ -2924,15 +3087,35 @@ onBeforeUnmount(() => {
               <span>确认词</span>
               <input v-model.trim="restoreConfirmation" placeholder="RESTORE" autocomplete="off" />
             </label>
-            <button
-              class="danger"
-              type="button"
-              :disabled="backupRestoring || !selectedBackupFile || restoreConfirmation !== 'RESTORE'"
-              @click="restoreSelectedBackup"
-            >
-              <DatabaseBackup :size="15" />
-              <span>{{ backupRestoring ? '恢复中' : '恢复数据' }}</span>
-            </button>
+            <input ref="backupUploadInput" class="visually-hidden" type="file" accept=".db,application/vnd.sqlite3,application/octet-stream" @change="restoreUploadedBackupFile" />
+            <div class="backup-file-actions">
+              <button class="text-button" type="button" :disabled="!selectedBackupFile || backupDownloadingFile" @click="downloadSelectedBackup">
+                <Download :size="15" />
+                <span>{{ backupDownloadingFile ? '下载中' : '下载' }}</span>
+              </button>
+              <button class="text-button" type="button" :disabled="!selectedBackupFile || backupDeletingFile" @click="deleteSelectedBackup">
+                <Trash2 :size="15" />
+                <span>{{ backupDeletingFile ? '删除中' : '删除' }}</span>
+              </button>
+              <button
+                class="danger"
+                type="button"
+                :disabled="backupRestoring || !selectedBackupFile || restoreConfirmation !== 'RESTORE'"
+                @click="restoreSelectedBackup"
+              >
+                <DatabaseBackup :size="15" />
+                <span>{{ backupRestoring ? '恢复中' : '恢复数据' }}</span>
+              </button>
+              <button
+                class="danger"
+                type="button"
+                :disabled="backupUploading || restoreConfirmation !== 'RESTORE'"
+                @click="pickBackupUploadFile"
+              >
+                <Upload :size="15" />
+                <span>{{ backupUploading ? '上传中' : '上传恢复' }}</span>
+              </button>
+            </div>
           </div>
           <div v-if="!backupFilesLoading && backupFiles.length === 0" class="empty small">暂无可恢复的备份文件</div>
         </section>

@@ -30,11 +30,13 @@ test('database backup config persists and manual backup creates a copy', async (
   const saved = await backupService.saveBackupConfig({
     enabled: true,
     frequency: 'hourly',
+    schedule_minute: 15,
     backup_path: backupDir,
   }, { username: 'admin' });
 
   assert.equal(saved.enabled, true);
   assert.equal(saved.frequency, 'hourly');
+  assert.equal(saved.schedule_minute, 15);
   assert.equal(saved.backup_path, backupDir);
   assert.match(saved.next_run_at, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(saved.updated_by, 'admin');
@@ -67,6 +69,24 @@ test('database backup config persists and manual backup creates a copy', async (
     await getDb().get('SELECT value FROM settings WHERE key = ?', 'backup_test_marker'),
     { value: 'ok' },
   );
+
+  await getDb().run(
+    'INSERT INTO settings (key, value) VALUES (?, ?)',
+    'upload_restore_test_marker',
+    'dirty',
+  );
+
+  const uploaded = await backupService.restoreUploadedBackup('manual-copy.db', fs.readFileSync(result.last_file));
+  assert.equal(uploaded.restored, true);
+  assert.equal(fs.existsSync(uploaded.uploaded_file), true);
+  assert.equal(
+    await getDb().get('SELECT value FROM settings WHERE key = ?', 'upload_restore_test_marker'),
+    undefined,
+  );
+
+  const deleted = await backupService.deleteBackupFile(path.basename(result.last_file));
+  assert.equal(deleted.deleted, true);
+  assert.equal(fs.existsSync(result.last_file), false);
 });
 
 test('backup paths must be absolute', () => {
@@ -74,4 +94,42 @@ test('backup paths must be absolute', () => {
     () => backupService.normalizeBackupPath('relative/backups'),
     /absolute path/,
   );
+});
+
+test('backup schedules calculate concrete next run times', () => {
+  const base = new Date(2026, 4, 26, 10, 15, 30, 0);
+  const hourly = new Date(backupService.nextRunAt(base, {
+    frequency: 'hourly',
+    schedule_minute: 20,
+  }));
+  assert.equal(hourly.getMinutes(), 20);
+  assert.equal(hourly.getSeconds(), 0);
+  assert.equal(hourly.getTime() > base.getTime(), true);
+
+  const daily = new Date(backupService.nextRunAt(base, {
+    frequency: 'daily',
+    schedule_time: '09:30',
+  }));
+  assert.equal(daily.getHours(), 9);
+  assert.equal(daily.getMinutes(), 30);
+  assert.equal(daily.getDate(), 27);
+
+  const weekly = new Date(backupService.nextRunAt(base, {
+    frequency: 'weekly',
+    schedule_time: '08:00',
+    schedule_weekday: 1,
+  }));
+  assert.equal(weekly.getDay(), 1);
+  assert.equal(weekly.getHours(), 8);
+  assert.equal(weekly.getMinutes(), 0);
+
+  const monthly = new Date(backupService.nextRunAt(base, {
+    frequency: 'monthly',
+    schedule_time: '03:45',
+    schedule_month_day: 1,
+  }));
+  assert.equal(monthly.getDate(), 1);
+  assert.equal(monthly.getHours(), 3);
+  assert.equal(monthly.getMinutes(), 45);
+  assert.equal(monthly.getMonth(), 5);
 });
