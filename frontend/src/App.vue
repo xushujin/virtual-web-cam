@@ -101,6 +101,7 @@ let statusPollTimer = null;
 let resourcePollTimer = null;
 let stickyHeaderObserver = null;
 let projectHeaderObserver = null;
+let matrixBoardObserver = null;
 const error = ref('');
 const toast = ref('');
 const toastKind = ref('info');
@@ -178,6 +179,8 @@ const uiTheme = ref(normalizeTheme(window.localStorage.getItem('virtualwebcam-th
 const themeClass = computed(() => (uiTheme.value === 'light' ? '' : `theme-${uiTheme.value}`));
 const stickyHeaderRef = ref(null);
 const projectHeaderRef = ref(null);
+const matrixBoardRef = ref(null);
+const matrixSourceListMaxHeight = ref(null);
 const users = ref([]);
 const selectedUserId = ref(null);
 const userProjectRoles = ref({});
@@ -499,6 +502,11 @@ const matrixDensityConfig = {
 
 const matrixColumnSize = computed(() => matrixDensityConfig[matrixDensity.value]?.column || matrixDensityConfig.standard.column);
 const matrixRowSize = computed(() => matrixDensityConfig[matrixDensity.value]?.row || matrixDensityConfig.standard.row);
+const matrixSourceListStyle = computed(() => (
+  matrixSourceListMaxHeight.value
+    ? { maxHeight: `${matrixSourceListMaxHeight.value}px` }
+    : {}
+));
 
 function showToast(message, options = {}) {
   const duration = options.duration || 1800;
@@ -785,16 +793,35 @@ function updateFixedHeaderHeights() {
   updateProjectHeaderHeight();
 }
 
+function updateMatrixSourceListHeight() {
+  const height = matrixBoardRef.value?.offsetHeight || 0;
+  matrixSourceListMaxHeight.value = height > 0 ? Math.round(height) : null;
+}
+
 function observeProjectHeader() {
   if (projectHeaderObserver && projectHeaderRef.value) {
     projectHeaderObserver.observe(projectHeaderRef.value);
   }
 }
 
+function observeMatrixBoard() {
+  if (matrixBoardObserver && matrixBoardRef.value) {
+    matrixBoardObserver.observe(matrixBoardRef.value);
+  }
+}
+
 watch([isAuthenticated, currentView, systemLoading, systemProblems, selectedProjectId, projectSection], async () => {
   await nextTick();
   observeProjectHeader();
+  observeMatrixBoard();
   updateFixedHeaderHeights();
+  updateMatrixSourceListHeight();
+});
+
+watch([matrixDensity, () => projectDraft.rows, () => projectDraft.cols], async () => {
+  if (projectSection.value !== 'matrix') return;
+  await nextTick();
+  updateMatrixSourceListHeight();
 });
 
 watch([currentView, selectedProjectId, projectSection], () => {
@@ -2190,6 +2217,8 @@ onMounted(async () => {
     }
     projectHeaderObserver = new ResizeObserver(updateFixedHeaderHeights);
     observeProjectHeader();
+    matrixBoardObserver = new ResizeObserver(updateMatrixSourceListHeight);
+    observeMatrixBoard();
   }
 });
 
@@ -2198,6 +2227,7 @@ onBeforeUnmount(() => {
   stopBackgroundPolling();
   stickyHeaderObserver?.disconnect();
   projectHeaderObserver?.disconnect();
+  matrixBoardObserver?.disconnect();
   document.documentElement.style.removeProperty('--sticky-status-header-height');
   document.documentElement.style.removeProperty('--project-header-panel-height');
 });
@@ -2789,29 +2819,31 @@ onBeforeUnmount(() => {
 
       <section v-else-if="projectSection === 'matrix'" class="binding-page">
         <aside class="panel binding-sidebar">
-          <div class="sidebar-section">
+          <div class="sidebar-section unassigned-section">
             <div class="panel-heading">
               <h2>未绑定摄像头源</h2>
               <span class="count">{{ unassignedCameras.length }}</span>
             </div>
 
-            <article
-              v-for="camera in unassignedCameras"
-              :key="camera.id"
-              class="camera-card"
-              :draggable="canManageSelectedProject"
-              @dragstart="beginDrag(camera, $event)"
-              @dragend="endDrag"
-            >
-              <GripVertical :size="16" />
-              <div>
-                <strong>{{ camera.name }}</strong>
-                <span>{{ sourceAddress(camera) }} · {{ camera.stream_name }}</span>
-              </div>
-              <i :class="camera.status">{{ statusLabel(camera.status) }}</i>
-            </article>
+            <div class="camera-source-scroll" :style="matrixSourceListStyle">
+              <article
+                v-for="camera in unassignedCameras"
+                :key="camera.id"
+                class="camera-card"
+                :draggable="canManageSelectedProject"
+                @dragstart="beginDrag(camera, $event)"
+                @dragend="endDrag"
+              >
+                <GripVertical :size="16" />
+                <div>
+                  <strong>{{ camera.name }}</strong>
+                  <span>{{ sourceAddress(camera) }} · {{ camera.stream_name }}</span>
+                </div>
+                <i :class="camera.status">{{ statusLabel(camera.status) }}</i>
+              </article>
 
-            <div v-if="!loading && unassignedCameras.length === 0" class="empty small">没有未绑定摄像头源</div>
+              <div v-if="!loading && unassignedCameras.length === 0" class="empty small">没有未绑定摄像头源</div>
+            </div>
           </div>
 
           <div class="sidebar-section selection-summary">
@@ -2861,6 +2893,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div
+            ref="matrixBoardRef"
             class="matrix-board"
             :class="`density-${matrixDensity}`"
             :style="{ gridTemplateColumns: `repeat(${projectDraft.cols}, ${matrixColumnSize})`, gridAutoRows: matrixRowSize }"
