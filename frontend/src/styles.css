@@ -1242,6 +1242,19 @@ button:disabled,
   font-size: 14px;
 }
 
+.region-assign-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.region-assign-button {
+  width: 100%;
+}
+
 .screen-workbench {
   display: grid;
   grid-template-columns: 390px minmax(0, 1fr);
@@ -1396,6 +1409,33 @@ button:disabled,
   font-style: normal;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.camera-card-state {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.camera-card-bind {
+  min-width: 52px;
+  height: 28px;
+  border: 1px solid #1d4ed8;
+  border-radius: 6px;
+  background: #1d4ed8;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.camera-card-bind:hover {
+  background: #1746c7;
+}
+
+.camera-card-bind:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
 }
 
 .camera-card i.running {
@@ -3635,10 +3675,21 @@ td small {
 }
 
 .theme-cyber .camera-card,
+.theme-cyber .region-assign-panel,
 .theme-cyber .assigned-row,
 .theme-cyber .audit-content {
   border-color: rgba(105, 226, 255, 0.24);
   background: rgba(5, 14, 22, 0.74);
+}
+
+.theme-cyber .camera-card-bind {
+  border-color: rgba(35, 241, 255, 0.46);
+  background: rgba(35, 241, 255, 0.16);
+  color: #d7fff7;
+}
+
+.theme-cyber .camera-card-bind:hover {
+  background: rgba(35, 241, 255, 0.24);
 }
 
 .theme-cyber .audit-row::before {

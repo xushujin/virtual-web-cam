@@ -155,6 +155,7 @@ const projectCreating = ref(false);
 const regionDragStart = ref(null);
 const draftRegion = ref(null);
 const isSelectingRegion = ref(false);
+const matrixAssignCameraId = ref('');
 const matrixDensity = ref('standard');
 const importInput = ref(null);
 const importingProject = ref(false);
@@ -484,6 +485,9 @@ const assignedCameraRegions = computed(() => cameras.value
     region: normalizeCameraRegion(camera),
   }))
   .filter((item) => item.region));
+const selectedMatrixAssignCamera = computed(() => (
+  cameras.value.find((camera) => String(camera.id) === String(matrixAssignCameraId.value)) || null
+));
 
 const matrixDensityConfig = {
   compact: {
@@ -822,6 +826,20 @@ watch([matrixDensity, () => projectDraft.rows, () => projectDraft.cols], async (
   if (projectSection.value !== 'matrix') return;
   await nextTick();
   updateMatrixSourceListHeight();
+});
+
+watch([draftRegion, cameras], () => {
+  if (!draftRegion.value) {
+    matrixAssignCameraId.value = '';
+    return;
+  }
+
+  if (cameras.value.some((camera) => String(camera.id) === String(matrixAssignCameraId.value))) {
+    return;
+  }
+
+  const preferredCamera = unassignedCameras.value[0] || cameras.value[0] || null;
+  matrixAssignCameraId.value = preferredCamera ? String(preferredCamera.id) : '';
 });
 
 watch([currentView, selectedProjectId, projectSection], () => {
@@ -1842,6 +1860,7 @@ function clearDraftRegion() {
   regionDragStart.value = null;
   isSelectingRegion.value = false;
   hoverScreen.value = null;
+  matrixAssignCameraId.value = '';
 }
 
 function dropRegionForCell(index, regionOverride = null) {
@@ -1874,18 +1893,47 @@ async function dropCameraOnScreen(index, event, regionOverride = null) {
     return;
   }
 
-  const occupyingCameras = cameras.value.filter((item) => {
-    if (item.id === camera.id) return false;
-    return (item.display_targets || []).some((target) => region.targets.includes(target));
-  });
-
-  await saveExclusiveScreenAssignment(camera, region, occupyingCameras);
-  clearDraftRegion();
+  const saved = await saveExclusiveScreenAssignment(camera, region, occupyingCamerasForRegion(region, camera));
+  if (saved) {
+    clearDraftRegion();
+  }
 }
 
 async function clearCameraAssignment(camera) {
   if (!canManageSelectedProject.value) return;
   await saveCameraTargets(camera, [], null, '已移除绑定');
+}
+
+function occupyingCamerasForRegion(region, camera) {
+  if (!region || !camera) return [];
+
+  return cameras.value.filter((item) => {
+    if (item.id === camera.id) return false;
+    return (item.display_targets || []).some((target) => region.targets.includes(target));
+  });
+}
+
+function matrixCameraOptionLabel(camera) {
+  return `${camera.name} · ${sourceAddress(camera)} · ${camera.stream_name}`;
+}
+
+async function assignCameraToDraftRegion(camera) {
+  if (!draftRegion.value || !camera || !canManageSelectedProject.value || isCameraBusy(camera.id)) return;
+
+  const saved = await saveExclusiveScreenAssignment(
+    camera,
+    draftRegion.value,
+    occupyingCamerasForRegion(draftRegion.value, camera),
+  );
+
+  if (saved) {
+    clearDraftRegion();
+  }
+}
+
+async function assignSelectedCameraToDraftRegion() {
+  if (!selectedMatrixAssignCamera.value) return;
+  await assignCameraToDraftRegion(selectedMatrixAssignCamera.value);
 }
 
 async function saveCameraTargets(camera, targets, region, message) {
@@ -1921,8 +1969,10 @@ async function saveExclusiveScreenAssignment(camera, region, occupyingCameras) {
     });
     await refresh();
     showToast(occupyingCameras.length > 0 ? '已替换合并区域' : '已分配到合并区域');
+    return true;
   } catch (err) {
     error.value = err.message;
+    return false;
   } finally {
     busyIds.forEach((id) => setCameraBusy(id, false));
   }
@@ -2839,7 +2889,19 @@ onBeforeUnmount(() => {
                   <strong>{{ camera.name }}</strong>
                   <span>{{ sourceAddress(camera) }} · {{ camera.stream_name }}</span>
                 </div>
-                <i :class="camera.status">{{ statusLabel(camera.status) }}</i>
+                <div class="camera-card-state">
+                  <i :class="camera.status">{{ statusLabel(camera.status) }}</i>
+                  <button
+                    v-if="draftRegion && canManageSelectedProject"
+                    class="camera-card-bind"
+                    type="button"
+                    :disabled="isCameraBusy(camera.id)"
+                    @pointerdown.stop
+                    @click.stop="assignCameraToDraftRegion(camera)"
+                  >
+                    绑定
+                  </button>
+                </div>
               </article>
 
               <div v-if="!loading && unassignedCameras.length === 0" class="empty small">没有未绑定摄像头源</div>
@@ -2857,6 +2919,26 @@ onBeforeUnmount(() => {
             <strong>{{ regionSummary(draftRegion) }}</strong>
             <div v-if="draftRegion" class="region-screen-tags">
               <span v-for="label in regionTargetLabels(draftRegion)" :key="label">{{ label }}</span>
+            </div>
+            <div v-if="draftRegion" class="region-assign-panel">
+              <label>
+                <span>摄像头源</span>
+                <select v-model="matrixAssignCameraId" :disabled="cameras.length === 0">
+                  <option value="">请选择摄像头源</option>
+                  <option v-for="camera in cameras" :key="camera.id" :value="String(camera.id)">
+                    {{ matrixCameraOptionLabel(camera) }}
+                  </option>
+                </select>
+              </label>
+              <button
+                class="primary-button region-assign-button"
+                type="button"
+                :disabled="!selectedMatrixAssignCamera || !canManageSelectedProject || isCameraBusy(selectedMatrixAssignCamera.id)"
+                @click="assignSelectedCameraToDraftRegion"
+              >
+                <Save :size="15" />
+                <span>绑定到围栏</span>
+              </button>
             </div>
           </div>
 
