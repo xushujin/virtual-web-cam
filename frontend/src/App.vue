@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
   Copy,
+  DatabaseBackup,
   ExternalLink,
   FileText,
   GripVertical,
@@ -33,6 +34,7 @@ import {
   deleteScreenUrl,
   exportProjectConfig,
   getCurrentUser,
+  getDatabaseBackupConfig,
   getHealth,
   getLogs,
   getResourceStats,
@@ -40,16 +42,20 @@ import {
   listAuditLogs,
   listCameraStatuses,
   listCameras,
+  listDatabaseBackupFiles,
   listProjects,
   listScreenUrls,
   listUserProjects,
   listUsers,
   login,
   restartCamera,
+  restoreDatabaseBackup,
+  runDatabaseBackup,
   startCamera,
   stopCamera,
   storeAuthToken,
   updateCamera,
+  updateDatabaseBackupConfig,
   updateCameraTargets,
   updateProject,
   updateScreenUrl,
@@ -141,6 +147,15 @@ const urlPickerState = reactive({
 });
 const systemStatus = ref(null);
 const systemLoading = ref(true);
+const backupConfig = ref(null);
+const backupFiles = ref([]);
+const backupLoading = ref(false);
+const backupSaving = ref(false);
+const backupRunning = ref(false);
+const backupFilesLoading = ref(false);
+const backupRestoring = ref(false);
+const selectedBackupFile = ref('');
+const restoreConfirmation = ref('');
 const resourceStats = ref(null);
 const previousResourceStats = ref(null);
 const resourceRates = ref(null);
@@ -192,6 +207,12 @@ const userProjectRoles = ref({});
 const membersLoading = ref(false);
 const membersSaving = ref(false);
 const userCreating = ref(false);
+const backupFrequencyOptions = [
+  { value: 'hourly', label: '每小时' },
+  { value: 'daily', label: '每天' },
+  { value: 'weekly', label: '每周' },
+  { value: 'monthly', label: '每月' },
+];
 const defaultCameraColumns = {
   ip: true,
   webUrl: true,
@@ -265,6 +286,12 @@ const screenUrlForm = reactive({
   remark: '',
 });
 
+const backupForm = reactive({
+  enabled: false,
+  frequency: 'daily',
+  backup_path: '/data/backups',
+});
+
 const form = reactive({
   source_type: 'camera',
   name: '',
@@ -310,6 +337,15 @@ const canManageSelectedProject = computed(() => (
 ));
 const canCreateProjects = computed(() => isSystemAdmin.value);
 const canOperateMatrix = computed(() => canManageSelectedProject.value && !matrixLocked.value);
+const backupFrequencyLabel = computed(() => (
+  backupFrequencyOptions.find((item) => item.value === backupForm.frequency)?.label || backupForm.frequency
+));
+const backupStatusLabel = computed(() => {
+  if (!backupConfig.value || backupConfig.value.last_status === 'never') return '未执行';
+  if (backupConfig.value.last_status === 'success') return '成功';
+  if (backupConfig.value.last_status === 'error') return '失败';
+  return backupConfig.value.last_status;
+});
 
 const systemProblems = computed(() => {
   const runtime = systemStatus.value?.runtime;
@@ -566,7 +602,7 @@ function readNavigationState() {
   try {
     const value = JSON.parse(window.localStorage.getItem(navigationStateKey) || '{}');
     return {
-      view: value.view === 'users' || value.view === 'project' ? value.view : 'projects',
+      view: value.view === 'users' || value.view === 'backup' || value.view === 'project' ? value.view : 'projects',
       projectId: Number.isFinite(Number(value.projectId)) ? Number(value.projectId) : null,
       section: projectSections.has(value.section) ? value.section : 'cameras',
     };
@@ -603,6 +639,10 @@ function resetSessionState({ clearNavigation = true } = {}) {
   users.value = [];
   selectedUserId.value = null;
   userProjectRoles.value = {};
+  backupConfig.value = null;
+  backupFiles.value = [];
+  selectedBackupFile.value = '';
+  restoreConfirmation.value = '';
   activeLogs.value = null;
   editingCamera.value = null;
   error.value = '';
@@ -664,6 +704,8 @@ async function bootstrapAfterAuth() {
     await enterProject(restoredProject, normalizeProjectSection(navigationState.section, restoredProject));
   } else if (navigationState.view === 'users' && isSystemAdmin.value) {
     await openUserManagement();
+  } else if (navigationState.view === 'backup' && isSystemAdmin.value) {
+    await openBackupManagement();
   }
 
   await refreshSystemStatus();
@@ -1071,6 +1113,128 @@ async function refreshSystemStatus() {
   }
 }
 
+function applyBackupConfig(config = {}) {
+  backupConfig.value = config;
+  backupForm.enabled = Boolean(config.enabled);
+  backupForm.frequency = backupFrequencyOptions.some((item) => item.value === config.frequency)
+    ? config.frequency
+    : 'daily';
+  backupForm.backup_path = config.backup_path || '/data/backups';
+}
+
+function formatBackupTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function backupStatusClass(status = backupConfig.value?.last_status) {
+  if (status === 'success') return 'running';
+  if (status === 'error') return 'error';
+  return 'stopped';
+}
+
+function backupFileLabel(file) {
+  return `${file.name} · ${formatBytes(file.size_bytes)} · ${formatBackupTime(file.modified_at)}`;
+}
+
+async function refreshBackupConfig() {
+  if (!isSystemAdmin.value) return;
+
+  backupLoading.value = true;
+  error.value = '';
+
+  try {
+    applyBackupConfig(await getDatabaseBackupConfig());
+    await refreshBackupFiles();
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupLoading.value = false;
+  }
+}
+
+async function refreshBackupFiles() {
+  if (!isSystemAdmin.value) return;
+
+  backupFilesLoading.value = true;
+
+  try {
+    const result = await listDatabaseBackupFiles();
+    backupFiles.value = result.files || [];
+    if (!backupFiles.value.some((file) => file.name === selectedBackupFile.value)) {
+      selectedBackupFile.value = backupFiles.value[0]?.name || '';
+    }
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupFilesLoading.value = false;
+  }
+}
+
+async function saveBackupConfig() {
+  if (!isSystemAdmin.value || backupSaving.value) return;
+
+  backupSaving.value = true;
+  error.value = '';
+
+  try {
+    const saved = await updateDatabaseBackupConfig({ ...backupForm });
+    applyBackupConfig(saved);
+    await refreshBackupFiles();
+    showToast('数据库备份配置已保存');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupSaving.value = false;
+  }
+}
+
+async function runBackupImmediately() {
+  if (!isSystemAdmin.value || backupRunning.value) return;
+
+  backupRunning.value = true;
+  error.value = '';
+
+  try {
+    const state = await runDatabaseBackup();
+    applyBackupConfig(state);
+    await refreshBackupFiles();
+    showToast('数据库备份已完成');
+  } catch (err) {
+    error.value = err.message;
+    await refreshBackupConfig();
+  } finally {
+    backupRunning.value = false;
+  }
+}
+
+async function restoreSelectedBackup() {
+  if (!isSystemAdmin.value || backupRestoring.value || !selectedBackupFile.value) return;
+  if (restoreConfirmation.value !== 'RESTORE') {
+    error.value = '请输入 RESTORE 确认恢复操作';
+    return;
+  }
+
+  backupRestoring.value = true;
+  error.value = '';
+
+  try {
+    const result = await restoreDatabaseBackup(selectedBackupFile.value);
+    const restoredState = result.state || await getDatabaseBackupConfig();
+    applyBackupConfig(restoredState);
+    restoreConfirmation.value = '';
+    await refreshBackupFiles();
+    await refreshProjects();
+    showToast('数据库已恢复，恢复前安全备份已生成');
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    backupRestoring.value = false;
+  }
+}
+
 async function refreshProjects() {
   const loaded = await listProjects();
   projects.value = loaded;
@@ -1092,6 +1256,11 @@ async function refresh() {
 
   if (currentView.value === 'users') {
     await refreshUserManagement();
+    return;
+  }
+
+  if (currentView.value === 'backup') {
+    await refreshBackupConfig();
     return;
   }
 
@@ -1147,6 +1316,14 @@ async function openUserManagement() {
   editingCamera.value = null;
   clearDraftRegion();
   await refreshUserManagement();
+}
+
+async function openBackupManagement() {
+  currentView.value = 'backup';
+  activeLogs.value = null;
+  editingCamera.value = null;
+  clearDraftRegion();
+  await refreshBackupConfig();
 }
 
 async function switchProjectSection(section) {
@@ -2396,6 +2573,7 @@ onBeforeUnmount(() => {
 	          </div>
 	          <p v-if="currentView === 'projects'">项目入口 · 网页转 RTSP + ONVIF 摄像头实例管理</p>
 	          <p v-else-if="currentView === 'users'">系统管理 · 登录人员与项目授权</p>
+	          <p v-else-if="currentView === 'backup'">系统管理 · 数据库定时备份</p>
 	          <p v-else>{{ selectedProject?.name }} · {{ projectSectionLabel(projectSection) }}</p>
 	        </div>
 	        <div class="topbar-actions">
@@ -2417,7 +2595,11 @@ onBeforeUnmount(() => {
             <UserPlus :size="16" />
             <span>用户管理</span>
           </button>
-          <button v-if="currentView === 'users'" class="text-button" type="button" @click="backToProjects">
+          <button v-if="isSystemAdmin && currentView === 'projects'" class="text-button" type="button" @click="openBackupManagement">
+            <DatabaseBackup :size="16" />
+            <span>备份管理</span>
+          </button>
+          <button v-if="currentView === 'users' || currentView === 'backup'" class="text-button" type="button" @click="backToProjects">
             <House :size="16" />
             <span>首页</span>
           </button>
@@ -2637,6 +2819,123 @@ onBeforeUnmount(() => {
             </article>
           </section>
         </div>
+      </section>
+    </section>
+
+    <section v-else-if="currentView === 'backup' && isSystemAdmin" class="backup-page">
+      <section class="panel backup-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>数据库备份管理</h2>
+            <p>系统级 SQLite 备份配置</p>
+          </div>
+          <div class="panel-heading-actions">
+            <button class="text-button" type="button" :disabled="backupLoading" @click="refreshBackupConfig">
+              <RefreshCw :size="15" />
+              <span>{{ backupLoading ? '刷新中' : '刷新' }}</span>
+            </button>
+            <button class="text-button" type="button" :disabled="backupRunning" @click="runBackupImmediately">
+              <DatabaseBackup :size="15" />
+              <span>{{ backupRunning ? '备份中' : '立即备份' }}</span>
+            </button>
+            <button class="primary-button" type="button" :disabled="backupSaving || !backupForm.backup_path" @click="saveBackupConfig">
+              <Save :size="16" />
+              <span>{{ backupSaving ? '保存中' : '保存配置' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="backup-layout">
+          <form class="backup-form" @submit.prevent="saveBackupConfig">
+            <label class="backup-toggle">
+              <input v-model="backupForm.enabled" type="checkbox" />
+              <span>
+                <strong>启用定时备份</strong>
+                <small>{{ backupForm.enabled ? `${backupFrequencyLabel}执行` : '仅保留手动备份' }}</small>
+              </span>
+            </label>
+
+            <label>
+              <span>备份频率</span>
+              <select v-model="backupForm.frequency" :disabled="!backupForm.enabled">
+                <option v-for="option in backupFrequencyOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </label>
+
+            <label class="wide-field">
+              <span>备份路径（后端容器内）</span>
+              <input v-model.trim="backupForm.backup_path" required placeholder="/data/backups" />
+            </label>
+          </form>
+
+          <div class="backup-status-grid">
+            <article>
+              <span>定时状态</span>
+              <strong>{{ backupForm.enabled ? '已启用' : '已停用' }}</strong>
+            </article>
+            <article>
+              <span>下次执行</span>
+              <strong>{{ formatBackupTime(backupConfig?.next_run_at) }}</strong>
+            </article>
+            <article>
+              <span>最近结果</span>
+              <strong class="status" :class="backupStatusClass()">{{ backupStatusLabel }}</strong>
+            </article>
+            <article>
+              <span>最近时间</span>
+              <strong>{{ formatBackupTime(backupConfig?.last_run_at) }}</strong>
+            </article>
+            <article class="wide-status">
+              <span>最近文件</span>
+              <strong>{{ backupConfig?.last_file || '-' }}</strong>
+            </article>
+            <article v-if="backupConfig?.last_error" class="wide-status error-status">
+              <span>错误信息</span>
+              <strong>{{ backupConfig.last_error }}</strong>
+            </article>
+          </div>
+        </div>
+
+        <section class="backup-restore-panel">
+          <div class="backup-restore-head">
+            <div>
+              <h3>数据恢复</h3>
+              <p>恢复前会自动备份当前数据库</p>
+            </div>
+            <button class="text-button" type="button" :disabled="backupFilesLoading" @click="refreshBackupFiles">
+              <RefreshCw :size="15" />
+              <span>{{ backupFilesLoading ? '刷新中' : '刷新文件' }}</span>
+            </button>
+          </div>
+
+          <div class="backup-restore-row">
+            <label>
+              <span>备份文件</span>
+              <select v-model="selectedBackupFile" :disabled="backupFilesLoading || backupFiles.length === 0">
+                <option value="">请选择备份文件</option>
+                <option v-for="file in backupFiles" :key="file.name" :value="file.name">
+                  {{ backupFileLabel(file) }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span>确认词</span>
+              <input v-model.trim="restoreConfirmation" placeholder="RESTORE" autocomplete="off" />
+            </label>
+            <button
+              class="danger"
+              type="button"
+              :disabled="backupRestoring || !selectedBackupFile || restoreConfirmation !== 'RESTORE'"
+              @click="restoreSelectedBackup"
+            >
+              <DatabaseBackup :size="15" />
+              <span>{{ backupRestoring ? '恢复中' : '恢复数据' }}</span>
+            </button>
+          </div>
+          <div v-if="!backupFilesLoading && backupFiles.length === 0" class="empty small">暂无可恢复的备份文件</div>
+        </section>
       </section>
     </section>
 

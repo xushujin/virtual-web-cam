@@ -225,7 +225,76 @@ function getDb() {
   return api;
 }
 
+async function backupDatabase(destinationPath) {
+  if (!db) {
+    throw new Error('Database has not been initialized');
+  }
+
+  return db.backup(destinationPath);
+}
+
+function verifyBackupFile(sourcePath) {
+  const source = path.resolve(sourcePath);
+  const backup = new Database(source, {
+    readonly: true,
+    fileMustExist: true,
+  });
+
+  try {
+    const result = backup.prepare('PRAGMA quick_check').get();
+    const status = Object.values(result || {})[0];
+
+    if (status !== 'ok') {
+      throw new Error(`Backup database quick_check failed: ${status || 'unknown'}`);
+    }
+  } finally {
+    backup.close();
+  }
+}
+
+async function restoreDatabaseFromBackup(sourcePath) {
+  const source = path.resolve(sourcePath);
+  const destination = path.resolve(databasePath);
+
+  if (source === destination) {
+    throw new Error('Backup source cannot be the active database file');
+  }
+
+  verifyBackupFile(source);
+
+  if (db) {
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {}
+    db.close();
+    db = null;
+    api = null;
+  }
+
+  try {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.rmSync(`${destination}-wal`, { force: true });
+    fs.rmSync(`${destination}-shm`, { force: true });
+    fs.copyFileSync(source, destination);
+    fs.rmSync(`${destination}-wal`, { force: true });
+    fs.rmSync(`${destination}-shm`, { force: true });
+    await initDb();
+  } catch (error) {
+    if (!api) {
+      await initDb().catch(() => {});
+    }
+    throw error;
+  }
+}
+
+function getDatabasePath() {
+  return databasePath;
+}
+
 module.exports = {
+  backupDatabase,
+  getDatabasePath,
   initDb,
   getDb,
+  restoreDatabaseFromBackup,
 };

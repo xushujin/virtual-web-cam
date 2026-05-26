@@ -2,6 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const { createToken, hashPassword, publicUser, verifyPassword } = require('./auth');
 const { getDb } = require('./db');
+const backupService = require('./backup');
 const dockerService = require('./docker');
 
 const router = express.Router();
@@ -99,6 +100,17 @@ const userUpdateSchema = z.object({
 const passwordChangeSchema = z.object({
   old_password: z.string().min(1).max(200),
   new_password: z.string().min(8).max(200),
+});
+
+const backupConfigSchema = z.object({
+  enabled: z.coerce.boolean().default(false),
+  frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly']).default('daily'),
+  backup_path: z.string().trim().min(1).max(240),
+});
+
+const backupRestoreSchema = z.object({
+  file: z.string().trim().min(1).max(240),
+  confirmation: z.literal('RESTORE'),
 });
 
 const projectMembersSchema = z.object({
@@ -966,6 +978,108 @@ router.put('/projects/:id/members', async (req, res) => {
     res.json(members);
   } catch (error) {
     errorResponse(res, error);
+  }
+});
+
+router.get('/system/database-backup', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  try {
+    res.json(await backupService.getBackupState());
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+router.put('/system/database-backup', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const parsed = backupConfigSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid backup config payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const saved = await backupService.saveBackupConfig(parsed.data, req.user);
+    await recordAudit({
+      action: 'system.backup_config_update',
+      targetType: 'system',
+      targetName: 'database_backup',
+      detail: {
+        enabled: saved.enabled,
+        frequency: saved.frequency,
+        backup_path: saved.backup_path,
+        next_run_at: saved.next_run_at,
+      },
+    });
+    return res.json(saved);
+  } catch (error) {
+    return res.status(400).json({ error: error.message || String(error) });
+  }
+});
+
+router.post('/system/database-backup/run', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  try {
+    const state = await backupService.runBackupNow({ reason: 'manual' });
+    await recordAudit({
+      action: 'system.backup_run',
+      targetType: 'system',
+      targetName: 'database_backup',
+      detail: {
+        last_file: state.last_file,
+        last_run_at: state.last_run_at,
+      },
+    });
+    return res.json(state);
+  } catch (error) {
+    const state = await backupService.getBackupState().catch(() => null);
+    return res.status(500).json({
+      error: error.message || String(error),
+      state,
+    });
+  }
+});
+
+router.get('/system/database-backup/files', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  try {
+    return res.json(await backupService.listBackupFiles());
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.post('/system/database-backup/restore', async (req, res) => {
+  if (!assertSystemAdmin(req, res)) return;
+
+  const parsed = backupRestoreSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid backup restore payload',
+      details: parsed.error.flatten(),
+    });
+  }
+
+  try {
+    const result = await backupService.restoreBackupFile(parsed.data.file);
+    await recordAudit({
+      action: 'system.backup_restore',
+      targetType: 'system',
+      targetName: 'database_backup',
+      detail: {
+        restored_file: result.restored_file,
+        safety_backup_file: result.safety_backup_file,
+      },
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || String(error) });
   }
 });
 

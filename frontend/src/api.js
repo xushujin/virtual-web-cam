@@ -227,6 +227,39 @@ export function getHealth() {
   return request('/api/health');
 }
 
+export function getDatabaseBackupConfig() {
+  return request('/api/system/database-backup');
+}
+
+export function updateDatabaseBackupConfig(config) {
+  return request('/api/system/database-backup', {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(config),
+  });
+}
+
+export function runDatabaseBackup() {
+  return request('/api/system/database-backup/run', {
+    method: 'POST',
+  });
+}
+
+export function listDatabaseBackupFiles() {
+  return request('/api/system/database-backup/files');
+}
+
+export function restoreDatabaseBackup(file) {
+  return request('/api/system/database-backup/restore', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      file,
+      confirmation: 'RESTORE',
+    }),
+  });
+}
+
 export function getScreenMatrix(projectId) {
   return request(withProject('/api/screen-matrix', projectId));
 }

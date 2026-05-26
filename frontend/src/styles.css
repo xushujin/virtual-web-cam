@@ -503,6 +503,7 @@ button:disabled,
 .camera-page,
 .settings-page,
 .members-page,
+.backup-page,
 .screen-url-page {
   display: grid;
   gap: 18px;
@@ -517,6 +518,7 @@ button:disabled,
 .camera-create-panel,
 .settings-panel,
 .members-panel,
+.backup-panel,
 .screen-url-panel,
 .project-access-panel {
   padding: 16px;
@@ -843,6 +845,178 @@ button:disabled,
   margin: 4px 0 0;
   color: #667085;
   font-size: 13px;
+}
+
+.backup-panel {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.backup-panel .panel-heading p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.backup-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.72fr) minmax(420px, 1.28fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.backup-form,
+.backup-status-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.backup-form {
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.backup-form .wide-field {
+  grid-column: 1 / -1;
+}
+
+.backup-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  border: 1px solid #d7dfeb;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.backup-toggle input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
+.backup-toggle span,
+.backup-toggle strong,
+.backup-toggle small {
+  display: block;
+}
+
+.backup-toggle strong {
+  color: #20242c;
+}
+
+.backup-toggle small {
+  margin-top: 2px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.backup-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.backup-status-grid article {
+  display: grid;
+  gap: 5px;
+  min-height: 74px;
+  border: 1px solid #d6dae1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.backup-status-grid span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.backup-status-grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #20242c;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.backup-status-grid .status {
+  width: fit-content;
+}
+
+.backup-restore-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff7f7;
+  padding: 12px;
+}
+
+.backup-restore-head,
+.backup-restore-row {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.backup-restore-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.backup-restore-head h3,
+.backup-restore-head p {
+  margin: 0;
+}
+
+.backup-restore-head h3 {
+  color: #991b1b;
+  font-size: 15px;
+}
+
+.backup-restore-head p {
+  margin-top: 3px;
+  color: #7f1d1d;
+  font-size: 13px;
+}
+
+.backup-restore-row {
+  grid-template-columns: minmax(260px, 1.4fr) minmax(160px, 0.7fr) auto;
+}
+
+.backup-restore-row .danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.backup-restore-row .danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.wide-status {
+  grid-column: 1 / -1;
+}
+
+.error-status {
+  border-color: #fecaca !important;
+  background: #fff7f7 !important;
 }
 
 .user-create-row {
@@ -4153,6 +4327,14 @@ td small {
     grid-template-columns: 1fr;
   }
 
+  .backup-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .backup-restore-row {
+    grid-template-columns: 1fr;
+  }
+
   .user-create-row button {
     grid-column: 1 / -1;
     justify-self: start;
@@ -4304,6 +4486,14 @@ td small {
   .user-create-row,
   .members-table-head,
   .member-row {
+    grid-template-columns: 1fr;
+  }
+
+  .backup-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .backup-restore-head {
     grid-template-columns: 1fr;
   }
 
@@ -4580,6 +4770,9 @@ a,
 td strong,
 .screen-url-row strong,
 .audit-row-head strong,
+.backup-status-grid strong,
+.backup-toggle strong,
+.backup-restore-head h3,
 .theme-cyber .topbar h1,
 .theme-cyber .auth-card h1,
 .theme-cyber .project-card-head strong,
@@ -4592,7 +4785,10 @@ td strong,
 .theme-cyber .camera-operation-bar strong,
 .theme-cyber td strong,
 .theme-cyber .screen-url-row strong,
-.theme-cyber .audit-row-head strong {
+.theme-cyber .audit-row-head strong,
+.theme-cyber .backup-status-grid strong,
+.theme-cyber .backup-toggle strong,
+.theme-cyber .backup-restore-head h3 {
   color: var(--vc-text-primary);
   text-shadow: none;
 }
@@ -4606,6 +4802,7 @@ td strong,
 .list-panel .panel-heading p,
 .settings-panel .panel-heading p,
 .members-panel .panel-heading p,
+.backup-panel .panel-heading p,
 .screen-url-panel .panel-heading p,
 .project-access-panel p,
 .project-permission,
@@ -4626,6 +4823,9 @@ td small,
 .resource-monitor-head span,
 .resource-stat-grid span,
 .resource-stat-grid small,
+.backup-status-grid span,
+.backup-toggle small,
+.backup-restore-head p,
 .resource-cell small,
 .column-visibility-bar > div:first-child span,
 .camera-operation-bar span,
@@ -4639,6 +4839,7 @@ td small,
 .theme-cyber .list-panel .panel-heading p,
 .theme-cyber .settings-panel .panel-heading p,
 .theme-cyber .members-panel .panel-heading p,
+.theme-cyber .backup-panel .panel-heading p,
 .theme-cyber .screen-url-panel .panel-heading p,
 .theme-cyber .project-access-panel p,
 .theme-cyber .project-permission,
@@ -4659,6 +4860,9 @@ td small,
 .theme-cyber .resource-monitor-head span,
 .theme-cyber .resource-stat-grid span,
 .theme-cyber .resource-stat-grid small,
+.theme-cyber .backup-status-grid span,
+.theme-cyber .backup-toggle small,
+.theme-cyber .backup-restore-head p,
 .theme-cyber .resource-cell small,
 .theme-cyber .column-visibility-bar > div:first-child span,
 .theme-cyber .camera-operation-bar span,
@@ -4687,11 +4891,14 @@ td small,
 .screen-url-list,
 .user-list-panel,
 .project-access-list,
+.backup-status-grid article,
+.backup-toggle,
+.backup-restore-panel,
 .audit-content,
 .assigned-row,
 .camera-card,
 .edit-drawer,
-.theme-cyber :is(.panel, .project-card, .auth-card, .modal-card, .table-wrap, .members-table, .screen-url-list, .user-list-panel, .project-access-list, .audit-content, .assigned-row, .camera-card, .edit-drawer) {
+.theme-cyber :is(.panel, .project-card, .auth-card, .modal-card, .table-wrap, .members-table, .screen-url-list, .user-list-panel, .project-access-list, .backup-status-grid article, .backup-toggle, .backup-restore-panel, .audit-content, .assigned-row, .camera-card, .edit-drawer) {
   border-color: var(--vc-border);
   background: var(--vc-surface);
   color: var(--vc-text-primary);
@@ -4703,6 +4910,7 @@ td small,
 .camera-form-grid,
 .bulk-create-box,
 .user-create-row,
+.backup-form,
 .screen-url-form,
 .camera-filter-bar,
 .quick-actions,
@@ -4716,7 +4924,7 @@ td small,
 .target-grid button,
 .section-tabs,
 .matrix-density-control,
-.theme-cyber :is(.project-panel, .camera-form-grid, .bulk-create-box, .user-create-row, .screen-url-form, .camera-filter-bar, .quick-actions, .column-visibility-bar, .camera-operation-bar, .camera-operation-bar.muted, .resource-monitor, .modal-form-grid, .url-picker-panel, .url-picker-list button, .target-grid button, .section-tabs, .matrix-density-control) {
+.theme-cyber :is(.project-panel, .camera-form-grid, .bulk-create-box, .user-create-row, .backup-form, .screen-url-form, .camera-filter-bar, .quick-actions, .column-visibility-bar, .camera-operation-bar, .camera-operation-bar.muted, .resource-monitor, .modal-form-grid, .url-picker-panel, .url-picker-list button, .target-grid button, .section-tabs, .matrix-density-control) {
   border-color: var(--vc-border-soft);
   background: var(--vc-surface-muted);
   color: var(--vc-text-secondary);

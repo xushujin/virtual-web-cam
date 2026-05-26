@@ -5,6 +5,7 @@ const express = require('express');
 const morgan = require('morgan');
 const { initDb, getDb } = require('./db');
 const { publicUser, verifyToken } = require('./auth');
+const { startBackupScheduler } = require('./backup');
 const routes = require('./routes');
 
 const PORT = Number.parseInt(process.env.PORT || '8177', 10);
@@ -62,6 +63,7 @@ async function requireAuth(req, res, next) {
 
 async function main() {
   await initDb();
+  startBackupScheduler();
 
   const app = express();
 

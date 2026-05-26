@@ -175,6 +175,39 @@ try {
     'viewer project visibility mismatch',
   );
 
+  const defaultBackup = await request('/system/database-backup', { token: adminToken });
+  assert(defaultBackup.enabled === false, 'default backup config should be disabled');
+
+  await request('/system/database-backup', {
+    method: 'PUT',
+    token: userToken,
+    body: {
+      enabled: true,
+      frequency: 'daily',
+      backup_path: path.join(tempDir, 'blocked-backups'),
+    },
+    expected: 403,
+  });
+
+  const backupConfig = await request('/system/database-backup', {
+    method: 'PUT',
+    token: adminToken,
+    body: {
+      enabled: true,
+      frequency: 'hourly',
+      backup_path: path.join(tempDir, 'db-backups'),
+    },
+  });
+  assert(backupConfig.enabled === true && backupConfig.frequency === 'hourly', 'backup config was not saved');
+  assert(backupConfig.next_run_at, 'backup config should include next run time');
+
+  const backupRun = await request('/system/database-backup/run', {
+    method: 'POST',
+    token: adminToken,
+  });
+  assert(backupRun.last_status === 'success', 'manual database backup failed');
+  await fs.access(backupRun.last_file);
+
   await request(`/screen-urls?project_id=${project.id}`, {
     method: 'POST',
     token: userToken,
@@ -398,6 +431,34 @@ try {
     projectsAfterFailedImport.length === projectsBeforeFailedImport.length,
     'failed import should clean up partially created project',
   );
+
+  const backupFiles = await request('/system/database-backup/files', { token: adminToken });
+  assert(
+    backupFiles.files.some((file) => file.name === path.basename(backupRun.last_file)),
+    'backup file list should include manual backup',
+  );
+
+  await request('/system/database-backup/restore', {
+    method: 'POST',
+    token: userToken,
+    body: {
+      file: path.basename(backupRun.last_file),
+      confirmation: 'RESTORE',
+    },
+    expected: 403,
+  });
+
+  const restoredBackup = await request('/system/database-backup/restore', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      file: path.basename(backupRun.last_file),
+      confirmation: 'RESTORE',
+    },
+  });
+  assert(restoredBackup.restored === true, 'database restore failed');
+  assert(restoredBackup.restored_file === backupRun.last_file, 'restored backup file mismatch');
+  await fs.access(restoredBackup.safety_backup_file);
 
   console.log('API regression tests passed');
 } finally {

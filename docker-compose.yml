@@ -14,6 +14,7 @@ services:
     environment:
       PORT: 8177
       SQLITE_PATH: /data/virtualwebcam.db
+      DB_BACKUP_PATH: ${DB_BACKUP_PATH:-/data/backups}
       DOCKER_SOCKET: /var/run/docker.sock
       DOCKER_NETWORK: ${DOCKER_NETWORK:-onvif_macvlan}
       VIRTUALWEBCAM_IMAGE: ${VIRTUALWEBCAM_IMAGE:-virtualwebcam:latest}

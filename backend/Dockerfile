@@ -17,6 +17,7 @@ COPY src ./src
 ENV NODE_ENV=production \
     PORT=8177 \
     SQLITE_PATH=/data/virtualwebcam.db \
+    DB_BACKUP_PATH=/data/backups \
     DOCKER_SOCKET=/var/run/docker.sock \
     DOCKER_NETWORK=onvif_macvlan \
     VIRTUALWEBCAM_IMAGE=virtualwebcam:latest \
