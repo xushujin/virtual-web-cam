@@ -2595,7 +2595,7 @@ onBeforeUnmount(() => {
               </button>
               <button v-if="canManageSelectedProject" class="primary-button" type="button" @click="openCreateSourceModal">
                 <Plus :size="16" />
-                <span>新增源</span>
+                <span>新增摄像头源</span>
               </button>
             </div>
           </div>
@@ -2895,11 +2895,13 @@ onBeforeUnmount(() => {
                     v-if="draftRegion && canManageSelectedProject"
                     class="camera-card-bind"
                     type="button"
+                    title="绑定到当前围栏"
+                    aria-label="绑定到当前围栏"
                     :disabled="isCameraBusy(camera.id)"
                     @pointerdown.stop
                     @click.stop="assignCameraToDraftRegion(camera)"
                   >
-                    绑定
+                    <Plus :size="14" />
                   </button>
                 </div>
               </article>
@@ -3025,23 +3027,25 @@ onBeforeUnmount(() => {
               v-for="item in assignedCameraRegions"
               :key="item.camera.id"
               class="assignment-card region-card"
-              :class="[item.camera.status, regionCardClass(item.region), { editable: canManageSelectedProject && !isCameraBusy(item.camera.id) }]"
+              :class="[item.camera.status, regionCardClass(item.region)]"
               :style="regionStyle(item.region)"
-              :role="canManageSelectedProject ? 'button' : undefined"
-              :tabindex="canManageSelectedProject && !isCameraBusy(item.camera.id) ? 0 : undefined"
               @pointerdown.stop
-              @click="openMatrixCameraEdit(item.camera)"
-              @keydown.enter.prevent="openMatrixCameraEdit(item.camera)"
-              @keydown.space.prevent="openMatrixCameraEdit(item.camera)"
               @dragenter.prevent="hoverScreen = indexFromRowCol(item.region.row, item.region.col)"
               @dragover.prevent
               @dragleave="hoverScreen = null"
               @drop="dropCameraOnScreen(indexFromRowCol(item.region.row, item.region.col), $event, item.region)"
             >
-              <div class="region-badge">
+              <button
+                class="region-badge region-edit-trigger"
+                type="button"
+                title="编辑摄像头源"
+                :disabled="!canManageSelectedProject || isCameraBusy(item.camera.id)"
+                @pointerdown.stop
+                @click.stop="openMatrixCameraEdit(item.camera)"
+              >
                 <strong>{{ item.camera.name }}</strong>
                 <span>{{ item.region.targets.length }}块屏 · {{ item.camera.stream_name }}</span>
-              </div>
+              </button>
 
               <div class="region-corner-actions">
                 <span class="mini-status" :class="item.camera.status">{{ statusLabel(item.camera.status) }}</span>
@@ -3070,7 +3074,7 @@ onBeforeUnmount(() => {
           <div class="panel-heading">
             <div>
               <h2>大屏地址管理</h2>
-              <p>维护项目常用网页地址，新增或编辑视频源时可搜索选择。</p>
+              <p>维护项目常用网页地址，新增或编辑摄像头源时可搜索选择。</p>
             </div>
             <div class="panel-heading-actions">
               <span class="count">{{ filteredScreenUrls.length }}</span>
@@ -3208,7 +3212,7 @@ onBeforeUnmount(() => {
 	      <form class="modal-card" @submit.prevent="submit">
 	        <div class="modal-head">
 	          <div>
-	            <h2>新增视频源</h2>
+	            <h2>新增摄像头源</h2>
 	            <p>ONVIF 摄像头使用独立 IP；RTSP 流源使用共享网关和不同流路径。</p>
 	          </div>
 	          <button class="icon-button" type="button" title="关闭" @click="showCreateModal = false">
@@ -3279,7 +3283,7 @@ onBeforeUnmount(() => {
 	          <button class="text-button" type="button" @click="showCreateModal = false">取消</button>
 	          <button class="primary-button" type="submit" :disabled="!canCreateCamera">
 	            <Plus :size="16" />
-	            <span>{{ saving ? '创建中' : '创建视频源' }}</span>
+	            <span>{{ saving ? '创建中' : '创建摄像头源' }}</span>
 	          </button>
 	        </div>
 	      </form>
@@ -3289,7 +3293,7 @@ onBeforeUnmount(() => {
 	      <section class="modal-card">
 	        <div class="modal-head">
 	          <div>
-	            <h2>批量生成视频源配置</h2>
+	            <h2>批量生成摄像头源配置</h2>
 	            <p>只写入配置，不启动 Docker 容器，适合先录入多路 ONVIF 摄像头或 RTSP 流源。</p>
 	          </div>
 	          <button class="icon-button" type="button" title="关闭" @click="showBulkModal = false">
@@ -3410,7 +3414,7 @@ onBeforeUnmount(() => {
 	        <div class="modal-head">
 	          <div>
 	            <h2>{{ editingScreenUrlId ? '编辑大屏地址' : '添加大屏地址' }}</h2>
-	            <p>{{ editingScreenUrlId ? '修改后会同步到地址库，已使用该地址的视频源不会自动改写。' : '添加后可在新增或编辑视频源时直接搜索选择。' }}</p>
+	            <p>{{ editingScreenUrlId ? '修改后会同步到地址库，已使用该地址的摄像头源不会自动改写。' : '添加后可在新增或编辑摄像头源时直接搜索选择。' }}</p>
 	          </div>
 	          <button class="icon-button" type="button" title="关闭" @click="resetScreenUrlForm">
 	            <X :size="16" />
@@ -3458,7 +3462,7 @@ onBeforeUnmount(() => {
     <div v-if="editingCamera" class="drawer edit-drawer" role="dialog" aria-modal="true">
       <div class="drawer-head">
         <div>
-          <h2>编辑视频源</h2>
+          <h2>编辑摄像头源</h2>
           <p>{{ editingCamera.name }} · {{ sourceAddress(editingCamera) }} · {{ sourceTypeLabel(editingCamera) }}</p>
         </div>
         <div class="drawer-actions">
