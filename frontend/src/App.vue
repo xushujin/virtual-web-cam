@@ -2901,7 +2901,7 @@ onBeforeUnmount(() => {
                     @pointerdown.stop
                     @click.stop="assignCameraToDraftRegion(camera)"
                   >
-                    <Plus :size="14" />
+                    +
                   </button>
                 </div>
               </article>

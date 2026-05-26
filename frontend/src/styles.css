@@ -1412,28 +1412,34 @@ button:disabled,
 }
 
 .camera-card-state {
-  display: grid;
-  justify-items: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 6px;
 }
 
 .camera-card-bind {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  width: 28px;
-  height: 28px;
-  border: 1px solid #1d4ed8;
-  border-radius: 999px;
-  background: #1d4ed8;
-  color: #ffffff;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  border: 1px solid #c8ced8;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #475467;
   cursor: pointer;
-  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 0 2px;
 }
 
-.camera-card-bind:hover {
-  background: #1746c7;
+.camera-card-bind:hover,
+.camera-card-bind:focus-visible {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .camera-card-bind:disabled {
@@ -3697,13 +3703,16 @@ td small {
 }
 
 .theme-cyber .camera-card-bind {
-  border-color: rgba(35, 241, 255, 0.46);
-  background: rgba(35, 241, 255, 0.16);
-  color: #d7fff7;
+  border-color: rgba(105, 226, 255, 0.28);
+  background: rgba(5, 14, 22, 0.72);
+  color: #a8f5ff;
 }
 
-.theme-cyber .camera-card-bind:hover {
-  background: rgba(35, 241, 255, 0.24);
+.theme-cyber .camera-card-bind:hover,
+.theme-cyber .camera-card-bind:focus-visible {
+  border-color: rgba(35, 241, 255, 0.5);
+  background: rgba(35, 241, 255, 0.12);
+  color: #d7fff7;
 }
 
 .theme-cyber .audit-row::before {
