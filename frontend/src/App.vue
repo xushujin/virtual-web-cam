@@ -3089,11 +3089,11 @@ onBeforeUnmount(() => {
             </label>
             <input ref="backupUploadInput" class="visually-hidden" type="file" accept=".db,application/vnd.sqlite3,application/octet-stream" @change="restoreUploadedBackupFile" />
             <div class="backup-file-actions">
-              <button class="text-button" type="button" :disabled="!selectedBackupFile || backupDownloadingFile" @click="downloadSelectedBackup">
+              <button class="text-button" type="button" :disabled="!selectedBackupFile || Boolean(backupDownloadingFile)" @click="downloadSelectedBackup">
                 <Download :size="15" />
                 <span>{{ backupDownloadingFile ? '下载中' : '下载' }}</span>
               </button>
-              <button class="text-button" type="button" :disabled="!selectedBackupFile || backupDeletingFile" @click="deleteSelectedBackup">
+              <button class="text-button" type="button" :disabled="!selectedBackupFile || Boolean(backupDeletingFile)" @click="deleteSelectedBackup">
                 <Trash2 :size="15" />
                 <span>{{ backupDeletingFile ? '删除中' : '删除' }}</span>
               </button>
