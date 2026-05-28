@@ -188,6 +188,7 @@ const importingProject = ref(false);
 const showCreateModal = ref(false);
 const showBulkModal = ref(false);
 const showPasswordModal = ref(false);
+const cameraDeleteTarget = ref(null);
 const passwordSaving = ref(false);
 const openActionMenuId = ref(null);
 const themeOptions = [
@@ -683,6 +684,7 @@ function resetSessionState({ clearNavigation = true } = {}) {
   backupDownloadingFile.value = '';
   backupDeletingFile.value = '';
   backupUploading.value = false;
+  cameraDeleteTarget.value = null;
   activeLogs.value = null;
   editingCamera.value = null;
   error.value = '';
@@ -2490,9 +2492,23 @@ async function runBatchAction(action, doneMessage) {
   }
 }
 
-async function remove(camera) {
-  if (!window.confirm(`删除 ${camera.name}？`)) return;
+function remove(camera) {
+  if (isCameraBusy(camera.id) || !canManageSelectedProject.value) return;
+  openActionMenuId.value = null;
+  cameraDeleteTarget.value = camera;
+}
+
+function closeCameraDeleteConfirm() {
+  if (cameraDeleteTarget.value && isCameraBusy(cameraDeleteTarget.value.id)) return;
+  cameraDeleteTarget.value = null;
+}
+
+async function confirmCameraDelete() {
+  const camera = cameraDeleteTarget.value;
+  if (!camera || isCameraBusy(camera.id) || !canManageSelectedProject.value) return;
+
   await runAction(deleteCamera, camera, '已删除');
+  cameraDeleteTarget.value = null;
 }
 
 async function copy(value) {
@@ -3975,6 +3991,46 @@ onBeforeUnmount(() => {
 	        </div>
 	      </form>
 	    </div>
+
+      <div v-if="cameraDeleteTarget" class="modal-backdrop" role="dialog" aria-modal="true" @click.self="closeCameraDeleteConfirm">
+        <section class="modal-card confirm-modal-card">
+          <div class="modal-head">
+            <div>
+              <h2>删除摄像头</h2>
+              <p>确认删除当前项目中的摄像头配置</p>
+            </div>
+            <button class="icon-button" type="button" title="关闭" :disabled="isCameraBusy(cameraDeleteTarget.id)" @click="closeCameraDeleteConfirm">
+              <X :size="16" />
+            </button>
+          </div>
+          <div class="confirm-summary">
+            <article>
+              <span>名称</span>
+              <strong>{{ cameraDeleteTarget.name }}</strong>
+            </article>
+            <article>
+              <span>类型</span>
+              <strong>{{ sourceTypeLabel(cameraDeleteTarget) }}</strong>
+            </article>
+            <article>
+              <span>流名称</span>
+              <strong>{{ cameraDeleteTarget.stream_name }}</strong>
+            </article>
+            <article>
+              <span>地址</span>
+              <strong>{{ sourceAddress(cameraDeleteTarget) || '-' }}</strong>
+            </article>
+          </div>
+          <p class="confirm-warning">删除后该摄像头配置会从项目中移除，正在运行的实例也会随删除操作停止并清理。</p>
+          <div class="modal-actions">
+            <button class="text-button" type="button" :disabled="isCameraBusy(cameraDeleteTarget.id)" @click="closeCameraDeleteConfirm">取消</button>
+            <button class="danger-button" type="button" :disabled="isCameraBusy(cameraDeleteTarget.id)" @click="confirmCameraDelete">
+              <Trash2 :size="16" />
+              <span>{{ isCameraBusy(cameraDeleteTarget.id) ? '删除中' : '确认删除' }}</span>
+            </button>
+          </div>
+        </section>
+      </div>
 
 	    <div v-if="screenUrlEditorOpen" class="modal-backdrop" role="dialog" aria-modal="true" @click.self="resetScreenUrlForm">
 	      <form class="modal-card screen-url-modal-card" @submit.prevent="saveScreenUrl">
