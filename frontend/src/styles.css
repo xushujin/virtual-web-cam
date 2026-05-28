@@ -3378,6 +3378,18 @@ td small {
   grid-column: 1 / -1;
 }
 
+.modal-form-grid.bulk-form-grid .bulk-dimensions-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.bulk-dimensions-row label {
+  min-width: 0;
+}
+
 .password-modal-card {
   width: min(460px, 100%);
 }
@@ -4586,6 +4598,10 @@ td small {
 
   .modal-form-grid.bulk-form-grid .wide-field {
     grid-column: auto;
+  }
+
+  .modal-form-grid.bulk-form-grid .bulk-dimensions-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .account-strip {

@@ -3933,18 +3933,20 @@ onBeforeUnmount(() => {
 	              </div>
 	            </div>
 	          </label>
-	          <label>
-	            <span>宽度</span>
-	            <input v-model.number="bulkForm.width" type="number" min="320" max="7680" />
-	          </label>
-	          <label>
-	            <span>高度</span>
-	            <input v-model.number="bulkForm.height" type="number" min="240" max="4320" />
-	          </label>
-	          <label>
-	            <span>FPS</span>
-	            <input v-model.number="bulkForm.fps" type="number" min="2" max="60" />
-	          </label>
+	          <div class="bulk-dimensions-row">
+	            <label>
+	              <span>宽度</span>
+	              <input v-model.number="bulkForm.width" type="number" min="320" max="7680" />
+	            </label>
+	            <label>
+	              <span>高度</span>
+	              <input v-model.number="bulkForm.height" type="number" min="240" max="4320" />
+	            </label>
+	            <label>
+	              <span>FPS</span>
+	              <input v-model.number="bulkForm.fps" type="number" min="2" max="60" />
+	            </label>
+	          </div>
 	        </div>
 	        <p v-if="bulkError" class="error modal-error">{{ bulkError }}</p>
 	        <div class="modal-actions">
