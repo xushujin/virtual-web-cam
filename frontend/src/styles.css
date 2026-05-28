@@ -3374,6 +3374,10 @@ td small {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.modal-form-grid.bulk-form-grid .bulk-url-field {
+  grid-column: 1 / -1;
+}
+
 .password-modal-card {
   width: min(460px, 100%);
 }

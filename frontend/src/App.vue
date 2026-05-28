@@ -3903,7 +3903,7 @@ onBeforeUnmount(() => {
 	            <span>名称前缀</span>
 	            <input v-model.trim="bulkForm.name_prefix" />
 	          </label>
-	          <label class="wide-field">
+	          <label class="wide-field bulk-url-field">
 	            <span>网页 URL</span>
 	            <div class="url-picker-field">
 	              <div class="url-input-row">
