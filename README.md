@@ -637,3 +637,9 @@ docker compose -f examples/multi-camera.compose.yml up -d
 - 管理后台容器挂载 `/var/run/docker.sock`，只建议放在可信内网；上线前必须修改默认管理员密码和 `SESSION_SECRET`，并按项目授权普通用户。
 - 摄像头容器使用 macvlan 固定 IP 时，IP 不要和局域网内现有设备冲突。
 - go2rtc ONVIF 服务对 RTSP 使用 TCP 传输。
+
+## 产物声明
+
+本项目是 Vibe Coding 的产物：需求在网页渲染、RTSP、ONVIF、Docker、macvlan 和现场大屏运维之间来回碰撞，代码也就在“先把真实链路跑通，再把权限、备份、文档和边界补齐”的节奏里成型。
+
+如果你在项目里看到一点“边验证边建设”的痕迹，那不是错觉。它的目标不是展示一份静态样板，而是把现场真正会遇到的问题尽量落到可部署、可操作、可排查的工程实现里。
