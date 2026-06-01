@@ -217,7 +217,7 @@
 <h2 id="p1-运维可靠性"><a class="anchor" href="#p1-运维可靠性">#</a>P1：运维可靠性</h2>
 <ul>
 <li>增加 <code>.nvmrc</code> 或 <code>.node-version</code>，固定本地和 CI Node 版本；后端 Dockerfile 已固定 Node 20，但本地开发仍可能遇到 <code>better-sqlite3</code> ABI 不匹配。</li>
-<li>在现有备份文档基础上增加数据库备份和恢复脚本，覆盖 <code>backend/data/virtualwebcam.db</code>。</li>
+<li>管理后台已提供数据库备份和恢复；后续可补充命令行备份/恢复脚本，方便无人值守升级和演练。</li>
 <li>RTSP 网关端口 <code>554</code> 占用失败时，在后端错误分类和前端展示中给出更明确的处理建议。</li>
 <li>在现有 systemd 文档示例基础上，提供 macvlan host 辅助接口的一键安装和卸载脚本。</li>
 <li>镜像构建后增加容器 smoke test，验证 Xvfb、Chrome、FFmpeg、MediaMTX、go2rtc 主流程可启动。</li>

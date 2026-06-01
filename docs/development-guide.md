@@ -433,13 +433,14 @@ Docker Compose 部署时挂载到：
 | --- | --- | --- |
 | POST | `/api/auth/login` | 用户名密码登录 |
 | GET | `/api/auth/me` | 当前登录用户 |
+| PUT | `/api/auth/password` | 当前登录用户修改密码 |
 | GET | `/api/users` | 用户列表，系统管理员可用 |
 | POST | `/api/users` | 创建用户，系统管理员可用 |
 | PUT | `/api/users/:id` | 更新用户，系统管理员可用 |
 | GET | `/api/users/:id/projects` | 查询某个登录人的项目资源授权 |
 | PUT | `/api/users/:id/projects` | 更新某个登录人的项目资源授权 |
 
-登录成功返回会话 token，前端使用 `Authorization: Bearer <token>` 访问后续 API。`API_TOKEN` 仍可作为脚本调用的服务令牌，命中后按系统管理员权限处理。
+登录成功返回会话 token，前端使用 `Authorization: Bearer <token>` 访问后续 API。除 `/api/auth/login` 外，后端统一经过鉴权中间件；`API_TOKEN` 仍可作为脚本调用的服务令牌，命中后按系统管理员权限处理。
 
 ### 6.1 健康检查
 
@@ -458,6 +459,8 @@ GET /api/health
 | PUT | `/api/projects/:id` | 更新项目名称和矩阵规格 |
 | GET | `/api/projects/:id/export` | 导出项目配置，包含项目、摄像头和大屏地址库 |
 | POST | `/api/projects/import` | 导入项目配置，自动导入大屏地址库，处理 IP 和 RTSP 流名冲突 |
+| GET | `/api/projects/:id/members` | 查询项目成员授权，系统管理员可用 |
+| PUT | `/api/projects/:id/members` | 更新项目成员授权，系统管理员可用 |
 
 项目创建请求：
 
@@ -602,7 +605,38 @@ GET /api/health
 
 大屏地址 CSV 导入导出是前端功能，不新增后端 CSV 接口：导出使用当前项目 `screenUrls` 生成 `name,url,remark`；导入解析 CSV 后逐条调用 `POST /api/screen-urls?project_id=...` 新增。
 
-### 6.6 审计
+### 6.6 数据库备份
+
+数据库备份接口只允许系统管理员访问：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/system/database-backup` | 获取备份配置、最近执行状态和下次执行时间 |
+| PUT | `/api/system/database-backup` | 保存备份配置 |
+| POST | `/api/system/database-backup/run` | 立即执行一次备份 |
+| GET | `/api/system/database-backup/files` | 列出备份目录中的 `.db` 文件 |
+| GET | `/api/system/database-backup/files/:file/download` | 下载备份文件 |
+| DELETE | `/api/system/database-backup/files/:file` | 删除备份文件 |
+| POST | `/api/system/database-backup/restore` | 从备份目录恢复数据库，请求体需要 `confirmation: "RESTORE"` |
+| POST | `/api/system/database-backup/upload-restore` | 上传 `.db` 并恢复，请求头需要 `X-Restore-Confirmation: RESTORE` |
+
+备份配置请求体：
+
+```json
+{
+  "enabled": true,
+  "frequency": "daily",
+  "schedule_time": "02:00",
+  "schedule_minute": 0,
+  "schedule_weekday": 1,
+  "schedule_month_day": 1,
+  "backup_path": "/data/backups"
+}
+```
+
+`frequency` 支持 `hourly`、`daily`、`weekly`、`monthly`。`backup_path` 必须是后端容器内绝对路径；Docker Compose 默认使用 `/data/backups`，对应宿主机 `backend/data/backups`。恢复前后端会先对当前数据库执行一次安全备份；上传恢复会先校验上传的 SQLite 文件。
+
+### 6.7 审计
 
 ```http
 GET /api/audit-logs?project_id=1&limit=80
@@ -615,6 +649,9 @@ project.create
 project.update
 project.import
 matrix.update
+screen_url.create
+screen_url.update
+screen_url.delete
 camera.create
 camera.create_failed
 camera.bulk_create
@@ -625,6 +662,13 @@ camera.start
 camera.stop
 camera.restart
 camera.delete
+user.projects_update
+system.backup_config_update
+system.backup_run
+system.backup_download
+system.backup_delete
+system.backup_restore
+system.backup_upload_restore
 ```
 
 ## 7. 前端设计
@@ -632,10 +676,13 @@ camera.delete
 前端是 Vue3 + Vite 单页应用，但业务层级上拆为：
 
 1. 项目入口页。
-2. 项目内摄像头管理。
-3. 项目内矩阵绑定。
-4. 项目设置。
-5. 操作审计。
+2. 系统级用户管理。
+3. 系统级数据库备份管理。
+4. 项目内摄像头管理。
+5. 项目内矩阵绑定。
+6. 项目内大屏地址。
+7. 项目设置。
+8. 操作审计。
 
 ### 7.1 项目入口
 
@@ -647,6 +694,8 @@ camera.delete
 - 摄像头管理入口。
 - 矩阵绑定入口。
 - 项目设置入口。
+
+系统管理员在首页顶部还能进入 `用户管理` 和 `备份管理`。
 
 ### 7.2 摄像头管理
 
@@ -752,7 +801,7 @@ npm run build
 
 后端 `npm run test:unit` 使用 Node 内置 `node:test`，当前覆盖认证哈希、会话 Token、Docker 友好错误、容器状态映射、CPU / 内存 / 网络 / 磁盘统计等纯逻辑。
 
-后端 `npm run test:coverage` 使用 Node 22 自带覆盖率，当前覆盖 `src/auth.js` 和 `src/docker-metrics.js`。前端 `npm run test:coverage` 使用 Vitest + V8 覆盖率，当前覆盖 `src/utils/**/*.js`，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。
+后端 `npm run test:coverage` 使用 Node 内置测试覆盖率，当前覆盖 `src/auth.js` 和 `src/docker-metrics.js`。前端 `npm run test:coverage` 使用 Vitest + V8 覆盖率，当前覆盖 `src/utils/**/*.js`，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。
 
 `npm run test:api` 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成视频源配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。
 
@@ -798,9 +847,13 @@ ROUTE_CIDR=192.168.5.192/26
 | `RTSP_GATEWAY_PORT` | 共享 RTSP 网关宿主机端口，默认 `554` |
 | `RTSP_GATEWAY_CONTAINER` | 共享 RTSP 网关容器名，默认 `virtualwebcam-rtsp-gateway` |
 | `RTSP_NETWORK` | RTSP 网关和发布器之间的 Docker bridge 网络 |
+| `DB_BACKUP_PATH` | 数据库备份目录，默认 `/data/backups` |
+| `DB_BACKUP_SCHEDULER_INTERVAL_MS` | 定时备份调度检查间隔，默认 `60000` |
+| `DB_BACKUP_UPLOAD_LIMIT` | 上传恢复文件大小限制，默认 `200mb` |
 | `ADMIN_USERNAME` | 首次初始化默认管理员用户名 |
 | `ADMIN_PASSWORD` | 首次初始化默认管理员密码，上线必须修改 |
 | `SESSION_SECRET` | 登录会话签名密钥，上线必须修改 |
+| `SESSION_TTL_SECONDS` | 登录会话有效期，默认 `86400` 秒 |
 | `API_TOKEN` | 可选服务令牌，命中后按系统管理员权限处理 |
 | `CORS_ORIGIN` | 可选 CORS 白名单；未配置时后端不额外放开跨域访问 |
 

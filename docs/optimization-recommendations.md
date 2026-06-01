@@ -403,11 +403,11 @@
 
 优先级：P1
 
-现状：SQLite 数据保存在 `backend/data/virtualwebcam.db`，启用了 WAL。部署文档已经提供了手工备份、恢复和升级前备份命令。
+现状：SQLite 数据保存在 `backend/data/virtualwebcam.db`，启用了 WAL。管理后台已提供系统级备份管理，可配置定时备份、立即备份、下载、删除、恢复和上传恢复；部署文档也保留了手工备份、恢复和升级前备份命令。
 
 风险：直接复制 SQLite 主文件可能遗漏 WAL 内容；升级前没有备份和恢复演练会增加现场风险。
 
-建议方案：在现有文档命令基础上提供 `scripts/backup-db.sh` 和 `scripts/restore-db.sh`，使用 SQLite backup API 或停服加 WAL checkpoint。增加恢复到临时路径并启动检查的演练步骤，把“能恢复”纳入上线或升级演练，而不是只保存备份文件。
+建议方案：在现有网页备份和文档命令基础上提供 `scripts/backup-db.sh` 和 `scripts/restore-db.sh`，方便无人值守升级、离线运维或无法打开管理后台时使用。脚本应使用 SQLite backup API 或停服加 WAL checkpoint。增加恢复到临时路径并启动检查的演练步骤，把“能恢复”纳入上线或升级演练，而不是只保存备份文件。
 
 验收标准：备份文件可以在新目录恢复并通过健康检查；升级失败时可以回滚；文档明确 WAL 文件处理方式。
 
@@ -583,5 +583,5 @@
 6. Docker 操作增加超时、错误分类和同摄像头操作互斥，尤其区分 IP 占用和 RTSP 网关端口占用。
 7. 拆分后端 `routes.js`，先从 auth、users、projects、cameras 四类路由开始。
 8. 拆分前端 `App.vue`，优先抽出 CameraTable、ScreenMatrix、Modal 类组件。
-9. 在现有备份文档基础上增加数据库备份和恢复脚本。
+9. 在现有网页备份能力基础上增加命令行数据库备份和恢复脚本。
 10. 增加容器镜像 smoke test 和端到端 smoke test，覆盖登录、创建、绑定、导出主流程。

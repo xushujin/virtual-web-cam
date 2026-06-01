@@ -373,7 +373,11 @@ docker compose up -d --build manager-backend manager-frontend
 
 ```bash
 docker compose ps
-curl http://localhost:8177/api/health
+TOKEN="$(curl -s -X POST http://localhost:8177/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<.env 中的 ADMIN_PASSWORD>"}' \
+  | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8177/api/health
 ```
 
 访问：
@@ -408,6 +412,7 @@ ADMIN_PASSWORD=replace-with-strong-password
 - 进入项目管理视频源和矩阵绑定。
 - 维护大屏地址库。
 - 系统级用户管理。
+- 系统级数据库备份管理。
 - 给用户授权项目。
 - 修改密码。
 
@@ -651,7 +656,21 @@ Docker Compose 部署默认数据库：
 backend/data/virtualwebcam.db
 ```
 
-### 18.2 备份
+管理后台的系统级“备份管理”页面只对系统管理员可见。该页面调用后端 SQLite backup API，默认备份目录为后端容器内 `/data/backups`，在 Docker Compose 部署下对应宿主机 `backend/data/backups`。
+
+### 18.2 网页备份和恢复
+
+推荐优先使用管理后台：
+
+1. 首页点击“备份管理”。
+2. 设置备份路径，默认 `/data/backups`。
+3. 按需启用定时备份，频率支持每小时、每天、每周、每月。
+4. 点击“立即备份”生成 `.db` 备份文件。
+5. 需要恢复时，输入确认词 `RESTORE`，选择备份文件后点击“恢复数据”。
+
+恢复前后端会自动先备份当前数据库；上传恢复会先对上传的 SQLite 文件执行 `quick_check` 校验。
+
+### 18.3 手工备份
 
 ```bash
 mkdir -p backups
@@ -667,7 +686,7 @@ cp backend/data/virtualwebcam.db-wal backups/ 2>/dev/null || true
 cp backend/data/virtualwebcam.db-shm backups/ 2>/dev/null || true
 ```
 
-### 18.3 恢复
+### 18.4 手工恢复
 
 ```bash
 docker compose stop manager-backend
@@ -675,7 +694,7 @@ cp backups/virtualwebcam-xxxx.db backend/data/virtualwebcam.db
 docker compose start manager-backend
 ```
 
-### 18.4 项目导入导出
+### 18.5 项目导入导出
 
 项目入口支持配置导入导出。导出内容包含：
 
@@ -942,7 +961,7 @@ mpv --rtsp-transport=tcp rtsp://192.168.5.200:554/screen01
 部署完成后建议逐项确认：
 
 - `docker compose ps` 中管理后台正常。
-- `curl http://localhost:8177/api/health` 正常。
+- 使用登录令牌访问 `GET /api/health` 正常，返回 Docker、网络和镜像状态。
 - 浏览器能打开 `http://客户主机IP:9528`。
 - 管理员可登录。
 - 可创建项目。

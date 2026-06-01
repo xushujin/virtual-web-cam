@@ -254,7 +254,11 @@ ROUTE_CIDR=192.168.5.192/26</code></pre>
 docker compose up -d --build manager-backend manager-frontend</code></pre>
 <p>检查：</p>
 <pre><code class="language-bash">docker compose ps
-curl http://localhost:8177/api/health</code></pre>
+TOKEN=&quot;$(curl -s -X POST http://localhost:8177/api/auth/login \
+  -H &#39;Content-Type: application/json&#39; \
+  -d &#39;{&quot;username&quot;:&quot;admin&quot;,&quot;password&quot;:&quot;&lt;.env 中的 ADMIN_PASSWORD&gt;&quot;}&#39; \
+  | sed -n &#39;s/.*&quot;token&quot;:&quot;\([^&quot;]*\)&quot;.*/\1/p&#39;)&quot;
+curl -H &quot;Authorization: Bearer ${TOKEN}&quot; http://localhost:8177/api/health</code></pre>
 <p>访问：</p>
 <pre><code class="language-text">http://localhost:9528
 http://&lt;客户主机IP&gt;:9528</code></pre>
@@ -267,6 +271,7 @@ http://&lt;客户主机IP&gt;:9528</code></pre>
 <li>修改管理员密码。</li>
 <li>创建普通登录人员。</li>
 <li>给登录人员授权可见项目。</li>
+<li>在“备份管理”中确认数据库备份路径和定时备份策略。</li>
 <li>创建管理项目并设置矩阵规格。</li>
 <li>维护项目内的大屏地址库；地址较多时可在“大屏地址”页面通过 CSV 导入导出，列为 <code>name,url,remark</code>。</li>
 </ul>

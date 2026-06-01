@@ -141,7 +141,11 @@ docker compose up -d --build manager-backend manager-frontend
 
 ```bash
 docker compose ps
-curl http://localhost:8177/api/health
+TOKEN="$(curl -s -X POST http://localhost:8177/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<.env 中的 ADMIN_PASSWORD>"}' \
+  | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8177/api/health
 ```
 
 访问：
@@ -165,6 +169,7 @@ http://<客户主机IP>:9528
 - 修改管理员密码。
 - 创建普通登录人员。
 - 给登录人员授权可见项目。
+- 在“备份管理”中确认数据库备份路径和定时备份策略。
 - 创建管理项目并设置矩阵规格。
 - 维护项目内的大屏地址库；地址较多时可在“大屏地址”页面通过 CSV 导入导出，列为 `name,url,remark`。
 

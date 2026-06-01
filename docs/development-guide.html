@@ -172,7 +172,7 @@
       <p class="brand">VirtualWebCam</p>
       <nav class="nav"><a href="./index.html">文档中心</a><a href="./quick-deployment.html">简明部署文档</a><a href="./detailed-deployment.html">详细部署文档</a><a aria-current="page" href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a><a href="./optimization-checklist.html">优化清单</a><a href="./optimization-recommendations.html">详细优化建议</a></nav>
       <p class="toc-title">目录</p>
-      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-开发技术文档">VirtualWebCam 开发技术文档</a><a class="toc-level-2" href="#1-项目目标">1. 项目目标</a><a class="toc-level-2" href="#2-总体架构">2. 总体架构</a><a class="toc-level-2" href="#3-源码结构">3. 源码结构</a><a class="toc-level-2" href="#4-容器模板设计">4. 容器模板设计</a><a class="toc-level-3" href="#4-1-镜像内容">4.1 镜像内容</a><a class="toc-level-3" href="#4-2-环境变量">4.2 环境变量</a><a class="toc-level-3" href="#4-3-entrypoint-主流程">4.3 entrypoint 主流程</a><a class="toc-level-3" href="#4-4-健康检查">4.4 健康检查</a><a class="toc-level-2" href="#5-后端设计">5. 后端设计</a><a class="toc-level-3" href="#5-1-服务入口">5.1 服务入口</a><a class="toc-level-3" href="#5-2-docker-编排">5.2 Docker 编排</a><a class="toc-level-3" href="#5-3-双网络策略">5.3 双网络策略</a><a class="toc-level-3" href="#5-4-rtsp-共享网关策略">5.4 RTSP 共享网关策略</a><a class="toc-level-3" href="#5-5-数据库">5.5 数据库</a><a class="toc-level-3" href="#5-6-数据表">5.6 数据表</a><a class="toc-level-3" href="#5-7-业务规则">5.7 业务规则</a><a class="toc-level-2" href="#6-api-说明">6. API 说明</a><a class="toc-level-3" href="#6-0-认证与用户">6.0 认证与用户</a><a class="toc-level-3" href="#6-1-健康检查">6.1 健康检查</a><a class="toc-level-3" href="#6-2-项目">6.2 项目</a><a class="toc-level-3" href="#6-3-摄像头">6.3 摄像头</a><a class="toc-level-3" href="#6-4-矩阵">6.4 矩阵</a><a class="toc-level-3" href="#6-5-大屏地址">6.5 大屏地址</a><a class="toc-level-3" href="#6-6-审计">6.6 审计</a><a class="toc-level-2" href="#7-前端设计">7. 前端设计</a><a class="toc-level-3" href="#7-1-项目入口">7.1 项目入口</a><a class="toc-level-3" href="#7-2-摄像头管理">7.2 摄像头管理</a><a class="toc-level-3" href="#7-3-矩阵绑定">7.3 矩阵绑定</a><a class="toc-level-2" href="#8-本地开发">8. 本地开发</a><a class="toc-level-3" href="#8-1-准备依赖">8.1 准备依赖</a><a class="toc-level-3" href="#8-2-启动后端">8.2 启动后端</a><a class="toc-level-3" href="#8-3-启动前端">8.3 启动前端</a><a class="toc-level-3" href="#8-4-构建镜像">8.4 构建镜像</a><a class="toc-level-3" href="#8-5-代码校验">8.5 代码校验</a><a class="toc-level-3" href="#8-6-演示数据脚本">8.6 演示数据脚本</a><a class="toc-level-2" href="#9-关键配置">9. 关键配置</a><a class="toc-level-2" href="#10-扩展建议">10. 扩展建议</a><a class="toc-level-3" href="#10-1-增加-ws-discovery">10.1 增加 WS-Discovery</a><a class="toc-level-3" href="#10-2-大规模摄像头">10.2 大规模摄像头</a><a class="toc-level-3" href="#10-3-任务队列">10.3 任务队列</a><a class="toc-level-2" href="#11-已知边界">11. 已知边界</a></nav>
+      <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-开发技术文档">VirtualWebCam 开发技术文档</a><a class="toc-level-2" href="#1-项目目标">1. 项目目标</a><a class="toc-level-2" href="#2-总体架构">2. 总体架构</a><a class="toc-level-2" href="#3-源码结构">3. 源码结构</a><a class="toc-level-2" href="#4-容器模板设计">4. 容器模板设计</a><a class="toc-level-3" href="#4-1-镜像内容">4.1 镜像内容</a><a class="toc-level-3" href="#4-2-环境变量">4.2 环境变量</a><a class="toc-level-3" href="#4-3-entrypoint-主流程">4.3 entrypoint 主流程</a><a class="toc-level-3" href="#4-4-健康检查">4.4 健康检查</a><a class="toc-level-2" href="#5-后端设计">5. 后端设计</a><a class="toc-level-3" href="#5-1-服务入口">5.1 服务入口</a><a class="toc-level-3" href="#5-2-docker-编排">5.2 Docker 编排</a><a class="toc-level-3" href="#5-3-双网络策略">5.3 双网络策略</a><a class="toc-level-3" href="#5-4-rtsp-共享网关策略">5.4 RTSP 共享网关策略</a><a class="toc-level-3" href="#5-5-数据库">5.5 数据库</a><a class="toc-level-3" href="#5-6-数据表">5.6 数据表</a><a class="toc-level-3" href="#5-7-业务规则">5.7 业务规则</a><a class="toc-level-2" href="#6-api-说明">6. API 说明</a><a class="toc-level-3" href="#6-0-认证与用户">6.0 认证与用户</a><a class="toc-level-3" href="#6-1-健康检查">6.1 健康检查</a><a class="toc-level-3" href="#6-2-项目">6.2 项目</a><a class="toc-level-3" href="#6-3-摄像头">6.3 摄像头</a><a class="toc-level-3" href="#6-4-矩阵">6.4 矩阵</a><a class="toc-level-3" href="#6-5-大屏地址">6.5 大屏地址</a><a class="toc-level-3" href="#6-6-数据库备份">6.6 数据库备份</a><a class="toc-level-3" href="#6-7-审计">6.7 审计</a><a class="toc-level-2" href="#7-前端设计">7. 前端设计</a><a class="toc-level-3" href="#7-1-项目入口">7.1 项目入口</a><a class="toc-level-3" href="#7-2-摄像头管理">7.2 摄像头管理</a><a class="toc-level-3" href="#7-3-矩阵绑定">7.3 矩阵绑定</a><a class="toc-level-2" href="#8-本地开发">8. 本地开发</a><a class="toc-level-3" href="#8-1-准备依赖">8.1 准备依赖</a><a class="toc-level-3" href="#8-2-启动后端">8.2 启动后端</a><a class="toc-level-3" href="#8-3-启动前端">8.3 启动前端</a><a class="toc-level-3" href="#8-4-构建镜像">8.4 构建镜像</a><a class="toc-level-3" href="#8-5-代码校验">8.5 代码校验</a><a class="toc-level-3" href="#8-6-演示数据脚本">8.6 演示数据脚本</a><a class="toc-level-2" href="#9-关键配置">9. 关键配置</a><a class="toc-level-2" href="#10-扩展建议">10. 扩展建议</a><a class="toc-level-3" href="#10-1-增加-ws-discovery">10.1 增加 WS-Discovery</a><a class="toc-level-3" href="#10-2-大规模摄像头">10.2 大规模摄像头</a><a class="toc-level-3" href="#10-3-任务队列">10.3 任务队列</a><a class="toc-level-2" href="#11-已知边界">11. 已知边界</a></nav>
     </aside>
     <main><h1 id="virtualwebcam-开发技术文档"><a class="anchor" href="#virtualwebcam-开发技术文档">#</a>VirtualWebCam 开发技术文档</h1>
 <p>版本：1.0 适用项目：VirtualWebCam 网页转 RTSP + 虚拟 ONVIF 摄像头管理系统 默认端口：前端 <code>9528</code>，后端 <code>8177</code> 默认网络：<code>br0 = 192.168.5.198/24</code>，macvlan 网络 <code>onvif_macvlan</code></p>
@@ -288,7 +288,7 @@ FFmpeg 推送到 rtsp://virtualwebcam-rtsp-gateway:554/&lt;stream_name&gt;
 <p>镜像构建完成后标签为：</p>
 <pre><code class="language-text">virtualwebcam:latest</code></pre>
 <h3 id="4-2-环境变量"><a class="anchor" href="#4-2-环境变量">#</a>4.2 环境变量</h3>
-<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率</td></tr><tr><td><code>OUTPUT_MODE</code></td><td><code>onvif</code></td><td>运行角色：<code>onvif</code>、<code>rtsp-publisher</code>、<code>rtsp-gateway</code></td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_PUSH_URL</code></td><td>空</td><td><code>rtsp-publisher</code> 模式下 FFmpeg 推送目标</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
+<table><thead><tr><th>变量</th><th>默认值</th><th>说明</th></tr></thead><tbody><tr><td><code>WEB_URL</code></td><td><code>https://www.baidu.com</code></td><td>要渲染的网页地址，必须是 <code>http://</code> 或 <code>https://</code></td></tr><tr><td><code>STREAM_NAME</code></td><td><code>screen01</code></td><td>RTSP 路径名，只允许字母、数字、点、下划线、短横线</td></tr><tr><td><code>WIDTH</code></td><td><code>1280</code></td><td>采集宽度</td></tr><tr><td><code>HEIGHT</code></td><td><code>720</code></td><td>采集高度</td></tr><tr><td><code>FPS</code></td><td><code>15</code></td><td>采集帧率，支持 <code>2-60</code>。1 FPS 在 RTSP/H.264 客户端上容易出现时间戳推断失败，生产不支持</td></tr><tr><td><code>OUTPUT_MODE</code></td><td><code>onvif</code></td><td>运行角色：<code>onvif</code>、<code>rtsp-publisher</code>、<code>rtsp-gateway</code></td></tr><tr><td><code>DISPLAY_ID</code></td><td><code>99</code></td><td>Xvfb display 编号，默认容器内固定即可</td></tr><tr><td><code>MEDIAMTX_RTSP_PORT</code></td><td><code>8556</code></td><td>MediaMTX 内部 RTSP 端口</td></tr><tr><td><code>GO2RTC_RTSP_PORT</code></td><td><code>554</code></td><td>go2rtc 对外 RTSP 端口</td></tr><tr><td><code>GO2RTC_API_PORT</code></td><td><code>80</code></td><td>go2rtc HTTP/ONVIF 端口</td></tr><tr><td><code>GO2RTC_WEBRTC_PORT</code></td><td><code>8555</code></td><td>go2rtc WebRTC 端口</td></tr><tr><td><code>RTSP_PUSH_URL</code></td><td>空</td><td><code>rtsp-publisher</code> 模式下 FFmpeg 推送目标</td></tr><tr><td><code>RTSP_HEALTHCHECK</code></td><td><code>0</code></td><td>设为 <code>1</code> 时健康检查会额外用 ffprobe 验证 RTSP 视频流</td></tr></tbody></table>
 <h3 id="4-3-entrypoint-主流程"><a class="anchor" href="#4-3-entrypoint-主流程">#</a>4.3 entrypoint 主流程</h3>
 <p><code>container/entrypoint.sh</code> 通过 <code>OUTPUT_MODE</code> 控制角色：</p>
 <table><thead><tr><th>模式</th><th>作用</th><th>主要进程</th><th>对外能力</th></tr></thead><tbody><tr><td><code>onvif</code></td><td>默认独立 IP 摄像头</td><td>Xvfb、openbox、Chrome、FFmpeg、MediaMTX、go2rtc</td><td>RTSP + ONVIF + go2rtc Web</td></tr><tr><td><code>rtsp-gateway</code></td><td>共享 RTSP 网关</td><td>MediaMTX</td><td><code>rtsp://&lt;host_ip&gt;:554/&lt;stream&gt;</code></td></tr><tr><td><code>rtsp-publisher</code></td><td>网页转 RTSP 发布器</td><td>Xvfb、openbox、Chrome、FFmpeg</td><td>推送到共享网关</td></tr></tbody></table>
@@ -445,13 +445,13 @@ virtualwebcam.sourceType=camera|rtsp</code></pre>
 <h2 id="6-api-说明"><a class="anchor" href="#6-api-说明">#</a>6. API 说明</h2>
 <p>所有 API 以 <code>/api</code> 为前缀。</p>
 <h3 id="6-0-认证与用户"><a class="anchor" href="#6-0-认证与用户">#</a>6.0 认证与用户</h3>
-<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>POST</td><td><code>/api/auth/login</code></td><td>用户名密码登录</td></tr><tr><td>GET</td><td><code>/api/auth/me</code></td><td>当前登录用户</td></tr><tr><td>GET</td><td><code>/api/users</code></td><td>用户列表，系统管理员可用</td></tr><tr><td>POST</td><td><code>/api/users</code></td><td>创建用户，系统管理员可用</td></tr><tr><td>PUT</td><td><code>/api/users/:id</code></td><td>更新用户，系统管理员可用</td></tr><tr><td>GET</td><td><code>/api/users/:id/projects</code></td><td>查询某个登录人的项目资源授权</td></tr><tr><td>PUT</td><td><code>/api/users/:id/projects</code></td><td>更新某个登录人的项目资源授权</td></tr></tbody></table>
-<p>登录成功返回会话 token，前端使用 <code>Authorization: Bearer &lt;token&gt;</code> 访问后续 API。<code>API_TOKEN</code> 仍可作为脚本调用的服务令牌，命中后按系统管理员权限处理。</p>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>POST</td><td><code>/api/auth/login</code></td><td>用户名密码登录</td></tr><tr><td>GET</td><td><code>/api/auth/me</code></td><td>当前登录用户</td></tr><tr><td>PUT</td><td><code>/api/auth/password</code></td><td>当前登录用户修改密码</td></tr><tr><td>GET</td><td><code>/api/users</code></td><td>用户列表，系统管理员可用</td></tr><tr><td>POST</td><td><code>/api/users</code></td><td>创建用户，系统管理员可用</td></tr><tr><td>PUT</td><td><code>/api/users/:id</code></td><td>更新用户，系统管理员可用</td></tr><tr><td>GET</td><td><code>/api/users/:id/projects</code></td><td>查询某个登录人的项目资源授权</td></tr><tr><td>PUT</td><td><code>/api/users/:id/projects</code></td><td>更新某个登录人的项目资源授权</td></tr></tbody></table>
+<p>登录成功返回会话 token，前端使用 <code>Authorization: Bearer &lt;token&gt;</code> 访问后续 API。除 <code>/api/auth/login</code> 外，后端统一经过鉴权中间件；<code>API_TOKEN</code> 仍可作为脚本调用的服务令牌，命中后按系统管理员权限处理。</p>
 <h3 id="6-1-健康检查"><a class="anchor" href="#6-1-健康检查">#</a>6.1 健康检查</h3>
 <pre><code class="language-http">GET /api/health</code></pre>
 <p>返回后端、Docker socket、macvlan 网络和镜像状态。</p>
 <h3 id="6-2-项目"><a class="anchor" href="#6-2-项目">#</a>6.2 项目</h3>
-<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/projects</code></td><td>项目列表，普通用户只返回授权项目</td></tr><tr><td>POST</td><td><code>/api/projects</code></td><td>创建项目</td></tr><tr><td>PUT</td><td><code>/api/projects/:id</code></td><td>更新项目名称和矩阵规格</td></tr><tr><td>GET</td><td><code>/api/projects/:id/export</code></td><td>导出项目配置，包含项目、摄像头和大屏地址库</td></tr><tr><td>POST</td><td><code>/api/projects/import</code></td><td>导入项目配置，自动导入大屏地址库，处理 IP 和 RTSP 流名冲突</td></tr></tbody></table>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/projects</code></td><td>项目列表，普通用户只返回授权项目</td></tr><tr><td>POST</td><td><code>/api/projects</code></td><td>创建项目</td></tr><tr><td>PUT</td><td><code>/api/projects/:id</code></td><td>更新项目名称和矩阵规格</td></tr><tr><td>GET</td><td><code>/api/projects/:id/export</code></td><td>导出项目配置，包含项目、摄像头和大屏地址库</td></tr><tr><td>POST</td><td><code>/api/projects/import</code></td><td>导入项目配置，自动导入大屏地址库，处理 IP 和 RTSP 流名冲突</td></tr><tr><td>GET</td><td><code>/api/projects/:id/members</code></td><td>查询项目成员授权，系统管理员可用</td></tr><tr><td>PUT</td><td><code>/api/projects/:id/members</code></td><td>更新项目成员授权，系统管理员可用</td></tr></tbody></table>
 <p>项目创建请求：</p>
 <pre><code class="language-json">{
   &quot;name&quot;: &quot;默认项目&quot;,
@@ -541,13 +541,30 @@ virtualwebcam.sourceType=camera|rtsp</code></pre>
 }</code></pre>
 <p>该地址库不直接创建容器，只作为项目内常用网页 URL 的管理资源。前端在新增、批量生成和编辑视频源时使用它做搜索选择。</p>
 <p>大屏地址 CSV 导入导出是前端功能，不新增后端 CSV 接口：导出使用当前项目 <code>screenUrls</code> 生成 <code>name,url,remark</code>；导入解析 CSV 后逐条调用 <code>POST /api/screen-urls?project_id=...</code> 新增。</p>
-<h3 id="6-6-审计"><a class="anchor" href="#6-6-审计">#</a>6.6 审计</h3>
+<h3 id="6-6-数据库备份"><a class="anchor" href="#6-6-数据库备份">#</a>6.6 数据库备份</h3>
+<p>数据库备份接口只允许系统管理员访问：</p>
+<table><thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/system/database-backup</code></td><td>获取备份配置、最近执行状态和下次执行时间</td></tr><tr><td>PUT</td><td><code>/api/system/database-backup</code></td><td>保存备份配置</td></tr><tr><td>POST</td><td><code>/api/system/database-backup/run</code></td><td>立即执行一次备份</td></tr><tr><td>GET</td><td><code>/api/system/database-backup/files</code></td><td>列出备份目录中的 <code>.db</code> 文件</td></tr><tr><td>GET</td><td><code>/api/system/database-backup/files/:file/download</code></td><td>下载备份文件</td></tr><tr><td>DELETE</td><td><code>/api/system/database-backup/files/:file</code></td><td>删除备份文件</td></tr><tr><td>POST</td><td><code>/api/system/database-backup/restore</code></td><td>从备份目录恢复数据库，请求体需要 <code>confirmation: &quot;RESTORE&quot;</code></td></tr><tr><td>POST</td><td><code>/api/system/database-backup/upload-restore</code></td><td>上传 <code>.db</code> 并恢复，请求头需要 <code>X-Restore-Confirmation: RESTORE</code></td></tr></tbody></table>
+<p>备份配置请求体：</p>
+<pre><code class="language-json">{
+  &quot;enabled&quot;: true,
+  &quot;frequency&quot;: &quot;daily&quot;,
+  &quot;schedule_time&quot;: &quot;02:00&quot;,
+  &quot;schedule_minute&quot;: 0,
+  &quot;schedule_weekday&quot;: 1,
+  &quot;schedule_month_day&quot;: 1,
+  &quot;backup_path&quot;: &quot;/data/backups&quot;
+}</code></pre>
+<p><code>frequency</code> 支持 <code>hourly</code>、<code>daily</code>、<code>weekly</code>、<code>monthly</code>。<code>backup_path</code> 必须是后端容器内绝对路径；Docker Compose 默认使用 <code>/data/backups</code>，对应宿主机 <code>backend/data/backups</code>。恢复前后端会先对当前数据库执行一次安全备份；上传恢复会先校验上传的 SQLite 文件。</p>
+<h3 id="6-7-审计"><a class="anchor" href="#6-7-审计">#</a>6.7 审计</h3>
 <pre><code class="language-http">GET /api/audit-logs?project_id=1&amp;limit=80</code></pre>
 <p>记录的典型动作：</p>
 <pre><code class="language-text">project.create
 project.update
 project.import
 matrix.update
+screen_url.create
+screen_url.update
+screen_url.delete
 camera.create
 camera.create_failed
 camera.bulk_create
@@ -557,13 +574,23 @@ camera.bind
 camera.start
 camera.stop
 camera.restart
-camera.delete</code></pre>
+camera.delete
+user.projects_update
+system.backup_config_update
+system.backup_run
+system.backup_download
+system.backup_delete
+system.backup_restore
+system.backup_upload_restore</code></pre>
 <h2 id="7-前端设计"><a class="anchor" href="#7-前端设计">#</a>7. 前端设计</h2>
 <p>前端是 Vue3 + Vite 单页应用，但业务层级上拆为：</p>
 <ol>
 <li>项目入口页。</li>
+<li>系统级用户管理。</li>
+<li>系统级数据库备份管理。</li>
 <li>项目内摄像头管理。</li>
 <li>项目内矩阵绑定。</li>
+<li>项目内大屏地址。</li>
 <li>项目设置。</li>
 <li>操作审计。</li>
 </ol>
@@ -577,6 +604,7 @@ camera.delete</code></pre>
 <li>矩阵绑定入口。</li>
 <li>项目设置入口。</li>
 </ul>
+<p>系统管理员在首页顶部还能进入 <code>用户管理</code> 和 <code>备份管理</code>。</p>
 <h3 id="7-2-摄像头管理"><a class="anchor" href="#7-2-摄像头管理">#</a>7.2 摄像头管理</h3>
 <p>主要用于查看摄像头详情列表。新增摄像头和批量生成使用弹窗，避免占用主页面空间。</p>
 <p>列表能力：</p>
@@ -645,7 +673,7 @@ npm run test:unit
 npm run test:coverage
 npm run build</code></pre>
 <p>后端 <code>npm run test:unit</code> 使用 Node 内置 <code>node:test</code>，当前覆盖认证哈希、会话 Token、Docker 友好错误、容器状态映射、CPU / 内存 / 网络 / 磁盘统计等纯逻辑。</p>
-<p>后端 <code>npm run test:coverage</code> 使用 Node 22 自带覆盖率，当前覆盖 <code>src/auth.js</code> 和 <code>src/docker-metrics.js</code>。前端 <code>npm run test:coverage</code> 使用 Vitest + V8 覆盖率，当前覆盖 <code>src/utils/**/*.js</code>，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。</p>
+<p>后端 <code>npm run test:coverage</code> 使用 Node 内置测试覆盖率，当前覆盖 <code>src/auth.js</code> 和 <code>src/docker-metrics.js</code>。前端 <code>npm run test:coverage</code> 使用 Vitest + V8 覆盖率，当前覆盖 <code>src/utils/**/*.js</code>，包括矩阵围栏、屏幕编号、资源格式化、速率换算、视频源地址显示、mpv 命令和大屏地址搜索等纯逻辑。前后端覆盖率门禁均为行覆盖率 90%、函数覆盖率 90%、分支覆盖率 75%。</p>
 <p><code>npm run test:api</code> 会启动一个临时后端和临时 SQLite 数据库，不依赖 Docker，也不会修改当前业务数据。覆盖范围包括：登录失败、管理员登录、项目创建、项目授权、只读用户写入拦截、大屏地址库、批量生成视频源配置、矩阵绑定冲突、项目导出、项目导入、RTSP 流名重映射和失败导入清理。</p>
 <h3 id="8-6-演示数据脚本"><a class="anchor" href="#8-6-演示数据脚本">#</a>8.6 演示数据脚本</h3>
 <p><code>scripts/seed-demo-cameras.sh</code> 会通过登录接口获取会话令牌，然后调用现有 API 幂等创建演示项目、大屏地址、默认停止的视频源、<code>viewer01</code> 和 <code>operator01</code> 演示用户及项目授权。脚本默认使用 <code>admin / admin123456</code> 和 <code>http://127.0.0.1:8177/api</code>，可通过 <code>ADMIN_USERNAME</code>、<code>ADMIN_PASSWORD</code>、<code>DEMO_USER_PASSWORD</code> 和 <code>API_BASE</code> 覆盖。脚本不直接写 SQLite，也不会立即启动视频源容器。</p>
@@ -667,7 +695,7 @@ IP_RANGE=192.168.5.192/26
 HOST_MACVLAN_IP=192.168.5.199
 ROUTE_CIDR=192.168.5.192/26</code></pre>
 <p>后端可用环境变量：</p>
-<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>CAMERA_RTSP_PORT</code></td><td>ONVIF 摄像头容器对外 RTSP 端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_HOST</code></td><td>RTSP 流源对外展示的宿主机 IP</td></tr><tr><td><code>RTSP_GATEWAY_PORT</code></td><td>共享 RTSP 网关宿主机端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_CONTAINER</code></td><td>共享 RTSP 网关容器名，默认 <code>virtualwebcam-rtsp-gateway</code></td></tr><tr><td><code>RTSP_NETWORK</code></td><td>RTSP 网关和发布器之间的 Docker bridge 网络</td></tr><tr><td><code>ADMIN_USERNAME</code></td><td>首次初始化默认管理员用户名</td></tr><tr><td><code>ADMIN_PASSWORD</code></td><td>首次初始化默认管理员密码，上线必须修改</td></tr><tr><td><code>SESSION_SECRET</code></td><td>登录会话签名密钥，上线必须修改</td></tr><tr><td><code>API_TOKEN</code></td><td>可选服务令牌，命中后按系统管理员权限处理</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单；未配置时后端不额外放开跨域访问</td></tr></tbody></table>
+<table><thead><tr><th>变量</th><th>说明</th></tr></thead><tbody><tr><td><code>PORT</code></td><td>后端监听端口，默认 <code>8177</code></td></tr><tr><td><code>SQLITE_PATH</code></td><td>SQLite 文件路径</td></tr><tr><td><code>DOCKER_SOCKET</code></td><td>Docker socket 路径</td></tr><tr><td><code>DOCKER_NETWORK</code></td><td>对外 macvlan 网络</td></tr><tr><td><code>DOCKER_EGRESS_NETWORK</code></td><td>出网网络，默认 <code>bridge</code></td></tr><tr><td><code>VIRTUALWEBCAM_IMAGE</code></td><td>摄像头镜像</td></tr><tr><td><code>CONTAINER_PREFIX</code></td><td>摄像头容器名前缀</td></tr><tr><td><code>CAMERA_RTSP_PORT</code></td><td>ONVIF 摄像头容器对外 RTSP 端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_HOST</code></td><td>RTSP 流源对外展示的宿主机 IP</td></tr><tr><td><code>RTSP_GATEWAY_PORT</code></td><td>共享 RTSP 网关宿主机端口，默认 <code>554</code></td></tr><tr><td><code>RTSP_GATEWAY_CONTAINER</code></td><td>共享 RTSP 网关容器名，默认 <code>virtualwebcam-rtsp-gateway</code></td></tr><tr><td><code>RTSP_NETWORK</code></td><td>RTSP 网关和发布器之间的 Docker bridge 网络</td></tr><tr><td><code>DB_BACKUP_PATH</code></td><td>数据库备份目录，默认 <code>/data/backups</code></td></tr><tr><td><code>DB_BACKUP_SCHEDULER_INTERVAL_MS</code></td><td>定时备份调度检查间隔，默认 <code>60000</code></td></tr><tr><td><code>DB_BACKUP_UPLOAD_LIMIT</code></td><td>上传恢复文件大小限制，默认 <code>200mb</code></td></tr><tr><td><code>ADMIN_USERNAME</code></td><td>首次初始化默认管理员用户名</td></tr><tr><td><code>ADMIN_PASSWORD</code></td><td>首次初始化默认管理员密码，上线必须修改</td></tr><tr><td><code>SESSION_SECRET</code></td><td>登录会话签名密钥，上线必须修改</td></tr><tr><td><code>SESSION_TTL_SECONDS</code></td><td>登录会话有效期，默认 <code>86400</code> 秒</td></tr><tr><td><code>API_TOKEN</code></td><td>可选服务令牌，命中后按系统管理员权限处理</td></tr><tr><td><code>CORS_ORIGIN</code></td><td>可选 CORS 白名单；未配置时后端不额外放开跨域访问</td></tr></tbody></table>
 <p><code>API_TOKEN</code> 只应供脚本、内网网关或自动化系统调用后端 API。前端构建不会注入服务令牌，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌。网页用户应通过账号密码登录，避免把管理员级服务令牌暴露到浏览器。</p>
 <h2 id="10-扩展建议"><a class="anchor" href="#10-扩展建议">#</a>10. 扩展建议</h2>
 <h3 id="10-1-增加-ws-discovery"><a class="anchor" href="#10-1-增加-ws-discovery">#</a>10.1 增加 WS-Discovery</h3>
@@ -676,7 +704,7 @@ ROUTE_CIDR=192.168.5.192/26</code></pre>
 <p>几十路摄像头会消耗 CPU、内存和 Chrome 资源。建议：</p>
 <ul>
 <li>优先使用 1280x720@15。</li>
-<li>静态看板可降到 10 FPS。</li>
+<li>静态看板可降到 2 FPS；不要使用 1 FPS，部分 RTSP/H.264 客户端会出现 PTS 或播放兼容问题。</li>
 <li>每台宿主机按 CPU、内存、网页复杂度压测后确定路数。</li>
 <li>对复杂 Web 页面启用页面自身的轻量化模式。</li>
 </ul>

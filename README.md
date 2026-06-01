@@ -3,7 +3,7 @@
 VirtualWebCam 是一个项目模板，分为两层：
 
 - `container/`：构建通用镜像 `virtualwebcam:latest`。同一镜像支持独立 IP 的 ONVIF 摄像头，也支持共享网关的纯 RTSP 流源。
-- `backend/` + `frontend/`：Web 管理后台，用 Node.js、Express、SQLite、Vue3 管理项目、视频源容器、矩阵绑定、资源监控和日志。
+- `backend/` + `frontend/`：Web 管理后台，用 Node.js、Express、SQLite、Vue3 管理项目、视频源容器、矩阵绑定、资源监控、日志、审计和数据库备份恢复。
 
 ## 交付文档
 
@@ -404,7 +404,7 @@ ADMIN_PASSWORD=admin123456
 SESSION_SECRET=change-this-session-secret
 ```
 
-首次启动或系统中没有任何 `admin` 角色用户时，后端会创建或提升默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；普通用户登录后只能看到被授权项目。
+首次启动或系统中没有任何 `admin` 角色用户时，后端会创建或提升默认管理员。生产环境必须修改 `ADMIN_PASSWORD` 和 `SESSION_SECRET`。管理员登录后可在系统级“用户管理”页面创建登录人员，并把项目资源授权为“仅查看”或“可操作”；也可在“备份管理”页面维护数据库备份和恢复。普通用户登录后只能看到被授权项目。
 
 `API_TOKEN` 仍保留为自动化脚本或内网网关调用的服务令牌。配置后，后端会继续接受 `X-API-Token` 或 `Authorization: Bearer <token>`，并按系统管理员权限处理。服务令牌不会再注入前端构建产物，前端运行时代码也不会从浏览器 LocalStorage 读取服务令牌；网页用户应通过账号密码登录，避免把管理员级令牌暴露到浏览器。
 
@@ -418,7 +418,7 @@ SESSION_SECRET=change-this-session-secret
 - 哪一路摄像头投向了哪些屏幕
 - 哪些相邻屏幕被合并给同一路摄像头使用
 
-页面入口按层级拆分为登录页、首页、系统级用户管理和项目内功能页。首页负责项目管理，并且只有系统管理员在首页能看到 `用户管理` 入口；`用户管理` 用于管理员维护登录人员，并给登录人员分配可访问项目。进入项目后，`摄像头管理` 用于创建、编辑、复制、批量生成、启动、停止、重启、删除和查看日志；`矩阵绑定` 用于维护摄像头和矩阵屏幕的映射关系；`项目设置` 用于调整项目矩阵；`操作审计` 用于查看关键变更记录。
+页面入口按层级拆分为登录页、首页、系统级管理页和项目内功能页。首页负责项目管理，并且只有系统管理员在首页能看到 `用户管理` 和 `备份管理` 入口；`用户管理` 用于维护登录人员和项目授权，`备份管理` 用于配置 SQLite 定时备份、立即备份、下载、删除、恢复和上传恢复。进入项目后，`摄像头管理` 用于创建、编辑、复制、批量生成、启动、停止、重启、删除和查看日志；`矩阵绑定` 用于维护摄像头和矩阵屏幕的映射关系；`项目设置` 用于调整项目矩阵；`操作审计` 用于查看关键变更记录。
 
 项目内还提供 `大屏地址` 管理，用于维护当前项目常用的大屏网页 URL。创建或编辑 ONVIF 摄像头、RTSP 流源时，用户既可以手动输入网页地址，也可以从项目大屏地址库中搜索选择，减少现场录入错误。大屏地址页支持独立 CSV 导入/导出，CSV 列为 `name,url,remark`，导入时会逐条调用项目大屏地址接口新增。
 
@@ -439,9 +439,12 @@ SESSION_SECRET=change-this-session-secret
 - 状态刷新：可只刷新摄像头运行状态，避免每次都重新加载完整列表。
 - 资源监控：按项目汇总 CPU、内存、网络和磁盘读写，默认折叠为一行摘要，可展开查看详细指标；开启列表“资源”字段后，每路视频源也显示单路资源消耗。
 - 矩阵绑定：支持鼠标框选连续矩形区域，围栏内绑定一路摄像头；未框选时每块屏幕就是独立区域。
-- 操作审计：记录项目创建/修改/导入、矩阵修改、摄像头创建/批量创建/编辑/绑定/启动/停止/重启/删除等关键动作。
+- 系统管理：系统管理员可维护用户、项目授权和数据库备份；备份支持每小时、每天、每周、每月计划，也支持手动备份和恢复前自动安全备份。
+- 操作审计：记录项目创建/修改/导入、用户授权、大屏地址、矩阵修改、摄像头创建/批量创建/编辑/绑定/启动/停止/重启/删除，以及数据库备份相关关键动作。
 
 ## API
+
+除 `POST /api/auth/login` 外，所有接口都需要 `Authorization: Bearer <登录令牌>`；如果部署时配置了 `API_TOKEN`，也可以使用 `X-API-Token` 或 `Authorization: Bearer <API_TOKEN>` 作为服务令牌。
 
 - `GET /api/cameras`：摄像头列表
 - `GET /api/cameras/statuses?project_id=1`：只同步并返回摄像头状态，用于轻量刷新
@@ -449,8 +452,17 @@ SESSION_SECRET=change-this-session-secret
 - `GET /api/health`：管理后台、Docker socket、macvlan 网络、镜像状态
 - `POST /api/auth/login`：用户名密码登录，返回会话令牌
 - `GET /api/auth/me`：当前登录人信息
+- `PUT /api/auth/password`：当前登录人修改密码
 - `GET /api/users` / `POST /api/users` / `PUT /api/users/:id`：管理员维护系统登录人员
 - `GET /api/users/:id/projects` / `PUT /api/users/:id/projects`：管理员维护某个登录人的项目资源授权
+- `GET /api/projects/:id/members` / `PUT /api/projects/:id/members`：管理员按项目维护成员授权
+- `GET /api/system/database-backup` / `PUT /api/system/database-backup`：管理员读取或保存数据库备份配置
+- `POST /api/system/database-backup/run`：管理员立即执行一次数据库备份
+- `GET /api/system/database-backup/files`：管理员列出可恢复的 `.db` 备份文件
+- `GET /api/system/database-backup/files/:file/download`：管理员下载备份文件
+- `DELETE /api/system/database-backup/files/:file`：管理员删除备份文件
+- `POST /api/system/database-backup/restore`：管理员从备份目录恢复数据库，请求体需要 `confirmation: "RESTORE"`
+- `POST /api/system/database-backup/upload-restore`：管理员上传 `.db` 文件并恢复，请求头需要 `X-Restore-Confirmation: RESTORE`
 - `GET /api/projects`：项目列表，普通用户只返回授权项目
 - `POST /api/projects`：创建项目
 - `GET /api/projects/:id/export`：导出项目配置 JSON，包含项目、摄像头、绑定、大屏地址、RTSP 地址，以及 ONVIF 摄像头的 ONVIF 地址
@@ -478,7 +490,9 @@ SESSION_SECRET=change-this-session-secret
 创建 ONVIF 摄像头请求示例：
 
 ```bash
-curl -X POST http://localhost:8177/api/cameras \
+TOKEN='<登录接口返回的 token>'
+curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
     "source_type": "camera",
@@ -496,6 +510,7 @@ curl -X POST http://localhost:8177/api/cameras \
 
 ```bash
 curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
     "source_type": "rtsp",
@@ -572,6 +587,18 @@ API_BASE=http://<host_ip>:8177/api \
 ```
 
 脚本会创建 `viewer01` 和 `operator01` 两个演示用户并写入项目授权。视频源通过批量接口创建为 `stopped`，不会立即启动容器，也不会要求 Docker 可用；需要验证真实推流时再在页面中分批启动。
+
+## 数据库备份管理
+
+管理后台首页的 `备份管理` 只对系统管理员可见。它使用后端 SQLite backup API 生成一致性备份，默认备份目录是后端容器内 `/data/backups`，在 Docker Compose 部署下对应宿主机 `backend/data/backups`。
+
+支持能力：
+
+- 保存定时备份配置：每小时、每天、每周或每月。
+- 立即备份：生成 `virtualwebcam-<timestamp>.db`。
+- 列出、下载和删除备份目录中的 `.db` 文件。
+- 从已有备份恢复；恢复前会自动对当前数据库再做一次安全备份。
+- 上传本地 `.db` 文件并恢复；上传文件会先做 SQLite `quick_check` 校验。
 
 ## SQLite 数据库
 

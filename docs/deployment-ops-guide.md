@@ -107,7 +107,11 @@ http://192.168.5.198:9528
 
 ```bash
 docker compose ps
-curl http://localhost:8177/api/health
+TOKEN="$(curl -s -X POST http://localhost:8177/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<.env 中的 ADMIN_PASSWORD>"}' \
+  | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8177/api/health
 ```
 
 ## 4. 创建 macvlan 网络
@@ -402,7 +406,11 @@ RTSP 流源的 `ip` 为空，不需要改摄像头 IP；只要后端的 `RTSP_GA
 检查后台健康状态：
 
 ```bash
-curl http://localhost:8177/api/health
+TOKEN="$(curl -s -X POST http://localhost:8177/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<管理员密码>"}' \
+  | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+curl -H "Authorization: Bearer ${TOKEN}" http://localhost:8177/api/health
 ```
 
 检查摄像头容器：
@@ -526,6 +534,8 @@ docker compose up -d --build manager-backend manager-frontend
 - `仅查看`：只能查看项目、摄像头、矩阵、日志和地址。
 - `可操作`：可以管理授权项目内的视频源、容器启停、矩阵绑定和项目设置。
 
+系统管理员还可以从首页进入“备份管理”，配置 SQLite 定时备份、立即备份、下载、删除、恢复和上传恢复。
+
 `API_TOKEN` 仍可作为脚本或内网网关的服务令牌。启用后，请求带 `X-API-Token` 或 `Authorization: Bearer <token>` 会按系统管理员权限处理：
 
 ```bash
@@ -591,8 +601,15 @@ ONVIF：无
 
 ### 9.3 通过 API 创建 ONVIF 摄像头
 
+以下示例需要先准备登录令牌，或改用已配置的 `API_TOKEN`：
+
+```bash
+TOKEN="<登录接口返回的 token>"
+```
+
 ```bash
 curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
     "source_type": "camera",
@@ -610,6 +627,7 @@ curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
 
 ```bash
 curl -X POST 'http://localhost:8177/api/cameras?project_id=1' \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
     "source_type": "rtsp",
@@ -808,7 +826,22 @@ missing -> 已停止
 
 ## 12. 数据备份与恢复
 
-### 12.1 备份 SQLite
+### 12.1 管理后台备份
+
+推荐优先使用首页的“备份管理”，该入口仅系统管理员可见。默认备份路径是后端容器内 `/data/backups`，Docker Compose 部署时对应宿主机 `backend/data/backups`。
+
+页面能力：
+
+- 启用或停用定时备份。
+- 设置备份频率：每小时、每天、每周、每月。
+- 立即备份。
+- 列出、下载、删除备份文件。
+- 输入确认词 `RESTORE` 后恢复已有备份。
+- 输入确认词 `RESTORE` 后上传本地 `.db` 文件并恢复。
+
+恢复前系统会自动先备份当前数据库；上传恢复会先对上传的 SQLite 文件执行校验。
+
+### 12.2 手工备份 SQLite
 
 Docker Compose 部署默认数据库：
 
@@ -831,7 +864,7 @@ cp backend/data/virtualwebcam.db-wal "backups/" 2>/dev/null || true
 cp backend/data/virtualwebcam.db-shm "backups/" 2>/dev/null || true
 ```
 
-### 12.2 恢复 SQLite
+### 12.3 手工恢复 SQLite
 
 ```bash
 docker compose stop manager-backend
@@ -839,7 +872,7 @@ cp backups/virtualwebcam-xxxx.db backend/data/virtualwebcam.db
 docker compose start manager-backend
 ```
 
-### 12.3 导出项目配置
+### 12.4 导出项目配置
 
 网页端项目入口提供项目配置导出。导出内容包含：
 
@@ -1116,7 +1149,7 @@ mpv --rtsp-transport=tcp rtsp://<ip>:554/<stream>
 部署完成后逐项确认：
 
 - `docker ps` 中管理后台容器运行正常。
-- `/api/health` 显示 Docker、网络和镜像可用。
+- 登录后运行环境检测或带登录令牌访问 `/api/health`，显示 Docker、网络和镜像可用。
 - `docker network inspect onvif_macvlan` 正确。
 - 管理后台可创建项目。
 - 管理后台可创建 ONVIF 摄像头。

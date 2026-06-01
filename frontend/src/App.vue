@@ -985,7 +985,10 @@ watch(cameraColumns, (columns) => {
 }, { deep: true });
 
 function showAllCameraColumns() {
-  Object.assign(cameraColumns, defaultCameraColumns);
+  Object.assign(
+    cameraColumns,
+    Object.fromEntries(cameraColumnOptions.map((column) => [column.key, true])),
+  );
 }
 
 function showCompactCameraColumns() {
