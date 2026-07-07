@@ -4644,7 +4644,7 @@ td small {
   }
 }
 
-/* Theme refresh: calm light operations theme and low-noise dark operations theme. */
+/* 主题刷新：低干扰的浅色运维主题和安静的深色运维主题。 */
 :root {
   --vc-bg-app: #eef2f7;
   --vc-bg-header: rgba(238, 242, 247, 0.96);

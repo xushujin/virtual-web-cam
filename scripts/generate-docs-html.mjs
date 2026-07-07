@@ -5,14 +5,14 @@ const rootDir = process.cwd();
 const docsDir = path.join(rootDir, 'docs');
 
 const documents = [
-  { source: 'README.md', output: 'index.html', title: 'VirtualWebCam 文档中心' },
-  { source: 'quick-deployment.md', output: 'quick-deployment.html', title: 'VirtualWebCam 简明部署文档' },
-  { source: 'detailed-deployment.md', output: 'detailed-deployment.html', title: 'VirtualWebCam 详细部署文档' },
-  { source: 'development-guide.md', output: 'development-guide.html', title: 'VirtualWebCam 开发技术文档' },
-  { source: 'deployment-ops-guide.md', output: 'deployment-ops-guide.html', title: 'VirtualWebCam 部署运维文档' },
-  { source: 'user-guide.md', output: 'user-guide.html', title: 'VirtualWebCam 用户使用指南' },
-  { source: 'optimization-checklist.md', output: 'optimization-checklist.html', title: 'VirtualWebCam 优化清单' },
-  { source: 'optimization-recommendations.md', output: 'optimization-recommendations.html', title: 'VirtualWebCam 详细优化建议' },
+  { source: '文档中心.md', output: '文档中心.html', title: 'VirtualWebCam 文档中心' },
+  { source: '简明部署文档.md', output: '简明部署文档.html', title: 'VirtualWebCam 简明部署文档' },
+  { source: '详细部署文档.md', output: '详细部署文档.html', title: 'VirtualWebCam 详细部署文档' },
+  { source: '开发技术文档.md', output: '开发技术文档.html', title: 'VirtualWebCam 开发技术文档' },
+  { source: '部署运维文档.md', output: '部署运维文档.html', title: 'VirtualWebCam 部署运维文档' },
+  { source: '用户使用指南.md', output: '用户使用指南.html', title: 'VirtualWebCam 用户使用指南' },
+  { source: '优化清单.md', output: '优化清单.html', title: 'VirtualWebCam 优化清单' },
+  { source: '详细优化建议.md', output: '详细优化建议.html', title: 'VirtualWebCam 详细优化建议' },
 ];
 
 function escapeHtml(value) {

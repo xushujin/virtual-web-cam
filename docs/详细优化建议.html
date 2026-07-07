@@ -170,13 +170,13 @@
   <div class="shell">
     <aside class="sidebar">
       <p class="brand">VirtualWebCam</p>
-      <nav class="nav"><a href="./index.html">文档中心</a><a href="./quick-deployment.html">简明部署文档</a><a href="./detailed-deployment.html">详细部署文档</a><a href="./development-guide.html">开发技术文档</a><a href="./deployment-ops-guide.html">部署运维文档</a><a href="./user-guide.html">用户使用指南</a><a href="./optimization-checklist.html">优化清单</a><a aria-current="page" href="./optimization-recommendations.html">详细优化建议</a></nav>
+      <nav class="nav"><a href="./文档中心.html">文档中心</a><a href="./简明部署文档.html">简明部署文档</a><a href="./详细部署文档.html">详细部署文档</a><a href="./开发技术文档.html">开发技术文档</a><a href="./部署运维文档.html">部署运维文档</a><a href="./用户使用指南.html">用户使用指南</a><a href="./优化清单.html">优化清单</a><a aria-current="page" href="./详细优化建议.html">详细优化建议</a></nav>
       <p class="toc-title">目录</p>
       <nav class="toc"><a class="toc-level-1" href="#virtualwebcam-详细优化建议">VirtualWebCam 详细优化建议</a><a class="toc-level-2" href="#总体判断">总体判断</a><a class="toc-level-2" href="#优先级定义">优先级定义</a><a class="toc-level-2" href="#推荐执行路线">推荐执行路线</a><a class="toc-level-2" href="#一-生产安全与权限">一、生产安全与权限</a><a class="toc-level-3" href="#sec-01-默认账号与-session-secret-启动保护">SEC-01 默认账号与 `SESSION_SECRET` 启动保护</a><a class="toc-level-3" href="#sec-02-docker-socket-暴露边界">SEC-02 Docker socket 暴露边界</a><a class="toc-level-3" href="#sec-03-登录失败限流与审计">SEC-03 登录失败限流与审计</a><a class="toc-level-3" href="#sec-04-浏览器-token-存储策略">SEC-04 浏览器 token 存储策略</a><a class="toc-level-3" href="#sec-05-api-token-服务令牌治理">SEC-05 `API_TOKEN` 服务令牌治理</a><a class="toc-level-3" href="#sec-06-cors-https-和安全响应头">SEC-06 CORS、HTTPS 和安全响应头</a><a class="toc-level-2" href="#二-后端架构与数据一致性">二、后端架构与数据一致性</a><a class="toc-level-3" href="#be-01-拆分-routes-js-与-service-层">BE-01 拆分 `routes.js` 与 service 层</a><a class="toc-level-3" href="#be-02-项目导入使用数据库事务">BE-02 项目导入使用数据库事务</a><a class="toc-level-3" href="#be-03-版本化数据库迁移">BE-03 版本化数据库迁移</a><a class="toc-level-3" href="#be-04-强化数据库约束与输入校验">BE-04 强化数据库约束与输入校验</a><a class="toc-level-3" href="#be-05-docker-操作超时-互斥与错误分类">BE-05 Docker 操作超时、互斥与错误分类</a><a class="toc-level-3" href="#be-06-状态同步与异常恢复">BE-06 状态同步与异常恢复</a><a class="toc-level-3" href="#be-07-审计日志结构与保留策略">BE-07 审计日志结构与保留策略</a><a class="toc-level-3" href="#be-08-健康检查与可观测性">BE-08 健康检查与可观测性</a><a class="toc-level-2" href="#三-前端结构与交互体验">三、前端结构与交互体验</a><a class="toc-level-3" href="#fe-01-拆分-app-vue">FE-01 拆分 `App.vue`</a><a class="toc-level-3" href="#fe-02-抽取-composables-管理业务状态">FE-02 抽取 composables 管理业务状态</a><a class="toc-level-3" href="#fe-03-矩阵绑定组件化与交互测试">FE-03 矩阵绑定组件化与交互测试</a><a class="toc-level-3" href="#fe-04-错误状态和-api-错误结构">FE-04 错误状态和 API 错误结构</a><a class="toc-level-3" href="#fe-05-轮询控制-退避和页面可见性">FE-05 轮询控制、退避和页面可见性</a><a class="toc-level-3" href="#fe-06-导入-复制和批量创建的预检查体验">FE-06 导入、复制和批量创建的预检查体验</a><a class="toc-level-3" href="#fe-07-可访问性与键盘操作">FE-07 可访问性与键盘操作</a><a class="toc-level-2" href="#四-运维-部署与容器可靠性">四、运维、部署与容器可靠性</a><a class="toc-level-3" href="#ops-01-固定-node-版本与原生依赖-abi">OPS-01 固定 Node 版本与原生依赖 ABI</a><a class="toc-level-3" href="#ops-02-ci-验证流水线">OPS-02 CI 验证流水线</a><a class="toc-level-3" href="#ops-03-容器镜像-smoke-test">OPS-03 容器镜像 smoke test</a><a class="toc-level-3" href="#ops-04-macvlan-host-辅助接口持久化">OPS-04 macvlan host 辅助接口持久化</a><a class="toc-level-3" href="#ops-05-rtsp-网关端口策略">OPS-05 RTSP 网关端口策略</a><a class="toc-level-3" href="#ops-06-数据库备份-恢复与升级演练">OPS-06 数据库备份、恢复与升级演练</a><a class="toc-level-3" href="#ops-07-配置模板与生产-profile">OPS-07 配置模板与生产 profile</a><a class="toc-level-2" href="#五-性能-容量与稳定性">五、性能、容量与稳定性</a><a class="toc-level-3" href="#perf-01-docker-stats-查询缓存与并发控制">PERF-01 Docker stats 查询缓存与并发控制</a><a class="toc-level-3" href="#perf-02-列表分页-筛选和索引">PERF-02 列表分页、筛选和索引</a><a class="toc-level-3" href="#perf-03-大矩阵渲染优化">PERF-03 大矩阵渲染优化</a><a class="toc-level-2" href="#六-测试覆盖">六、测试覆盖</a><a class="toc-level-3" href="#test-01-后端路由与权限测试">TEST-01 后端路由与权限测试</a><a class="toc-level-3" href="#test-02-项目导入与事务测试">TEST-02 项目导入与事务测试</a><a class="toc-level-3" href="#test-03-前端组件测试">TEST-03 前端组件测试</a><a class="toc-level-3" href="#test-04-端到端-smoke-test">TEST-04 端到端 smoke test</a><a class="toc-level-3" href="#test-05-安全回归测试">TEST-05 安全回归测试</a><a class="toc-level-2" href="#七-文档与交付">七、文档与交付</a><a class="toc-level-3" href="#doc-01-收敛上线前检查表">DOC-01 收敛上线前检查表</a><a class="toc-level-3" href="#doc-02-故障排查按症状组织">DOC-02 故障排查按症状组织</a><a class="toc-level-2" href="#建议近期落地顺序">建议近期落地顺序</a></nav>
     </aside>
     <main><h1 id="virtualwebcam-详细优化建议"><a class="anchor" href="#virtualwebcam-详细优化建议">#</a>VirtualWebCam 详细优化建议</h1>
 <p>记录日期：2026-05-14</p>
-<p>关联摘要：<a href="./optimization-checklist.md">优化清单</a></p>
+<p>关联摘要：<a href="./优化清单.md">优化清单</a></p>
 <h2 id="总体判断"><a class="anchor" href="#总体判断">#</a>总体判断</h2>
 <p>当前代码基线没有发现需要立即停用或紧急修复的功能性阻断问题。此前已完成过的基础验证包括后端语法检查、后端单元测试与 API 回归、前端单元测试、前端生产构建。</p>
 <p>需要区分两类事项：第一类是生产上线前必须确认的安全与运维准入项，例如默认管理员密码、<code>SESSION_SECRET</code>、Docker socket 暴露范围；第二类是中长期工程优化，例如后端路由拆分、前端组件拆分、数据库迁移体系和测试覆盖提升。前者建议作为上线 checklist 执行，后者可按迭代节奏逐步消化。</p>
@@ -198,7 +198,7 @@
 <p>风险：如果管理后台或后端 API 暴露到不可信网络，一旦账号、token 或 Web 漏洞被利用，攻击面会扩大到 Docker 宿主机。</p>
 <p>建议方案：生产部署明确要求后端只暴露在可信内网或 VPN 后面；前端入口通过反向代理提供 HTTPS、IP 白名单或统一身份认证。中长期可以引入 Docker socket proxy，只开放本项目需要的容器、镜像、网络、日志接口，并用容器 label 限制可操作范围。</p>
 <p>验收标准：部署文档中明确 Docker socket 风险和推荐网络拓扑；生产 compose 或部署模板默认不把后端端口暴露到公网；安全评审能确认管理后台只在可信访问面内。</p>
-<p>涉及位置：<code>docker-compose.yml</code>、<code>backend/src/docker.js</code>、<code>docs/deployment-ops-guide.md</code>。</p>
+<p>涉及位置：<code>docker-compose.yml</code>、<code>backend/src/docker.js</code>、<code>docs/部署运维文档.md</code>。</p>
 <h3 id="sec-03-登录失败限流与审计"><a class="anchor" href="#sec-03-登录失败限流与审计">#</a>SEC-03 登录失败限流与审计</h3>
 <p>优先级：P1；如果管理后台入口无法限制在可信内网、VPN 或统一认证网关之后，则应提升为 P0。</p>
 <p>现状：登录接口具备账号密码校验，但没有看到针对连续失败登录的限流或锁定策略。</p>
@@ -449,14 +449,14 @@
 <p>风险：现场实施如果跳过安全配置、端口检查、macvlan host 接口、备份演练，后续问题会集中在上线当天暴露。</p>
 <p>建议方案：把现有分散在部署前检查、备份恢复、故障排查和验收章节中的关键项，收敛成一页上线前检查表，包含密码和密钥、Docker socket 访问面、端口、macvlan、镜像、数据库备份、默认管理员、普通用户授权、RTSP 验证、ONVIF 验证。</p>
 <p>验收标准：实施人员可以按表逐项确认；每个检查项都有命令或页面入口；验收文档能直接引用。</p>
-<p>涉及位置：<code>docs/deployment-ops-guide.md</code>、<code>docs/quick-deployment.md</code>。</p>
+<p>涉及位置：<code>docs/部署运维文档.md</code>、<code>docs/简明部署文档.md</code>。</p>
 <h3 id="doc-02-故障排查按症状组织"><a class="anchor" href="#doc-02-故障排查按症状组织">#</a>DOC-02 故障排查按症状组织</h3>
 <p>优先级：P2</p>
 <p>现状：部署文档已有常见失败点和较完整的排障章节，但可进一步按照用户看到的症状组织入口。</p>
 <p>风险：现场人员往往先看到“画面黑屏”“摄像头不在线”“RTSP 拉不到”“Docker 网络不存在”等症状，如果文档只按组件说明，定位速度会变慢。</p>
 <p>建议方案：增加故障排查索引：登录失败、创建摄像头失败、RTSP 网关失败、ONVIF 发现不到、虚拟 IP 不通、Chrome 渲染失败、FFmpeg 推流失败、资源统计为空。每个症状给出检查命令、可能原因和处理方式。</p>
 <p>验收标准：常见故障能在文档中通过症状快速定位；每个处理步骤都有明确命令或页面位置。</p>
-<p>涉及位置：<code>docs/deployment-ops-guide.md</code>、<code>docs/user-guide.md</code>。</p>
+<p>涉及位置：<code>docs/部署运维文档.md</code>、<code>docs/用户使用指南.md</code>。</p>
 <h2 id="建议近期落地顺序"><a class="anchor" href="#建议近期落地顺序">#</a>建议近期落地顺序</h2>
 <ol>
 <li>增加生产启动安全检查，拦截默认管理员密码和默认 <code>SESSION_SECRET</code>。</li>
