@@ -10,6 +10,7 @@ import {
   House,
   Lock,
   LogOut,
+  Monitor,
   Play,
   Plus,
   RefreshCw,
@@ -93,6 +94,7 @@ import {
   resourceStatusText as buildResourceStatusText,
 } from './utils/resources';
 import { matchScreenUrls as matchScreenUrlsFromList } from './utils/screen-urls';
+import ScreenPreview from './components/ScreenPreview.vue';
 
 const projects = ref([]);
 const selectedProjectId = ref(null);
@@ -198,7 +200,7 @@ const themeOptions = [
   { value: 'ocean', label: '海蓝' },
 ];
 const themeValues = new Set(themeOptions.map((item) => item.value));
-const projectSections = new Set(['cameras', 'matrix', 'screenUrls', 'settings', 'audit']);
+const projectSections = new Set(['cameras', 'matrix', 'preview', 'screenUrls', 'settings', 'audit']);
 const navigationStateKey = 'virtualwebcam-navigation-state';
 const matrixLockStateKey = 'virtualwebcam-matrix-lock-state';
 function normalizeTheme(theme) {
@@ -1470,6 +1472,8 @@ async function switchProjectSection(section) {
     await refreshAuditLogs();
   } else if (section === 'screenUrls') {
     await refreshScreenUrls();
+  } else if (section === 'preview') {
+    await refresh();
   }
 }
 
@@ -2593,6 +2597,7 @@ function projectSectionLabel(section) {
   const map = {
     cameras: '摄像头管理',
     matrix: '矩阵绑定',
+    preview: '大屏预览',
     screenUrls: '大屏地址',
     settings: '项目设置',
     audit: '操作审计',
@@ -2788,6 +2793,9 @@ onBeforeUnmount(() => {
             </button>
             <button type="button" :class="{ active: projectSection === 'matrix' }" @click="switchProjectSection('matrix')">
               矩阵绑定
+            </button>
+            <button type="button" :class="{ active: projectSection === 'preview' }" @click="switchProjectSection('preview')">
+              大屏预览
             </button>
             <button type="button" :class="{ active: projectSection === 'screenUrls' }" @click="switchProjectSection('screenUrls')">
               大屏地址
@@ -3542,6 +3550,10 @@ onBeforeUnmount(() => {
               <p>{{ projectDraft.rows }} 行 x {{ projectDraft.cols }} 列，共 {{ projectDraft.rows * projectDraft.cols }} 块屏</p>
             </div>
             <div class="matrix-panel-actions">
+              <button class="primary-button" type="button" @click="switchProjectSection('preview')">
+                <Monitor :size="15" />
+                <span>大屏预览</span>
+              </button>
               <button
                 v-if="canManageSelectedProject"
                 class="matrix-lock-button"
@@ -3654,6 +3666,15 @@ onBeforeUnmount(() => {
           </div>
         </section>
       </section>
+
+      <ScreenPreview
+        v-else-if="projectSection === 'preview'"
+        :key="selectedProject.id"
+        :project="selectedProject"
+        :cameras="cameras"
+        :loading="loading"
+        @configure="switchProjectSection('matrix')"
+      />
 
       <section v-else-if="projectSection === 'screenUrls'" class="screen-url-page">
         <section class="panel screen-url-panel">
